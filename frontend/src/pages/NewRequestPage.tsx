@@ -86,34 +86,46 @@ export function NewRequestPage() {
           查看案件 {requestId}
         </button>
       ) : (
-        <form
-          className="mt-4 flex items-center gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void send(input);
-          }}
-        >
-          <VoiceButton
-            listening={speech.listening}
-            supported={speech.supported}
-            onStart={speech.start}
-            onStop={speech.stop}
-          />
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={speech.listening ? "聆聽中⋯請說話" : "輸入訊息或按麥克風說話"}
-            aria-label="輸入訊息"
-            className="min-w-0 flex-1 rounded-2xl border border-pine-soft bg-white px-4 py-3.5 outline-none focus:border-pine"
-          />
-          <button
-            type="submit"
-            disabled={sending || !input.trim()}
-            className="rounded-2xl bg-pine px-5 py-3.5 font-bold text-white disabled:opacity-40"
+        <>
+          {speech.error && (
+            <p className="mt-2 text-sm text-red-500" role="alert">
+              {speech.error}
+            </p>
+          )}
+          {!speech.supported && (
+            <p className="mt-2 text-sm text-gray-400">
+              此瀏覽器不支援語音輸入（建議使用 Chrome/Edge），請改用文字輸入。
+            </p>
+          )}
+          <form
+            className="mt-4 flex items-center gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send(input);
+            }}
           >
-            送出
-          </button>
-        </form>
+            <VoiceButton
+              listening={speech.listening}
+              supported={speech.supported}
+              onStart={speech.start}
+              onStop={speech.stop}
+            />
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={speech.listening ? "聆聽中⋯請說話" : "輸入訊息或按麥克風說話"}
+              aria-label="輸入訊息"
+              className="min-w-0 flex-1 rounded-2xl border border-pine-soft bg-white px-4 py-3.5 outline-none focus:border-pine"
+            />
+            <button
+              type="submit"
+              disabled={sending || !input.trim()}
+              className="rounded-2xl bg-pine px-5 py-3.5 font-bold text-white disabled:opacity-40"
+            >
+              送出
+            </button>
+          </form>
+        </>
       )}
     </main>
   );

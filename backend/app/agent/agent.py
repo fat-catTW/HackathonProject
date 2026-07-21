@@ -14,7 +14,7 @@ import re
 
 from ..services import catalog
 from ..services.store import STORE, now_iso
-from . import nlu, tools
+from . import llm, nlu, tools
 
 CONFIRM_WORDS = ("確認", "沒問題", "可以", "好", "對", "是", "OK", "ok", "送出", "正確")
 DENY_WORDS = ("不要", "不用", "取消", "修改", "不對", "換", "不")
@@ -28,6 +28,21 @@ def _is_yes(text: str) -> bool:
 def _is_no(text: str) -> bool:
     t = text.strip()
     return any(t.startswith(w) for w in DENY_WORDS)
+
+
+def _judge_reply(question: str, text: str) -> str:
+    """判斷使用者對是非題的回覆：'yes' / 'no' / 'unclear'。
+
+    優先交給 LLM 語意判斷；LLM 不可用時退回詞表規則。
+    """
+    verdict = llm.interpret_yes_no(question, text)
+    if verdict is not None:
+        return verdict
+    if _is_yes(text):
+        return "yes"
+    if _is_no(text):
+        return "no"
+    return "unclear"
 
 
 def _field_display(fid: str, value, fields: list[dict]) -> str:
@@ -79,6 +94,8 @@ def new_state() -> dict:
         "awaiting_confirmation": False,
         "pending_pref_field": None,   # 正在詢問是否套用長期記憶的欄位
         "pending_pref_value": None,
+        "pending_pref_question": None,
+        "asked_pref_fields": [],      # 已問過的偏好欄位（每欄位只問一次，避免鬼打牆）
         "request_id": None,
         "status": "COLLECTING_INFORMATION",
     }
@@ -95,25 +112,27 @@ def handle_message(actor_id: str, session_id: str, state: dict, message: str) ->
     # ---- 1. 長期記憶偏好詢問中 ----
     if state.get("pending_pref_field"):
         fid = state["pending_pref_field"]
-        if _is_yes(text):
+        question = state.get("pending_pref_question") or ""
+        verdict = _judge_reply(question, text)
+        if verdict == "yes":
             state["collected_fields"][fid] = state["pending_pref_value"]
         else:
-            # 使用者拒絕或直接給了新值 → 嘗試從訊息擷取
+            # 拒絕或答非所問 → 從訊息擷取任何欄位值（含其他欄位，不丟棄）
             found = nlu.extract_fields(
                 state["service_id"], state["service_schema"]["fields"], text,
                 {k: v for k, v in state["collected_fields"].items()})
-            if fid in found:
-                state["collected_fields"][fid] = found[fid]
+            state["collected_fields"].update(found)
         state["pending_pref_field"] = None
         state["pending_pref_value"] = None
+        state["pending_pref_question"] = None
         _recompute_missing(state)
         return _continue_collection(actor_id, state, text)
 
     # ---- 2. 確認階段 ----
     if state["awaiting_confirmation"]:
-        if _is_yes(text):
+        if _judge_reply("以上申請內容正確嗎？回覆「確認」即送出。", text) == "yes":
             return _submit(actor_id, session_id, state)
-        if _is_no(text) or True:
+        if True:
             # 嘗試視為修改指令：重新擷取欄位
             fields = state["service_schema"]["fields"]
             override = nlu.extract_fields(state["service_id"], fields, text, {})
@@ -168,18 +187,22 @@ def handle_message(actor_id: str, session_id: str, state: dict, message: str) ->
 def _continue_collection(actor_id: str, state: dict, text: str) -> dict:
     # ---- 5. 長期記憶：地址 / 電話 / 偏好時段主動建議（設計書 Demo 3） ----
     prefs = STORE.get_preferences(actor_id)
+    asked = state.setdefault("asked_pref_fields", [])
     for fid, pref_key, ask in (
         ("address", "last_address", "要使用您上次的服務地址「{v}」嗎？"),
         ("phone", "last_phone", "聯絡電話要使用上次留的 {v} 嗎？"),
         ("preferred_time_slot", "preferred_time_slot", "要安排在您偏好的{v}時段嗎？"),
     ):
         if fid in state["missing_fields"] and prefs.get(pref_key) \
-                and state["missing_fields"][0] == fid:
+                and state["missing_fields"][0] == fid and fid not in asked:
             v = prefs[pref_key]
             shown = catalog.SELECT_LABELS.get(v, v)
+            asked.append(fid)  # 每欄位只建議一次；沒得到答案就改問原始問題
+            question = ask.format(v=shown)
             state["pending_pref_field"] = fid
             state["pending_pref_value"] = v
-            return _reply(state, ask.format(v=shown))
+            state["pending_pref_question"] = question
+            return _reply(state, question)
 
     # ---- 6. 缺欄位 → 問下一題；齊了 → 顯示摘要 ----
     if state["missing_fields"]:

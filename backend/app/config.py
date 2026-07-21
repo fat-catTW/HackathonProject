@@ -21,7 +21,7 @@ class Settings:
     agentcore_memory_id: str = os.getenv("AGENTCORE_MEMORY_ID", "")
     agentcore_gateway_url: str = os.getenv("AGENTCORE_GATEWAY_URL", "")
     bedrock_model_id: str = os.getenv(
-        "BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0"
+        "BEDROCK_MODEL_ID", "anthropic.claude-opus-4-8"
     )
     dynamodb_table_name: str = os.getenv("DYNAMODB_TABLE_NAME", "ServiceAssistant")
 

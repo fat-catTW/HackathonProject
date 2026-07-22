@@ -1,37 +1,72 @@
-"""POST /api/chat — 送訊息給 Agent（設計書 §13.1）。"""
+"""Chat and form update APIs."""
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..agent.agent import handle_message
+from ..agent.agent import (
+    apply_form_patch,
+    build_form_draft,
+    build_form_schema,
+    current_active_field,
+    handle_message,
+)
 from ..auth.cognito import CurrentUser, get_current_user
-from ..models.chat import ChatRequest, ChatResponse
-from ..services.store import STORE
+from ..models.chat import ChatRequest, ChatResponse, FormUpdateRequest
+from ..services.conversation_memory import MEMORY
 
 router = APIRouter()
 
 
+def _load_session_or_404(actor_id: str, session_id: str) -> dict:
+    session = MEMORY.get_session(actor_id, session_id)
+    if not session:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "success": False,
+                "error": {
+                    "code": "SESSION_NOT_FOUND",
+                    "message": "找不到對應的對話 session。",
+                },
+            },
+        )
+    return session
+
+
+def _chat_response(session_id: str, result: dict) -> ChatResponse:
+    state = result["state"]
+    return ChatResponse(
+        session_id=session_id,
+        reply=result["reply"],
+        service_id=state["service_id"],
+        service_name=state["service_name"],
+        collected_fields=state["collected_fields"],
+        missing_fields=state["missing_fields"],
+        form_schema=build_form_schema(state),
+        form_draft=build_form_draft(state),
+        active_field=current_active_field(state),
+        request_id=state["request_id"],
+        status=state["status"],
+    )
+
+
 @router.post("/api/chat", response_model=ChatResponse)
 def chat(body: ChatRequest, user: CurrentUser = Depends(get_current_user)):
-    # Session 隔離：一律以已驗證 actorId 查詢（§17.3）
-    session = STORE.get_session(user.sub, body.session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail={
-            "success": False,
-            "error": {"code": "SESSION_NOT_FOUND", "message": "找不到 Session"}})
+    session = _load_session_or_404(user.sub, body.session_id)
 
-    session["events"].append({"role": "USER", "content": body.message})
-    result = handle_message(user.sub, body.session_id, session["state"], body.message)
-    session["events"].append({"role": "ASSISTANT", "content": result["reply"]})
-    session["state"] = result["state"]
-    STORE.save_session(user.sub, session)
-
-    st = result["state"]
-    return ChatResponse(
-        session_id=body.session_id,
-        reply=result["reply"],
-        service_id=st["service_id"],
-        service_name=st["service_name"],
-        collected_fields=st["collected_fields"],
-        missing_fields=st["missing_fields"],
-        request_id=st["request_id"],
-        status=st["status"],
+    result = handle_message(
+        user.sub,
+        body.session_id,
+        session["state"],
+        body.message,
+        session["events"],
+        auth_token=user.access_token,
     )
+    MEMORY.save_turn(user.sub, body.session_id, body.message, result["reply"], result["state"])
+    return _chat_response(body.session_id, result)
+
+
+@router.patch("/api/chat/form", response_model=ChatResponse)
+def update_form(body: FormUpdateRequest, user: CurrentUser = Depends(get_current_user)):
+    session = _load_session_or_404(user.sub, body.session_id)
+    result = apply_form_patch(user.sub, session["state"], body.fields)
+    MEMORY.save_state(user.sub, body.session_id, result["state"])
+    return _chat_response(body.session_id, result)

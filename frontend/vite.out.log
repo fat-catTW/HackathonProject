@@ -1,0 +1,30 @@
+
+> ai-service-assistant-frontend@0.1.0 dev
+> vite --host 127.0.0.1
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m456[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[2m上午12:08:47[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/types/request.ts[22m
+[2m上午12:08:51[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/FormSummary.tsx, /src/index.css[22m
+[2m上午12:09:05[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/FormSummary.tsx[22m
+[2m上午12:09:19[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/NewRequestPage.tsx, /src/index.css[22m
+[2m上午1:52:26[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/NewRequestPage.tsx, /src/index.css[22m
+[2m上午1:52:31[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/FormSummary.tsx, /src/index.css[22m
+[2m上午1:53:14[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/FormSummary.tsx, /src/index.css[22m
+[2m上午1:53:21[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/NewRequestPage.tsx, /src/index.css[22m
+[2m上午1:53:54[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/NewRequestPage.tsx, /src/index.css[22m
+[2m上午1:54:07[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/FormSummary.tsx, /src/index.css[22m
+[2m上午2:02:19[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/FormSummary.tsx, /src/index.css[22m
+[2m上午2:02:20[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/FormSummary.tsx, /src/index.css[22m
+[2m上午2:02:21[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/VoiceButton.tsx, /src/index.css[22m
+[2m上午2:02:22[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/VoiceButton.tsx, /src/index.css[22m
+[2m上午2:02:23[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/NewRequestPage.tsx, /src/index.css[22m
+[2m上午2:02:23[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/NewRequestPage.tsx, /src/index.css[22m
+[2m上午2:02:24[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/RequestDetailPage.tsx, /src/index.css[22m
+[2m上午2:02:25[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/RequestDetailPage.tsx, /src/index.css[22m
+[2m上午2:02:26[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/HomePage.tsx, /src/index.css[22m
+[2m上午2:02:27[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/HomePage.tsx, /src/index.css[22m
+[2m上午2:02:28[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/LoginPage.tsx, /src/index.css[22m
+[2m上午2:02:28[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/LoginPage.tsx, /src/index.css[22m

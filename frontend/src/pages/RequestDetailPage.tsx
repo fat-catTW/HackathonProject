@@ -7,7 +7,7 @@ import type { RequestDetail } from "../types/request";
 
 const FIELD_LABELS: Record<string, string> = {
   quantity: "數量",
-  hours: "服務時數",
+  hours: "時數",
   machine_type: "洗衣機類型",
   issue_description: "問題描述",
   preferred_date: "希望日期",
@@ -15,9 +15,13 @@ const FIELD_LABELS: Record<string, string> = {
   address: "服務地址",
   phone: "聯絡電話",
 };
+
 const VALUE_LABELS: Record<string, string> = {
-  MORNING: "上午", AFTERNOON: "下午", EVENING: "晚上",
-  TOP_LOAD: "直立式", FRONT_LOAD: "滾筒式",
+  MORNING: "上午",
+  AFTERNOON: "下午",
+  EVENING: "晚上",
+  TOP_LOAD: "上掀式",
+  FRONT_LOAD: "前開式",
 };
 
 export function RequestDetailPage() {
@@ -39,20 +43,21 @@ export function RequestDetailPage() {
       <main className="mx-auto max-w-md px-5 pt-16 text-center">
         <p className="text-red-600">{error}</p>
         <Link to="/" className="mt-4 inline-block text-pine underline">
-          回到首頁
+          返回首頁
         </Link>
       </main>
     );
   }
+
   if (!detail) {
-    return <main className="mx-auto max-w-md px-5 pt-16 text-gray-400">載入中⋯</main>;
+    return <main className="mx-auto max-w-md px-5 pt-16 text-gray-400">載入中...</main>;
   }
 
   const cancellable = !["COMPLETED", "CANCELLED"].includes(detail.status);
   const nextDemo: Record<string, { to: string; label: string }> = {
     SUBMITTED: { to: "CONFIRMED", label: "（Demo）模擬廠商確認" },
-    CONFIRMED: { to: "IN_PROGRESS", label: "（Demo）模擬服務開始" },
-    IN_PROGRESS: { to: "COMPLETED", label: "（Demo）模擬服務完成" },
+    CONFIRMED: { to: "IN_PROGRESS", label: "（Demo）模擬開始服務" },
+    IN_PROGRESS: { to: "COMPLETED", label: "（Demo）模擬完成服務" },
   };
   const demo = nextDemo[detail.status];
 
@@ -60,30 +65,28 @@ export function RequestDetailPage() {
     <main className="mx-auto max-w-md px-5 pb-16 pt-6">
       <header className="flex items-center justify-between">
         <Link to="/" className="text-sm text-gray-400 hover:text-ink">
-          ← 我的服務
+          返回列表
         </Link>
         <StatusBadge status={detail.status} label={detail.status_label} />
       </header>
 
       <h1 className="mt-4 text-2xl font-black">{detail.service_name}</h1>
-      <p className="mt-1 text-sm text-gray-500">案件編號 {detail.request_id}</p>
+      <p className="mt-1 text-sm text-gray-500">案件編號：{detail.request_id}</p>
 
       <section className="mt-6 rounded-2xl border border-pine-soft bg-white p-4">
         <h2 className="font-bold text-pine">申請內容</h2>
         <dl className="mt-3 space-y-2">
-          {Object.entries(detail.form_data).map(([k, v]) => (
-            <div key={k} className="flex justify-between gap-3">
-              <dt className="text-gray-500">{FIELD_LABELS[k] ?? k}</dt>
-              <dd className="text-right font-medium">
-                {VALUE_LABELS[String(v)] ?? v}
-              </dd>
+          {Object.entries(detail.form_data).map(([key, value]) => (
+            <div key={key} className="flex justify-between gap-3">
+              <dt className="text-gray-500">{FIELD_LABELS[key] ?? key}</dt>
+              <dd className="text-right font-medium">{VALUE_LABELS[String(value)] ?? value}</dd>
             </div>
           ))}
         </dl>
         <p className="mt-3 border-t border-dashed border-pine-soft pt-3 text-sm text-gray-400">
-          建立於 {new Date(detail.created_at).toLocaleString("zh-TW")}
+          建立時間：{new Date(detail.created_at).toLocaleString("zh-TW")}
           <br />
-          最後更新 {new Date(detail.updated_at).toLocaleString("zh-TW")}
+          最後更新：{new Date(detail.updated_at).toLocaleString("zh-TW")}
         </p>
       </section>
 
@@ -91,8 +94,8 @@ export function RequestDetailPage() {
         <section className="mt-6">
           <h2 className="font-bold text-pine">對話紀錄</h2>
           <div className="mt-3 space-y-3">
-            {detail.events.map((e, i) => (
-              <ChatMessage key={i} event={e} />
+            {detail.events.map((event, index) => (
+              <ChatMessage key={index} event={event} />
             ))}
           </div>
         </section>
@@ -113,7 +116,7 @@ export function RequestDetailPage() {
           onClick={() => navigate("/new")}
           className="w-full rounded-2xl bg-pine px-6 py-3.5 font-bold text-white hover:bg-pine-dark"
         >
-          重新申請相同服務
+          再新增一筆申請
         </button>
         {cancellable && (
           <button
@@ -121,7 +124,7 @@ export function RequestDetailPage() {
             onClick={() => cancelRequest(detail.request_id).then(load)}
             className="w-full rounded-2xl px-6 py-3 text-gray-400 hover:text-red-600"
           >
-            取消此案件
+            取消案件
           </button>
         )}
       </div>

@@ -1,29 +1,29 @@
-"""AgentCore Gateway Tool: list_services（設計書 §12.1）。
-Milestone 4 部署至 AWS Lambda，讀取 DynamoDB Service Catalog。
-"""
-import json
-import os
+"""Gateway tool handler for listing available services."""
+from __future__ import annotations
 
-import boto3
-
-TABLE = os.environ.get("DYNAMODB_TABLE_NAME", "ServiceAssistant")
+from shared_lambda.catalog import load_services
 
 
 def lambda_handler(event, context):
+    del event, context
     try:
-        ddb = boto3.resource("dynamodb").Table(TABLE)
-        # 單表設計：SERVICE#<id> / METADATA
-        resp = ddb.scan(
-            FilterExpression="entity_type = :t AND enabled = :e",
-            ExpressionAttributeValues={":t": "SERVICE", ":e": True},
-        )
-        services = [
-            {"id": i["PK"].split("#", 1)[1], "name": i["name"],
-             "description": i.get("description", "")}
-            for i in resp.get("Items", [])
-        ]
-        return {"success": True, "services": services}
-    except Exception:
-        return {"success": False, "error": {
-            "code": "SERVICE_CATALOG_UNAVAILABLE",
-            "message": "目前無法取得服務列表"}}
+        services = load_services()
+        return {
+            "success": True,
+            "services": [
+                {
+                    "id": service["id"],
+                    "name": service["name"],
+                    "description": service.get("description", ""),
+                }
+                for service in services
+            ],
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": {
+                "code": "SERVICE_CATALOG_UNAVAILABLE",
+                "message": str(exc) or "Failed to load service catalog.",
+            },
+        }

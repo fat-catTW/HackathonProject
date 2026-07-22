@@ -1,0 +1,25 @@
+[
+  {
+    "name": "list_services",
+    "description": "List available home services.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "services": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "success"
+      ]
+    }
+  }
+]

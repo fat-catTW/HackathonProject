@@ -1,21 +1,43 @@
-"""AgentCore Gateway Tool: get_service_schema（設計書 §12.2）。"""
-import os
+"""Gateway tool handler for retrieving a service form schema."""
+from __future__ import annotations
 
-import boto3
-
-TABLE = os.environ.get("DYNAMODB_TABLE_NAME", "ServiceAssistant")
+from shared_lambda.catalog import load_service
 
 
 def lambda_handler(event, context):
-    service_id = (event or {}).get("service_id")
+    del context
+    event = event or {}
+    service_id = event.get("service_id")
     if not service_id:
-        return {"success": False, "error": {
-            "code": "INVALID_FORM_DATA", "message": "缺少 service_id"}}
-    ddb = boto3.resource("dynamodb").Table(TABLE)
-    resp = ddb.get_item(Key={"PK": f"SERVICE#{service_id}", "SK": "METADATA"})
-    item = resp.get("Item")
-    if not item or not item.get("enabled"):
-        return {"success": False, "error": {
-            "code": "SERVICE_NOT_FOUND", "message": "找不到指定服務"}}
-    return {"success": True, "service_id": service_id,
-            "title": item["name"], "fields": item["schema"]["fields"]}
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_FORM_DATA",
+                "message": "service_id is required.",
+            },
+        }
+
+    try:
+        service = load_service(service_id)
+        if not service:
+            return {
+                "success": False,
+                "error": {
+                    "code": "SERVICE_NOT_FOUND",
+                    "message": f"Unknown service_id: {service_id}.",
+                },
+            }
+        return {
+            "success": True,
+            "service_id": service["id"],
+            "title": service["name"],
+            "fields": service["schema"]["fields"],
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": {
+                "code": "SERVICE_CATALOG_UNAVAILABLE",
+                "message": str(exc) or "Failed to load service schema.",
+            },
+        }

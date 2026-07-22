@@ -1,0 +1,38 @@
+[
+  {
+    "name": "get_service_schema",
+    "description": "Get the booking form schema for a specific service.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "service_id": {
+          "type": "string",
+          "description": "Service ID, for example air_conditioner_cleaning."
+        }
+      },
+      "required": [
+        "service_id"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "service_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "success"
+      ]
+    }
+  }
+]

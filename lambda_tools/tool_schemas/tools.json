@@ -1,31 +1,105 @@
 [
   {
     "name": "list_services",
-    "description": "取得目前可使用的生活服務列表",
-    "inputSchema": {"type": "object", "properties": {}, "required": []}
+    "description": "List available home services.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "services": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "success"
+      ]
+    }
   },
   {
     "name": "get_service_schema",
-    "description": "取得指定服務所需的表單欄位定義",
+    "description": "Get the booking form schema for a specific service.",
     "inputSchema": {
       "type": "object",
       "properties": {
-        "service_id": {"type": "string", "description": "服務 ID，例如 air_conditioner_cleaning"}
+        "service_id": {
+          "type": "string",
+          "description": "Service ID, for example air_conditioner_cleaning."
+        }
       },
-      "required": ["service_id"]
+      "required": [
+        "service_id"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "service_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "success"
+      ]
     }
   },
   {
     "name": "submit_service_request",
-    "description": "驗證表單並建立正式服務案件。呼叫前必須先取得使用者明確確認。",
+    "description": "Submit a completed service request form.",
     "inputSchema": {
       "type": "object",
       "properties": {
-        "service_id": {"type": "string"},
-        "session_id": {"type": "string"},
-        "payload": {"type": "object", "description": "表單欄位鍵值，需符合 get_service_schema 回傳的欄位"}
+        "service_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "object",
+          "description": "Completed form values matching get_service_schema."
+        }
       },
-      "required": ["service_id", "session_id", "payload"]
+      "required": [
+        "service_id",
+        "session_id",
+        "payload"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "success"
+      ]
     }
   }
 ]

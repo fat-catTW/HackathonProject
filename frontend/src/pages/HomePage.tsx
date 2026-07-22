@@ -13,7 +13,7 @@ export function HomePage() {
 
   useEffect(() => {
     listRequests()
-      .then((r) => setItems(r.items))
+      .then((response) => setItems(response.items))
       .catch(() => navigate("/login"))
       .finally(() => setLoading(false));
   }, [navigate]);
@@ -22,8 +22,8 @@ export function HomePage() {
     <main className="mx-auto max-w-md px-5 pb-16 pt-10">
       <header className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-black">您好，{name}</h1>
-          <p className="mt-1 text-gray-500">今天需要什麼協助？</p>
+          <h1 className="text-2xl font-black">你好，{name}</h1>
+          <p className="mt-1 text-gray-500">查看你的申請進度，或直接新增一筆服務需求。</p>
         </div>
         <button
           type="button"
@@ -49,20 +49,20 @@ export function HomePage() {
           </svg>
         </span>
         <span>
-          <span className="block text-lg font-bold">點擊並說出需求</span>
+          <span className="block text-lg font-bold">新增服務申請</span>
           <span className="block text-sm text-white/80">
-            例如：「我要預約明天下午清洗兩台冷氣」
+            直接用對話或語音描述需求，管家會幫你整理成表單並送件。
           </span>
         </span>
       </button>
 
       <section className="mt-10">
-        <h2 className="text-lg font-bold">我的服務</h2>
+        <h2 className="text-lg font-bold">我的案件</h2>
         <div className="mt-4 space-y-3">
-          {loading && <p className="text-gray-400">載入中⋯</p>}
+          {loading && <p className="text-gray-400">載入中...</p>}
           {!loading && items.length === 0 && (
             <p className="rounded-2xl border border-dashed border-pine-soft p-6 text-center text-gray-400">
-              還沒有服務案件。點上方按鈕，說出您的需求開始。
+              目前還沒有案件。按上方按鈕就可以開始建立第一筆申請。
             </p>
           )}
           {items.map((item) => (

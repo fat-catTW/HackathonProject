@@ -1,0 +1,46 @@
+[
+  {
+    "name": "submit_service_request",
+    "description": "Submit a completed service request form.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "service_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "object",
+          "description": "Completed form values matching get_service_schema."
+        }
+      },
+      "required": [
+        "service_id",
+        "session_id",
+        "payload"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "success"
+      ]
+    }
+  }
+]

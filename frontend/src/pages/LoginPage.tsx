@@ -15,8 +15,8 @@ export function LoginPage() {
 
   useEffect(() => {
     fetchDemoAccounts()
-      .then((r) => setAccounts(r.accounts))
-      .catch(() => setError("無法連線到後端，請確認伺服器已啟動。"));
+      .then((response) => setAccounts(response.accounts))
+      .catch(() => setError("目前無法取得測試帳號，請確認後端服務已啟動。"));
   }, []);
 
   return (
@@ -26,27 +26,27 @@ export function LoginPage() {
       </div>
       <h1 className="text-2xl font-black">AI 智慧生活服務管家</h1>
       <p className="mt-2 text-center text-gray-500">
-        說出需求，剩下的交給管家。
+        選一個 demo 帳號登入，開始測試服務預約流程。
       </p>
 
       <div className="mt-10 w-full space-y-3">
-        {accounts.map((a) => (
+        {accounts.map((account) => (
           <button
-            key={a.token}
+            key={account.token}
             type="button"
             onClick={() => {
-              login(a.token, a.name);
+              login(account.token, account.name);
               navigate("/");
             }}
             className="w-full rounded-2xl bg-pine px-6 py-4 text-lg font-bold text-white transition hover:bg-pine-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-pine"
           >
-            以示範帳號「{a.name}」登入
+            以 {account.name} 身分登入
           </button>
         ))}
         {error && <p className="text-center text-red-600">{error}</p>}
       </div>
       <p className="mt-6 text-center text-sm text-gray-400">
-        Hackathon Demo：正式版將接入 Amazon Cognito 登入
+        Hackathon Demo 模式下，登入資訊由後端提供，正式版可接 Amazon Cognito。
       </p>
     </main>
   );

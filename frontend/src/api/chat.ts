@@ -13,3 +13,10 @@ export function sendMessage(sessionId: string, message: string) {
     body: JSON.stringify({ session_id: sessionId, message }),
   });
 }
+
+export function updateFormDraft(sessionId: string, fields: Record<string, string | number | null>) {
+  return api<ChatResponse>("/api/chat/form", {
+    method: "PATCH",
+    body: JSON.stringify({ session_id: sessionId, fields }),
+  });
+}

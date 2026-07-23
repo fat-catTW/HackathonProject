@@ -1,53 +1,152 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchDemoAccounts, type DemoAccount } from "../api/auth";
+import { Mascot } from "../components/Mascot";
+import { ServiceIcon } from "../components/ServiceIcon";
+import { Toast } from "../components/Toast";
 import { useAuth } from "../hooks/useAuth";
+
+type Mode = "choices" | "loginForm" | "registerForm";
 
 export function LoginPage() {
   const { login, isLoggedIn } = useAuth();
   const navigate = useNavigate();
-  const [accounts, setAccounts] = useState<DemoAccount[]>([]);
+  const [account, setAccount] = useState<DemoAccount | null>(null);
   const [error, setError] = useState("");
+  const [mode, setMode] = useState<Mode>("choices");
+  const [toastText, setToastText] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isLoggedIn) navigate("/", { replace: true });
+    if (isLoggedIn) navigate("/home", { replace: true });
   }, [isLoggedIn, navigate]);
 
   useEffect(() => {
     fetchDemoAccounts()
-      .then((response) => setAccounts(response.accounts))
-      .catch(() => setError("目前無法取得測試帳號，請確認後端服務已啟動。"));
+      .then((r) => setAccount(r.accounts[0] ?? null))
+      .catch(() => setError("無法連線到後端，請確認伺服器已啟動。"));
   }, []);
 
+  function notImplemented() {
+    setToastText("此功能開發中，請使用 Demo 帳號登入");
+  }
+
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6">
-      <div className="mb-2 flex h-20 w-20 items-center justify-center rounded-3xl bg-pine text-4xl text-white">
-        管
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center bg-canvas px-8 py-12">
+      <button
+        type="button"
+        onClick={() => navigate("/")}
+        className="absolute left-6 top-6 flex items-center gap-1.5 text-sm font-semibold text-gray-500"
+      >
+        <ServiceIcon type="back" size={20} />
+        上一頁
+      </button>
+
+      <Mascot size={128} />
+      <h1 className="mt-3 text-center text-2xl font-black">AI 智慧生活服務管家</h1>
+      <p className="mt-1.5 text-sm font-bold tracking-wide text-brand">UNI-PIC 統一資訊</p>
+      <p className="mt-2.5 text-center text-gray-500">說出需求，交給 AI 管家處理</p>
+
+      <div className="mt-11 w-full space-y-4">
+        {mode === "choices" && (
+          <>
+            <button
+              type="button"
+              onClick={() => setMode("loginForm")}
+              className="w-full rounded-2xl bg-brand px-6 py-5 text-lg font-bold text-white"
+            >
+              登入
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("registerForm")}
+              className="w-full rounded-2xl border-2 border-brand px-6 py-5 text-lg font-bold text-brand"
+            >
+              註冊
+            </button>
+            <div className="text-center text-sm text-gray-400">或</div>
+            {account && (
+              <button
+                type="button"
+                onClick={() => {
+                  login(account.token, account.name);
+                  navigate("/home");
+                }}
+                className="flex w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-gray-300 bg-white px-6 py-5 text-lg font-bold text-brand"
+              >
+                <span>Demo Account 一鍵登入</span>
+                <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand">
+                  體驗用
+                </span>
+              </button>
+            )}
+            {error && <p className="text-center text-red-600">{error}</p>}
+          </>
+        )}
+
+        {mode === "loginForm" && (
+          <div className="flex flex-col gap-4">
+            <input
+              type="text"
+              placeholder="手機號碼"
+              className="w-full rounded-2xl border-2 border-gray-200 px-4.5 py-4.5 text-lg"
+            />
+            <input
+              type="password"
+              placeholder="密碼"
+              className="w-full rounded-2xl border-2 border-gray-200 px-4.5 py-4.5 text-lg"
+            />
+            <button
+              type="button"
+              onClick={notImplemented}
+              className="w-full rounded-2xl bg-brand px-6 py-5 text-lg font-bold text-white"
+            >
+              登入
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("choices")}
+              className="w-full py-3.5 text-base text-gray-500"
+            >
+              ← 返回
+            </button>
+          </div>
+        )}
+
+        {mode === "registerForm" && (
+          <div className="flex flex-col gap-4">
+            <input
+              type="text"
+              placeholder="姓名"
+              className="w-full rounded-2xl border-2 border-gray-200 px-4.5 py-4.5 text-lg"
+            />
+            <input
+              type="text"
+              placeholder="手機號碼"
+              className="w-full rounded-2xl border-2 border-gray-200 px-4.5 py-4.5 text-lg"
+            />
+            <button
+              type="button"
+              onClick={notImplemented}
+              className="w-full rounded-2xl bg-brand px-6 py-5 text-lg font-bold text-white"
+            >
+              註冊
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("choices")}
+              className="w-full py-3.5 text-base text-gray-500"
+            >
+              ← 返回
+            </button>
+          </div>
+        )}
       </div>
-      <h1 className="text-2xl font-black">AI 智慧生活服務管家</h1>
-      <p className="mt-2 text-center text-gray-500">
-        選一個 demo 帳號登入，開始測試服務預約流程。
+
+      <p className="mt-8 text-center text-sm text-gray-400">
+        Hackathon Demo：正式版將接入 Amazon Cognito 登入
       </p>
 
-      <div className="mt-10 w-full space-y-3">
-        {accounts.map((account) => (
-          <button
-            key={account.token}
-            type="button"
-            onClick={() => {
-              login(account.token, account.name);
-              navigate("/");
-            }}
-            className="w-full rounded-2xl bg-pine px-6 py-4 text-lg font-bold text-white transition hover:bg-pine-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-pine"
-          >
-            以 {account.name} 身分登入
-          </button>
-        ))}
-        {error && <p className="text-center text-red-600">{error}</p>}
-      </div>
-      <p className="mt-6 text-center text-sm text-gray-400">
-        Hackathon Demo 模式下，登入資訊由後端提供，正式版可接 Amazon Cognito。
-      </p>
+      <Toast text={toastText} onHide={() => setToastText(null)} />
     </main>
   );
 }

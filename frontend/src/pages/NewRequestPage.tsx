@@ -1,162 +1,184 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { createSession, sendMessage, updateFormDraft } from "../api/chat";
+import { useLocation, useNavigate } from "react-router-dom";
+import { createSession, sendMessage } from "../api/chat";
 import { ChatMessage } from "../components/ChatMessage";
-import { FormSummary } from "../components/FormSummary";
+import { FieldPanel } from "../components/FieldPanel";
+import { ServiceIcon } from "../components/ServiceIcon";
+import { Toast } from "../components/Toast";
 import { VoiceButton } from "../components/VoiceButton";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
-import type { ChatEvent, ChatResponse, FormDraft, FormSchema } from "../types/request";
+import { buildFieldRows } from "../utils/fieldLabels";
+import type { ChatEvent } from "../types/request";
 
 export function NewRequestPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const autoMessage = (location.state as { autoMessage?: string } | null)?.autoMessage;
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [events, setEvents] = useState<ChatEvent[]>([
-    {
-      role: "ASSISTANT",
-      content: "請告訴我你想申請哪一項服務，我會一邊幫你整理需求，一邊把表單填好。",
-    },
+    { role: "ASSISTANT", content: "您好！請告訴我需要什麼生活服務，例如「我要洗兩台冷氣」。" },
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [serviceName, setServiceName] = useState<string | null>(null);
-  const [formSchema, setFormSchema] = useState<FormSchema | null>(null);
-  const [formDraft, setFormDraft] = useState<FormDraft | null>(null);
-  const [requestId, setRequestId] = useState<string | null>(null);
+  const [collected, setCollected] = useState<Record<string, string | number>>({});
+  const [missing, setMissing] = useState<string[]>([]);
+  const [status, setStatus] = useState<string>("COLLECTING_INFORMATION");
+  const [toastText, setToastText] = useState<string | null>(null);
+  const autoSentRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     createSession()
-      .then((response) => setSessionId(response.session_id))
+      .then((r) => setSessionId(r.session_id))
       .catch(() => navigate("/login"));
   }, [navigate]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [events, formDraft]);
-
-  function applyResponse(response: ChatResponse, appendReply = true) {
-    if (appendReply && response.reply) {
-      setEvents((current) => [...current, { role: "ASSISTANT", content: response.reply }]);
-    }
-    setServiceName(response.service_name);
-    setFormSchema(response.form_schema);
-    setFormDraft(response.form_draft);
-    setRequestId(response.request_id);
-  }
+  }, [events]);
 
   async function send(text: string) {
     const message = text.trim();
     if (!message || !sessionId || sending) return;
     setInput("");
     setSending(true);
-    setEvents((current) => [...current, { role: "USER", content: message }]);
+    setEvents((prev) => [...prev, { role: "USER", content: message }]);
     try {
-      const response = await sendMessage(sessionId, message);
-      applyResponse(response);
+      const r = await sendMessage(sessionId, message);
+      setEvents((prev) => [...prev, { role: "ASSISTANT", content: r.reply }]);
+      setServiceName(r.service_name);
+      setCollected(r.collected_fields);
+      setMissing(r.missing_fields);
+      setStatus(r.status);
+      if (r.request_id) {
+        setToastText("案件已成功建立");
+        setTimeout(() => navigate(`/requests/${r.request_id}`), 900);
+      }
     } catch {
-      setEvents((current) => [
-        ...current,
-        { role: "ASSISTANT", content: "目前無法送出這則訊息，請稍後再試一次。" },
+      setEvents((prev) => [
+        ...prev,
+        { role: "ASSISTANT", content: "抱歉，訊息傳送失敗，請再試一次。" },
       ]);
     } finally {
       setSending(false);
     }
   }
 
-  async function handleFormApply(fields: Record<string, string | number | null>) {
-    if (!sessionId || sending) return;
-    setSending(true);
-    try {
-      const response = await updateFormDraft(sessionId, fields);
-      applyResponse(response);
-    } catch {
-      setEvents((current) => [
-        ...current,
-        { role: "ASSISTANT", content: "表單更新失敗，請稍後再試一次。" },
-      ]);
-    } finally {
-      setSending(false);
+  useEffect(() => {
+    if (autoMessage && sessionId && !autoSentRef.current) {
+      autoSentRef.current = true;
+      void send(autoMessage);
     }
-  }
-
-  async function handleConfirm() {
-    await send("確認");
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoMessage, sessionId]);
 
   const speech = useSpeechRecognition((text) => void send(text));
 
+  const isConfirming = status === "AWAITING_USER_CONFIRMATION" && missing.length === 0;
+
   return (
-    <main className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 pb-6 pt-6 md:px-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine">AI Service Butler</p>
-          <h1 className="mt-2 text-2xl font-black text-ink">{serviceName ?? "AI 服務管家"}</h1>
-        </div>
-        <Link to="/" className="rounded-full px-3 py-1.5 text-sm text-gray-400 hover:text-ink">
-          返回
-        </Link>
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col bg-canvas">
+      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-5 py-4.5">
+        <button
+          type="button"
+          onClick={() => navigate("/home")}
+          className="flex items-center gap-1.5 text-base font-semibold text-gray-500"
+        >
+          <ServiceIcon type="back" size={20} />
+          取消
+        </button>
+        <div className="text-base font-black">{serviceName ?? "AI 服務助理"}</div>
+        <div className="w-12" />
       </header>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="order-2 flex min-h-[55vh] flex-col rounded-[30px] border border-pine-soft bg-white/90 p-4 shadow-sm lg:order-1">
-          <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-            {events.map((event, index) => (
-              <ChatMessage key={index} event={event} />
+      {isConfirming ? (
+        <div className="flex flex-col gap-5 p-6">
+          <div className="flex items-start gap-3.5 rounded-2xl border border-brand-soft bg-brand-soft p-4.5">
+            <ServiceIcon type="info" size={24} className="flex-none text-brand" />
+            <div className="text-sm leading-relaxed">
+              <strong className="font-extrabold">請仔細核對以下資訊。</strong>
+              在您按下「確認送出」之前，AI 不會建立正式的服務案件。
+            </div>
+          </div>
+          <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-3.5 border-b border-gray-100 pb-5">
+              <span className="flex h-13 w-13 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+                <ServiceIcon type="chat" size={26} />
+              </span>
+              <span className="text-xl font-extrabold">{serviceName}</span>
+            </div>
+            {buildFieldRows(collected).map((row) => (
+              <div key={row.key} className="flex justify-between py-2.5 text-base">
+                <span className="text-gray-500">{row.label}</span>
+                <span className="text-right font-bold">{row.value}</span>
+              </div>
             ))}
-            {sending && <p className="text-sm text-gray-400">管家整理中...</p>}
+          </div>
+          <button
+            type="button"
+            onClick={() => void send("確認")}
+            disabled={sending}
+            className="w-full rounded-2xl bg-brand py-5 text-lg font-bold text-white disabled:opacity-40"
+          >
+            確認送出
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setStatus("COLLECTING_INFORMATION");
+              setMissing(["_edit"]);
+            }}
+            className="w-full rounded-2xl border-2 border-gray-200 bg-white py-4.5 text-base font-bold text-gray-500"
+          >
+            返回修改
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 space-y-3.5 overflow-y-auto p-5">
+            {events.map((e, i) => (
+              <ChatMessage key={i} event={e} />
+            ))}
+            {sending && <p className="text-sm text-gray-400">管家思考中⋯</p>}
             <div ref={bottomRef} />
           </div>
 
-          {requestId ? (
-            <button
-              type="button"
-              onClick={() => navigate(`/requests/${requestId}`)}
-              className="mt-4 w-full rounded-2xl bg-pine px-6 py-4 text-base font-bold text-white hover:bg-pine-dark"
-            >
-              查看案件 {requestId}
-            </button>
-          ) : (
-            <form
-              className="mt-4 flex items-center gap-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void send(input);
-              }}
-            >
-              <VoiceButton
-                listening={speech.listening}
-                supported={speech.supported}
-                onStart={speech.start}
-                onStop={speech.stop}
-              />
-              <input
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                placeholder={speech.listening ? "正在聆聽，請直接說..." : "輸入訊息，或直接修改右邊表單"}
-                aria-label="輸入訊息"
-                className="min-w-0 flex-1 rounded-2xl border border-pine-soft bg-white px-4 py-3.5 outline-none focus:border-pine"
-              />
-              <button
-                type="submit"
-                disabled={sending || !input.trim()}
-                className="rounded-2xl bg-pine px-5 py-3.5 font-bold text-white disabled:opacity-40"
-              >
-                送出
-              </button>
-            </form>
-          )}
-        </section>
+          <FieldPanel collected={collected} missing={missing.filter((m) => m !== "_edit")} />
 
-        <div className="order-1 lg:order-2">
-          <FormSummary
-            formSchema={formSchema}
-            formDraft={formDraft}
-            sending={sending}
-            onApply={handleFormApply}
-            onConfirm={handleConfirm}
-          />
-        </div>
-      </div>
+          <form
+            className="flex items-center gap-3 border-t border-gray-200 bg-white p-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send(input);
+            }}
+          >
+            <VoiceButton
+              listening={speech.listening}
+              supported={speech.supported}
+              onStart={speech.start}
+              onStop={speech.stop}
+            />
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={speech.listening ? "聆聽中⋯請說話" : "輸入訊息或按麥克風說話"}
+              aria-label="輸入訊息"
+              className="min-w-0 flex-1 rounded-2xl border-2 border-gray-200 bg-white px-4 py-3.5 outline-none focus:border-brand"
+            />
+            <button
+              type="submit"
+              disabled={sending || !input.trim()}
+              className="rounded-2xl bg-brand px-5 py-3.5 font-bold text-white disabled:opacity-40"
+            >
+              送出
+            </button>
+          </form>
+        </>
+      )}
+
+      <Toast text={toastText} onHide={() => setToastText(null)} />
     </main>
   );
 }

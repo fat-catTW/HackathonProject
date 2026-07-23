@@ -6,16 +6,17 @@ interface Props {
   size?: "lg" | "md";
 }
 
+/** 招牌元素：大型語音按鈕，聆聽時脈動。 */
 export function VoiceButton({ listening, supported, onStart, onStop, size = "md" }: Props) {
   if (!supported) return null;
   const dims = size === "lg" ? "h-24 w-24" : "h-14 w-14";
   return (
     <button
       type="button"
-      aria-label={listening ? "停止錄音" : "開始語音輸入"}
+      aria-label={listening ? "停止聆聽" : "點擊並說出需求"}
       onClick={listening ? onStop : onStart}
-      className={`relative inline-flex ${dims} items-center justify-center rounded-full text-white shadow-lg transition focus-visible:outline focus-visible:outline-4 focus-visible:outline-pine-soft ${
-        listening ? "bg-red-500" : "bg-pine hover:bg-pine-dark"
+      className={`relative inline-flex ${dims} items-center justify-center rounded-full text-white shadow-lg transition focus-visible:outline focus-visible:outline-4 focus-visible:outline-brand-soft ${
+        listening ? "bg-red-500" : "bg-brand hover:bg-brand-dark"
       }`}
     >
       {listening && (

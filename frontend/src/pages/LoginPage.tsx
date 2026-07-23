@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchDemoAccounts, type DemoAccount } from "../api/auth";
+import {
+  fetchDemoAccounts,
+  loginWithEmail,
+  registerAccount,
+  type DemoAccount,
+} from "../api/auth";
+import { ApiError } from "../api/client";
 import { Mascot } from "../components/Mascot";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { Toast } from "../components/Toast";
@@ -16,6 +22,12 @@ export function LoginPage() {
   const [mode, setMode] = useState<Mode>("choices");
   const [toastText, setToastText] = useState<string | null>(null);
 
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
     if (isLoggedIn) navigate("/home", { replace: true });
   }, [isLoggedIn, navigate]);
@@ -26,8 +38,47 @@ export function LoginPage() {
       .catch(() => setError("無法連線到後端，請確認伺服器已啟動。"));
   }, []);
 
-  function notImplemented() {
-    setToastText("此功能開發中，請使用 Demo 帳號登入");
+  function switchMode(next: Mode) {
+    setMode(next);
+    setFormError("");
+    setPassword("");
+  }
+
+  async function handleLogin() {
+    if (!email.trim() || !password) {
+      setFormError("請輸入 Email 和密碼");
+      return;
+    }
+    setSubmitting(true);
+    setFormError("");
+    try {
+      const r = await loginWithEmail(email.trim(), password);
+      login(r.token, r.name);
+      navigate("/home");
+    } catch (e) {
+      setFormError(e instanceof ApiError ? e.message : "登入失敗，請稍後再試");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRegister() {
+    if (!email.trim() || !password) {
+      setFormError("請輸入 Email 和密碼");
+      return;
+    }
+    setSubmitting(true);
+    setFormError("");
+    try {
+      const r = await registerAccount(email.trim(), password, name.trim());
+      setToastText("註冊成功，歡迎！");
+      login(r.token, r.name);
+      navigate("/home");
+    } catch (e) {
+      setFormError(e instanceof ApiError ? e.message : "註冊失敗，請稍後再試");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -51,14 +102,14 @@ export function LoginPage() {
           <>
             <button
               type="button"
-              onClick={() => setMode("loginForm")}
+              onClick={() => switchMode("loginForm")}
               className="w-full rounded-2xl bg-brand px-6 py-5 text-lg font-bold text-white"
             >
               登入
             </button>
             <button
               type="button"
-              onClick={() => setMode("registerForm")}
+              onClick={() => switchMode("registerForm")}
               className="w-full rounded-2xl border-2 border-brand px-6 py-5 text-lg font-bold text-brand"
             >
               註冊
@@ -84,61 +135,95 @@ export function LoginPage() {
         )}
 
         {mode === "loginForm" && (
-          <div className="flex flex-col gap-4">
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleLogin();
+            }}
+          >
             <input
-              type="text"
-              placeholder="手機號碼"
+              type="email"
+              placeholder="Email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-2xl border-2 border-gray-200 px-4.5 py-4.5 text-lg"
             />
             <input
               type="password"
               placeholder="密碼"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-2xl border-2 border-gray-200 px-4.5 py-4.5 text-lg"
             />
+            {formError && <p className="text-center text-red-600">{formError}</p>}
             <button
-              type="button"
-              onClick={notImplemented}
-              className="w-full rounded-2xl bg-brand px-6 py-5 text-lg font-bold text-white"
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-2xl bg-brand px-6 py-5 text-lg font-bold text-white disabled:opacity-60"
             >
-              登入
+              {submitting ? "登入中…" : "登入"}
             </button>
             <button
               type="button"
-              onClick={() => setMode("choices")}
+              onClick={() => switchMode("choices")}
               className="w-full py-3.5 text-base text-gray-500"
             >
               ← 返回
             </button>
-          </div>
+          </form>
         )}
 
         {mode === "registerForm" && (
-          <div className="flex flex-col gap-4">
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleRegister();
+            }}
+          >
             <input
               type="text"
-              placeholder="姓名"
+              placeholder="姓名（選填）"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="w-full rounded-2xl border-2 border-gray-200 px-4.5 py-4.5 text-lg"
             />
             <input
-              type="text"
-              placeholder="手機號碼"
+              type="email"
+              placeholder="Email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-2xl border-2 border-gray-200 px-4.5 py-4.5 text-lg"
             />
+            <input
+              type="password"
+              placeholder="密碼（至少 8 碼）"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-2xl border-2 border-gray-200 px-4.5 py-4.5 text-lg"
+            />
+            {formError && <p className="text-center text-red-600">{formError}</p>}
             <button
-              type="button"
-              onClick={notImplemented}
-              className="w-full rounded-2xl bg-brand px-6 py-5 text-lg font-bold text-white"
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-2xl bg-brand px-6 py-5 text-lg font-bold text-white disabled:opacity-60"
             >
-              註冊
+              {submitting ? "註冊中…" : "註冊"}
             </button>
             <button
               type="button"
-              onClick={() => setMode("choices")}
+              onClick={() => switchMode("choices")}
               className="w-full py-3.5 text-base text-gray-500"
             >
               ← 返回
             </button>
-          </div>
+          </form>
         )}
       </div>
 

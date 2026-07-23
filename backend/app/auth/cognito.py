@@ -18,13 +18,19 @@ class CurrentUser:
 
 def _demo_user_or_401(token: str) -> CurrentUser:
     settings = get_settings()
+    # Email 註冊／登入發出的 token 優先解析（app.auth.users）
+    from .users import USERS
+
+    registered = USERS.resolve(token)
+    if registered is not None:
+        return registered
     user = settings.demo_users.get(token)
     if not user:
         raise HTTPException(
             status_code=401,
             detail={
                 "success": False,
-                "error": {"code": "UNAUTHORIZED", "message": "Invalid demo token."},
+                "error": {"code": "UNAUTHORIZED", "message": "Invalid token."},
             },
         )
     return CurrentUser(sub=user["sub"], name=user["name"], access_token=token)

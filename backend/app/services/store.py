@@ -1,9 +1,12 @@
 """Session, preference, and request storage backends."""
 from __future__ import annotations
 
+import json
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from time import monotonic
 
 from ..config import get_settings
 from .aws import get_aws_resource
@@ -88,27 +91,63 @@ class BaseStore:
 class MemoryStore(BaseStore):
     """Thread-safe in-memory store used for mock mode and tests."""
 
-    backend_name = "memory"
+    backend_name = "memory+file"
 
-    def __init__(self) -> None:
+    def __init__(self, storage_path: Path | None = None) -> None:
         self._items: dict[tuple[str, str], dict] = {}
         self._lock = threading.Lock()
         self._req_seq = 0
+        self._storage_path = storage_path
+        self._load()
 
     def put_item(self, item: dict) -> None:
         with self._lock:
             self._items[(item["PK"], item["SK"])] = item
+            self._flush()
 
     def get_item(self, pk: str, sk: str) -> dict | None:
-        return self._items.get((pk, sk))
+        with self._lock:
+            item = self._items.get((pk, sk))
+            return dict(item) if item else None
 
     def query_prefix(self, pk: str, sk_prefix: str) -> list[dict]:
-        return [v for (p, s), v in self._items.items() if p == pk and s.startswith(sk_prefix)]
+        with self._lock:
+            return [dict(v) for (p, s), v in self._items.items() if p == pk and s.startswith(sk_prefix)]
 
     def next_request_id(self) -> str:
         with self._lock:
             self._req_seq += 1
+            self._flush()
             return f"REQ-{datetime.now(TZ):%Y%m%d}-{self._req_seq:03d}"
+
+    def _load(self) -> None:
+        if not self._storage_path or not self._storage_path.exists():
+            return
+        try:
+            payload = json.loads(self._storage_path.read_text(encoding="utf-8"))
+        except Exception:
+            return
+
+        items = payload.get("items") or []
+        self._req_seq = int(payload.get("req_seq") or 0)
+        for item in items:
+            pk = item.get("PK")
+            sk = item.get("SK")
+            if pk and sk:
+                self._items[(pk, sk)] = item
+
+    def _flush(self) -> None:
+        if not self._storage_path:
+            return
+        self._storage_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "req_seq": self._req_seq,
+            "items": list(self._items.values()),
+        }
+        self._storage_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
 
 class DynamoDBStore(BaseStore):
@@ -139,6 +178,61 @@ class DynamoDBStore(BaseStore):
             start_key = response.get("LastEvaluatedKey")
             if not start_key:
                 return items
+
+
+class ResilientStore(BaseStore):
+    """Keep local demo flows working when DynamoDB is temporarily unavailable."""
+
+    backend_name = "local-file+best-effort-dynamodb"
+
+    def __init__(self, primary: BaseStore, fallback: BaseStore) -> None:
+        self._primary = primary
+        self._fallback = fallback
+        self._primary_disabled_until = 0.0
+        self._lock = threading.Lock()
+
+    def _primary_available(self) -> bool:
+        with self._lock:
+            return monotonic() >= self._primary_disabled_until
+
+    def _mark_primary_unavailable(self, cooldown_seconds: int = 300) -> None:
+        with self._lock:
+            self._primary_disabled_until = monotonic() + cooldown_seconds
+
+    def put_item(self, item: dict) -> None:
+        fallback_item = dict(item)
+        self._fallback.put_item(fallback_item)
+        if not self._primary_available():
+            return
+        try:
+            self._primary.put_item(item)
+        except Exception:
+            self._mark_primary_unavailable()
+            return
+
+    def get_item(self, pk: str, sk: str) -> dict | None:
+        item = self._fallback.get_item(pk, sk)
+        if item is not None:
+            return item
+        if not self._primary_available():
+            return None
+        try:
+            return self._primary.get_item(pk, sk)
+        except Exception:
+            self._mark_primary_unavailable()
+            return None
+
+    def query_prefix(self, pk: str, sk_prefix: str) -> list[dict]:
+        fallback_items = self._fallback.query_prefix(pk, sk_prefix)
+        if fallback_items:
+            return fallback_items
+        if not self._primary_available():
+            return []
+        try:
+            return self._primary.query_prefix(pk, sk_prefix)
+        except Exception:
+            self._mark_primary_unavailable()
+            return []
 
 
 def build_store() -> BaseStore:

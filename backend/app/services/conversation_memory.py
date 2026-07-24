@@ -378,6 +378,65 @@ class AgentCoreConversationMemory(BaseConversationMemory):
         return [f"/strategy/{strategy_id}/actors/{actor_id}/" for strategy_id in self._strategy_ids()]
 
 
+class ResilientConversationMemory(BaseConversationMemory):
+    backend_name = "agentcore+local-fallback"
+
+    def __init__(self, primary: BaseConversationMemory, fallback: BaseConversationMemory) -> None:
+        self.primary = primary
+        self.fallback = fallback
+
+    def create_session(self, actor_id: str, session_id: str, state: dict) -> dict:
+        return self.fallback.create_session(actor_id, session_id, state)
+
+    def get_session(self, actor_id: str, session_id: str) -> dict | None:
+        session = self.fallback.get_session(actor_id, session_id)
+        if session:
+            return session
+        try:
+            return self.primary.get_session(actor_id, session_id)
+        except Exception:
+            return None
+
+    def save_turn(self, actor_id: str, session_id: str, user_message: str, assistant_message: str, state: dict) -> None:
+        self.fallback.save_turn(actor_id, session_id, user_message, assistant_message, state)
+
+    def save_state(self, actor_id: str, session_id: str, state: dict) -> None:
+        self.fallback.save_state(actor_id, session_id, state)
+
+    def get_preferences(self, actor_id: str) -> dict:
+        prefs = self.fallback.get_preferences(actor_id)
+        if prefs:
+            return prefs
+        try:
+            return self.primary.get_preferences(actor_id)
+        except Exception:
+            return {}
+
+    def save_preferences(self, actor_id: str, prefs: dict) -> None:
+        self.fallback.save_preferences(actor_id, prefs)
+
+    def save_long_term_summary(self, actor_id: str, memory: dict) -> None:
+        self.fallback.save_long_term_summary(actor_id, memory)
+
+    def get_long_term_context(self, actor_id: str, query: str) -> str:
+        context = self.fallback.get_long_term_context(actor_id, query)
+        if context and context != "None":
+            return context
+        try:
+            return self.primary.get_long_term_context(actor_id, query)
+        except Exception:
+            return "None"
+
+    def get_memory_snapshot(self, actor_id: str) -> dict:
+        fallback_snapshot = self.fallback.get_memory_snapshot(actor_id)
+        if fallback_snapshot.get("preferences") or fallback_snapshot.get("long_term_memory"):
+            return fallback_snapshot
+        try:
+            return self.primary.get_memory_snapshot(actor_id)
+        except Exception:
+            return fallback_snapshot
+
+
 def build_conversation_memory() -> BaseConversationMemory:
     settings = get_settings()
     if settings.use_agentcore_memory:

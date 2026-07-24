@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     session_id: str = Field(min_length=8)
     message: str = Field(min_length=1, max_length=1000)
+    current_page_id: str | None = Field(default=None, max_length=64)
 
 
 class FormUpdateRequest(BaseModel):

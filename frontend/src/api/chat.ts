@@ -7,9 +7,9 @@ export function createSession() {
   });
 }
 
-export function sendMessage(sessionId: string, message: string) {
+export function sendMessage(sessionId: string, message: string, currentPageId?: string) {
   return api<ChatResponse>("/api/chat", {
     method: "POST",
-    body: JSON.stringify({ session_id: sessionId, message }),
+    body: JSON.stringify({ session_id: sessionId, message, current_page_id: currentPageId ?? null }),
   });
 }

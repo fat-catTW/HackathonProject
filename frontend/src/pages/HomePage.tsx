@@ -1,149 +1,93 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { listRequests } from "../api/requests";
+import { ButlerLauncher } from "../components/ButlerLauncher";
 import { Mascot } from "../components/Mascot";
-import { RequestCard } from "../components/RequestCard";
-import { ServiceIcon, type ServiceIconType } from "../components/ServiceIcon";
+import { ServiceIcon } from "../components/ServiceIcon";
+import { SERVICES } from "../data/services";
 import { useAuth } from "../hooks/useAuth";
-import type { RequestListItem } from "../types/request";
-
-const QUICK_SERVICES: { name: string; icon: ServiceIconType }[] = [
-  { name: "冷氣清潔", icon: "aircon" },
-  { name: "水電維修", icon: "plumbing" },
-  { name: "家電安裝", icon: "appliance" },
-  { name: "居家清潔", icon: "cleaning" },
-  { name: "除蟲", icon: "pest" },
-  { name: "搬家", icon: "moving" },
-];
-
-const STATUS_ORDER: Record<string, number> = {
-  SUBMITTED: 0, PENDING_PROVIDER: 0, CONFIRMED: 1, IN_PROGRESS: 1, COMPLETED: 2, CANCELLED: 3, FAILED: 3,
-};
 
 export function HomePage() {
   const { name, logout } = useAuth();
   const navigate = useNavigate();
-  const [items, setItems] = useState<RequestListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showPicker, setShowPicker] = useState(false);
-
-  useEffect(() => {
-    listRequests()
-      .then((r) =>
-        setItems(
-          [...r.items].sort(
-            (a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9),
-          ),
-        ),
-      )
-      .catch(() => navigate("/login"))
-      .finally(() => setLoading(false));
-  }, [navigate]);
-
-  function startChat(autoMessage?: string) {
-    navigate("/new", { state: autoMessage ? { autoMessage } : undefined });
-  }
 
   return (
-    <main className="mx-auto max-w-md bg-canvas px-5 pb-16 pt-10">
-      <header className="flex items-center gap-3.5">
-        <button
-          type="button"
-          onClick={() => {
-            logout();
-            navigate("/login");
-          }}
-          aria-label="登出"
-          className="flex-none text-gray-500"
-        >
-          <ServiceIcon type="back" size={22} />
-        </button>
-        <Mascot size={50} />
-        <div>
-          <h1 className="text-2xl font-black">您好，{name}</h1>
-          <p className="mt-1 text-lg text-gray-500">今天需要什麼協助？</p>
-        </div>
-      </header>
-
-      <div className="relative mt-8 overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-dark p-8 text-center shadow-lg">
-        <button
-          type="button"
-          onClick={() => startChat()}
-          aria-label="點擊，說出您的需求"
-          className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border-4 border-white/50 bg-paper2"
-        >
-          <Mascot size={64} />
-        </button>
-        <div className="mt-4 text-lg font-bold text-white">點擊並說出需求</div>
-        <div className="mt-1.5 text-sm leading-relaxed text-white/75">
-          例如：「我要預約明天下午洗兩台冷氣」
-        </div>
-        <button
-          type="button"
-          onClick={() => startChat()}
-          className="mt-5 w-full rounded-2xl bg-paper2 py-4 text-base font-bold text-brand-dark"
-        >
-          直接輸入文字說明需求
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowPicker(true)}
-          className="mt-3.5 inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-accent/60 bg-accent/20 px-4.5 py-2 text-sm font-bold text-white"
-        >
-          <ServiceIcon type="appliance" size={16} />
-          常見服務快速選
-        </button>
-      </div>
-
-      {showPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,25,40,0.45)] p-6">
-          <button
-            type="button"
-            aria-label="關閉"
-            onClick={() => setShowPicker(false)}
-            className="absolute inset-0"
-          />
-          <div className="relative w-full max-w-[360px] rounded-2xl bg-white p-5.5 shadow-xl">
-            <div className="mb-3.5 flex items-center justify-between">
-              <span className="text-lg font-black">選擇常見服務</span>
-              <button type="button" onClick={() => setShowPicker(false)} className="text-gray-400">
-                <ServiceIcon type="close" size={22} />
-              </button>
+    <>
+      <main className="mx-auto min-h-dvh max-w-md bg-[#eef3f9] px-5 pb-32 pt-8">
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+              <Mascot size={36} />
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              {QUICK_SERVICES.map((s) => (
-                <button
-                  key={s.name}
-                  type="button"
-                  onClick={() => {
-                    setShowPicker(false);
-                    startChat(s.name);
-                  }}
-                  className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-canvas px-3.5 py-3.5 text-left text-sm font-bold"
-                >
-                  <span className="flex-none text-brand"><ServiceIcon type={s.icon} size={20} /></span>
-                  {s.name}
-                </button>
-              ))}
+            <div>
+              <p className="text-sm font-semibold text-brand">你好，{name}</p>
+              <h1 className="mt-0.5 text-2xl font-black text-slate-900">今天想使用什麼服務？</h1>
             </div>
           </div>
-        </div>
-      )}
+          <button
+            type="button"
+            onClick={() => {
+              logout();
+              navigate("/login");
+            }}
+            aria-label="登出"
+            className="rounded-full bg-white px-4 py-2 text-sm font-bold text-gray-500 shadow-sm transition hover:text-brand"
+          >
+            登出
+          </button>
+        </header>
 
-      <section className="mt-10">
-        <h2 className="text-lg font-bold">我的服務</h2>
-        <div className="mt-4 space-y-3.5">
-          {loading && <p className="text-gray-400">載入中⋯</p>}
-          {!loading && items.length === 0 && (
-            <p className="rounded-2xl border border-dashed border-gray-300 p-6 text-center text-gray-400">
-              還沒有服務案件。點上方按鈕，說出您的需求開始。
-            </p>
-          )}
-          {items.map((item) => (
-            <RequestCard key={item.request_id} item={item} />
-          ))}
-        </div>
-      </section>
-    </main>
+        <section className="mt-8 overflow-hidden rounded-[32px] bg-gradient-to-br from-brand to-brand-dark p-6 text-white shadow-[0_24px_60px_rgba(15,76,129,0.22)]">
+          <p className="text-sm font-semibold tracking-wide text-white/75">服務首頁</p>
+          <h2 className="mt-2 text-2xl font-black">選擇你需要的到府服務</h2>
+          <p className="mt-3 text-sm leading-7 text-white/78">
+            目前提供水電修繕、洗衣機清洗、冷氣清洗與居家清潔。你可以直接點選卡片填單，也可以用下方
+            AI 管家協助整理需求。
+          </p>
+        </section>
+
+        <section className="mt-8">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-black text-slate-900">目前所有服務</h2>
+            <span className="text-sm font-medium text-slate-500">展示中</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {SERVICES.map((service) => (
+              <button
+                key={service.service_id}
+                type="button"
+                onClick={() => navigate(`/services/${service.service_id}`)}
+                className="rounded-[24px] border border-white bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+                  <ServiceIcon type={service.icon} size={24} />
+                </span>
+                <p className="mt-4 text-lg font-black text-slate-900">{service.title}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-500">{service.subtitle}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-8">
+          <button
+            type="button"
+            onClick={() => navigate("/my-services")}
+            className="flex w-full items-center justify-between rounded-[28px] border border-white bg-white px-5 py-5 text-left shadow-sm transition hover:border-brand/15"
+          >
+            <div className="flex items-center gap-4">
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+                <ServiceIcon type="chat" size={24} />
+              </span>
+              <div>
+                <p className="text-lg font-black text-slate-900">我的服務</p>
+                <p className="mt-1 text-sm text-slate-500">查看已建立的服務需求與案件進度</p>
+              </div>
+            </div>
+            <ServiceIcon type="chevronRight" size={20} className="text-slate-400" />
+          </button>
+        </section>
+      </main>
+
+      <ButlerLauncher currentPageId="home" />
+    </>
   );
 }

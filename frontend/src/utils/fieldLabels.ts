@@ -31,7 +31,6 @@ export interface FieldRow {
   value: string;
 }
 
-/** 把後端回傳的 collected_fields／form_data 轉成畫面顯示用的列表。 */
 export function buildFieldRows(collected: Record<string, string | number>): FieldRow[] {
   return Object.entries(collected).map(([key, value]) => ({
     key,

@@ -58,6 +58,7 @@ def chat(body: ChatRequest, user: CurrentUser = Depends(get_current_user)):
         session["state"],
         body.message,
         session["events"],
+        current_page_id=body.current_page_id,
         auth_token=user.access_token,
     )
     MEMORY.save_turn(user.sub, body.session_id, body.message, result["reply"], result["state"])

@@ -59,4 +59,7 @@ def get_aws_client(service_name: str):
 
 def get_aws_resource(service_name: str):
     settings = get_settings()
-    return get_boto3_session().resource(service_name, region_name=settings.aws_region)
+    kwargs = {"region_name": settings.aws_region}
+    if Config is not None:
+        kwargs["config"] = Config(read_timeout=3, connect_timeout=1, retries={"max_attempts": 0})
+    return get_boto3_session().resource(service_name, **kwargs)

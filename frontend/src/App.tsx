@@ -3,8 +3,10 @@ import { useAuth } from "./hooks/useAuth";
 import { HomePage } from "./pages/HomePage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
+import { MyServicesPage } from "./pages/MyServicesPage";
 import { NewRequestPage } from "./pages/NewRequestPage";
 import { RequestDetailPage } from "./pages/RequestDetailPage";
+import { ServiceFormPage } from "./pages/ServiceFormPage";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { isLoggedIn } = useAuth();
@@ -17,6 +19,8 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/home" element={<Protected><HomePage /></Protected>} />
+      <Route path="/my-services" element={<Protected><MyServicesPage /></Protected>} />
+      <Route path="/services/:serviceId" element={<Protected><ServiceFormPage /></Protected>} />
       <Route path="/new" element={<Protected><NewRequestPage /></Protected>} />
       <Route
         path="/requests/:requestId"

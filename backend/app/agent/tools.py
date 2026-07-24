@@ -103,7 +103,13 @@ def _dynamodb_list_services(_: dict) -> dict:
     try:
         items = _load_catalog_from_dynamodb()
         if not items:
-            return _embedded_list_services({})
+            return {
+                "success": False,
+                "error": {
+                    "code": "SERVICE_CATALOG_UNAVAILABLE",
+                    "message": "No enabled services were found in DynamoDB.",
+                },
+            }
         services = [
             {
                 "id": item["PK"].split("#", 1)[1],
@@ -138,7 +144,10 @@ def _dynamodb_get_service_schema(params: dict) -> dict:
     try:
         service = _load_service_from_dynamodb(service_id)
         if not service:
-            return _embedded_get_service_schema(params)
+            return {
+                "success": False,
+                "error": {"code": "SERVICE_NOT_FOUND", "message": "Service was not found."},
+            }
         return {
             "success": True,
             "service_id": service["id"],
@@ -156,7 +165,7 @@ def _dynamodb_submit_service_request(params: dict) -> dict:
     service_id = params.get("service_id", "")
     payload = params.get("payload") or {}
     try:
-        service = _load_service_from_dynamodb(service_id) or catalog.get_service(service_id)
+        service = _load_service_from_dynamodb(service_id)
         if not service:
             return {
                 "success": False,
@@ -297,6 +306,7 @@ def _parse_mcp_result(payload: dict) -> dict:
 
     content = result.get("content")
     if isinstance(content, list):
+        text_fragments: list[str] = []
         for item in content:
             if not isinstance(item, dict):
                 continue
@@ -315,11 +325,43 @@ def _parse_mcp_result(payload: dict) -> dict:
                     if "success" not in body:
                         body["success"] = not bool(result.get("isError"))
                     return body
+            text = item.get("text")
+            if isinstance(text, str) and text.strip():
+                text_fragments.append(text.strip())
+
+        if text_fragments and result.get("isError"):
+            return {
+                "success": False,
+                "error": {
+                    "code": "TOOL_INVOCATION_FAILED",
+                    "message": " ".join(text_fragments),
+                },
+            }
 
     return {
         "success": not bool(result.get("isError")),
         "mcp_result": result,
     }
+
+
+def _fallback_tool_call(tool_name: str, params: dict) -> dict:
+    settings = get_settings()
+
+    if settings.lambda_tooling_enabled:
+        return _invoke_lambda(tool_name, params)
+
+    if not settings.use_mock:
+        fn = _DYNAMODB_TOOLS.get(tool_name)
+        if fn:
+            return fn(params)
+
+    fn = _EMBEDDED_TOOLS.get(tool_name)
+    if not fn:
+        return {
+            "success": False,
+            "error": {"code": "TOOL_INVOCATION_FAILED", "message": f"Unknown tool: {tool_name}"},
+        }
+    return fn(params)
 
 
 def _invoke_mcp_gateway(tool_name: str, params: dict, auth_token: str | None) -> dict:

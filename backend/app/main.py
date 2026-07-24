@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .agent import llm
-from .api import auth, chat, requests, sessions
+from .api import auth, chat, requests, services, sessions
 from .config import get_settings
 from .services.aws import has_aws_credentials
 from .services.conversation_memory import MEMORY
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(sessions.router)
 app.include_router(chat.router)
+app.include_router(services.router)
 app.include_router(requests.router)
 
 

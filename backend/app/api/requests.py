@@ -52,10 +52,11 @@ def list_requests(user: CurrentUser = Depends(get_current_user)):
 @router.get("/api/requests/{request_id}")
 def get_request(request_id: str, user: CurrentUser = Depends(get_current_user)):
     request = _get_or_404(user.sub, request_id)
-    session = MEMORY.get_session(user.sub, request.get("session_id") or "")
+    session_id = request.get("session_id")
+    session = MEMORY.get_session(user.sub, session_id) if session_id else None
     return {
         "request_id": request["request_id"],
-        "session_id": request.get("session_id"),
+        "session_id": session_id,
         "service_id": request["service_id"],
         "service_name": request["service_name"],
         "status": request["status"],

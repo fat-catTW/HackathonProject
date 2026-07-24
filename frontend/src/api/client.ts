@@ -1,5 +1,6 @@
 const TOKEN_KEY = "assistant_token";
 const NAME_KEY = "assistant_name";
+const API_BASE_URL = "";
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -27,7 +28,7 @@ export class ApiError extends Error {
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",

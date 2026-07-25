@@ -7,3 +7,8 @@ dist/
 .DS_Store
 .venv/
 *.tsbuildinfo
+.pytest_cache/
+
+# 本機執行產物（各自機器不同，不進版控）
+*.log
+backend/.local-store.json

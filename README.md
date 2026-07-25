@@ -36,7 +36,6 @@ npm run dev                          # http://localhost:5173
 - 長期記憶偏好：沿用上次地址／電話／偏好時段（需使用者同意才套用）
 - 案件 CRUD、狀態流轉（含 Demo 模擬廠商確認／完工）
 - 多使用者資料隔離（PK=USER#actorId）
-- 單元測試 11 項（backend/tests，`pytest backend/tests`）
 
 ## 專案結構
 ```

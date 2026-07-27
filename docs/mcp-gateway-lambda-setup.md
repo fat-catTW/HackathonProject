@@ -1,10 +1,12 @@
 # MCP Gateway Lambda Setup
 
-This project exposes three MCP tool handlers through AWS Lambda:
+This project exposes five MCP tool handlers through AWS Lambda:
 
 - `list_services`
 - `get_service_schema`
 - `submit_service_request`
+- `get_page_context`
+- `search_pages`
 
 ## 1. Build Lambda zip files
 
@@ -20,14 +22,18 @@ This creates:
 - `lambda_tools/dist/list_services.zip`
 - `lambda_tools/dist/get_service_schema.zip`
 - `lambda_tools/dist/submit_service_request.zip`
+- `lambda_tools/dist/get_page_context.zip`
+- `lambda_tools/dist/search_pages.zip`
 
 ## 2. Create the Lambda functions
 
-In AWS Lambda Console, create three Python 3.12 functions in `ap-northeast-1`:
+In AWS Lambda Console, create five Python 3.12 functions in `ap-northeast-1`:
 
 - `list_services`
 - `get_service_schema`
 - `submit_service_request`
+- `get_page_context`
+- `search_pages`
 
 Upload the matching zip file to each function.
 
@@ -59,6 +65,14 @@ After the Gateway is created, add three Lambda targets:
    Lambda: `submit_service_request`
    Tool schema: `lambda_tools/tool_schemas/submit_service_request.json`
 
+4. Target name: `page_ctx`
+   Lambda: `get_page_context`
+   Tool schema: `lambda_tools/tool_schemas/get_page_context.json`
+
+5. Target name: `page_search`
+   Lambda: `search_pages`
+   Tool schema: `lambda_tools/tool_schemas/search_pages.json`
+
 Use outbound auth:
 
 - `GATEWAY_IAM_ROLE`
@@ -73,6 +87,8 @@ AGENTCORE_GATEWAY_URL=https://<gateway-id>.gateway.bedrock-agentcore.ap-northeas
 MCP_LIST_SERVICES_TOOL_NAME=svc_list___list_services
 MCP_GET_SERVICE_SCHEMA_TOOL_NAME=svc_schema___get_service_schema
 MCP_SUBMIT_SERVICE_REQUEST_TOOL_NAME=svc_submit___submit_service_request
+MCP_GET_PAGE_CONTEXT_TOOL_NAME=page_ctx___get_page_context
+MCP_SEARCH_PAGES_TOOL_NAME=page_search___search_pages
 ```
 
 Tool names are prefixed by the target name in AgentCore Gateway:

@@ -8,7 +8,13 @@ from ..config import get_settings
 from ..services import catalog
 from ..services.conversation_memory import MEMORY
 from . import llm, nlu, tools
-from .page_help import answer_page_question
+from .page_help import (
+    answer_page_question,
+    build_page_tool_request,
+    looks_like_page_question,
+)
+
+DECIMAL_NUMBER_RE = re.compile(r"\d+\.\d+")
 
 CONFIRM_WORDS = ("確認", "確定", "好", "可以", "沒問題", "送出", "ok", "OK", "yes", "Yes")
 DENY_WORDS = ("不要", "不用", "取消", "改一下", "先不要", "no", "No")
@@ -47,8 +53,6 @@ SELECT_DISPLAY_NAMES = {
     "FRONT_LOAD": "滾筒式",
 }
 
-SERVICE_ISSUE_HINT_RE = re.compile(r"水電|漏水|插座|燈具|冷氣|洗衣機|清洗|清潔|打掃|維修")
-NUMERIC_HINT_RE = re.compile(r"\d|[一二兩三四五六七八九十]")
 RULE_SERVICE_KEYWORDS = (
     ("plumbing_repair", ("水電", "修繕", "漏水", "插座", "燈具", "浴室", "維修")),
     ("washing_machine_cleaning", ("洗衣機", "清洗", "滾筒式", "直立式", "內槽")),
@@ -336,35 +340,18 @@ def _normalize_select(raw_value: str, options: list[str]) -> str | None:
     return None
 
 
-def _has_field_evidence(field_id: str, text: str) -> bool:
-    if field_id in {"quantity", "hours"}:
-        return bool(NUMERIC_HINT_RE.search(text))
-    if field_id == "preferred_date":
-        return nlu.parse_date(text, today=date.today()) is not None
-    if field_id == "preferred_time_slot":
-        return nlu.parse_time_slot(text) is not None
-    if field_id == "phone":
-        return nlu.parse_phone(text) is not None
-    if field_id == "address":
-        return nlu.parse_address(text) is not None
-    if field_id == "machine_type":
-        return nlu.parse_machine_type(text) is not None
-    if field_id == "issue_description":
-        return len(text.strip()) >= 2
-    return True
-
-
 def _normalize_field_value(field: dict, value, original_text: str):
     field_id = field["id"]
     if value in (None, ""):
         return None
 
     if field["type"] == "number":
+        if DECIMAL_NUMBER_RE.search(str(value)) or DECIMAL_NUMBER_RE.search(original_text):
+            return None
         if isinstance(value, int):
             return value if value > 0 else None
         if isinstance(value, float):
-            integer = int(value)
-            return integer if integer > 0 else None
+            return int(value) if value > 0 and float(value).is_integer() else None
         if field_id == "hours":
             return nlu.parse_hours(str(value)) or nlu.parse_hours(original_text)
         return (
@@ -463,27 +450,9 @@ def _extract_fields(actor_id: str, state: dict, text: str, events: list[dict] | 
         field_id = field["id"]
         if field_id in state["collected_fields"] or field_id not in llm_fields:
             continue
-        if not _has_field_evidence(field_id, text):
-            continue
         normalized = _normalize_field_value(field, llm_fields[field_id], text)
         if normalized is not None:
             found[field_id] = normalized
-
-    for field_id, value in nlu.extract_fields(
-        state["service_id"],
-        fields,
-        text,
-        state["collected_fields"],
-    ).items():
-        found.setdefault(field_id, value)
-
-    field_ids = {field["id"] for field in fields}
-    if state["missing_fields"] and state["missing_fields"][0] == "issue_description":
-        if "issue_description" not in found and len(text.strip()) >= 2:
-            found["issue_description"] = text
-    elif "issue_description" in field_ids and "issue_description" not in state["collected_fields"]:
-        if SERVICE_ISSUE_HINT_RE.search(text):
-            found.setdefault("issue_description", text)
 
     return found
 
@@ -606,6 +575,42 @@ def _looks_like_new_service_request(text: str) -> bool:
     return any(hint in text for hint in hints)
 
 
+def _page_help_reply(text: str, current_page_id: str | None, auth_token: str | None) -> str | None:
+    tool_request = build_page_tool_request(text, current_page_id=current_page_id)
+    tool_payload: dict | None = None
+
+    if tool_request:
+        tool_name, params = tool_request
+        result = tools.call(tool_name, params, auth_token=auth_token)
+        if result.get("success"):
+            tool_payload = result
+
+    if tool_payload and llm.is_available():
+        llm_reply = llm.compose_page_help_reply(
+            latest_user_message=text,
+            current_page_id=current_page_id or "",
+            tool_payload=tool_payload,
+        )
+        if llm_reply:
+            return llm_reply
+
+    return answer_page_question(text, current_page_id=current_page_id, tool_payload=tool_payload)
+
+
+def _invalid_number_field_message(state: dict, latest_user_message: str) -> str | None:
+    if not DECIMAL_NUMBER_RE.search(latest_user_message):
+        return None
+    missing_fields = state.get("missing_fields") or []
+    if not missing_fields:
+        return None
+    field_id = missing_fields[0]
+    if field_id == "quantity":
+        return "數量需要填整數，例如 1 台或 2 台，不能填 0.1 台。"
+    if field_id == "hours":
+        return "時數需要填整數，例如 2 小時或 3 小時，不能填 0.5 小時。"
+    return None
+
+
 def handle_message(
     actor_id: str,
     session_id: str,
@@ -617,7 +622,10 @@ def handle_message(
 ) -> dict:
     text = message.strip()
 
-    page_reply = answer_page_question(text, current_page_id=current_page_id)
+    page_reply = _page_help_reply(text, current_page_id=current_page_id, auth_token=auth_token) if looks_like_page_question(
+        text,
+        current_page_id=current_page_id,
+    ) else None
     if page_reply:
         return _reply(state, page_reply)
 
@@ -760,6 +768,9 @@ def _continue_collection(actor_id: str, state: dict, latest_user_message: str = 
         state["status"] = "COLLECTING_INFORMATION"
         field = next(item for item in fields if item["id"] == state["missing_fields"][0])
         question = _build_field_question(field)
+        invalid_message = _invalid_number_field_message(state, latest_user_message)
+        if invalid_message:
+            return _reply(state, f"{invalid_message}\n{question}")
         return _reply(
             state,
             _model_reply(

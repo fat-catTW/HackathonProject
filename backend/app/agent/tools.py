@@ -10,6 +10,7 @@ from ..config import get_settings
 from ..services import catalog
 from ..services.aws import get_aws_client, get_aws_resource
 from ..services.store import STORE, now_iso
+from .page_catalog import load_page, search_pages
 
 
 def _validate_payload(fields: list[dict], payload: dict) -> list[str]:
@@ -78,6 +79,36 @@ def _embedded_submit_service_request(params: dict) -> dict:
             },
         }
     return _save_request(params["actor_id"], params.get("session_id"), service, payload)
+
+
+def _embedded_get_page_context(params: dict) -> dict:
+    page_id = str(params.get("page_id") or "").strip()
+    if not page_id:
+        return {
+            "success": False,
+            "error": {"code": "INVALID_PAGE_REQUEST", "message": "page_id is required."},
+        }
+    page = load_page(page_id)
+    if not page:
+        return {
+            "success": False,
+            "error": {"code": "PAGE_NOT_FOUND", "message": f"Unknown page_id: {page_id}"},
+        }
+    return {"success": True, "page": page}
+
+
+def _embedded_search_pages(params: dict) -> dict:
+    query = str(params.get("query") or "").strip()
+    if not query:
+        return {
+            "success": False,
+            "error": {"code": "INVALID_PAGE_REQUEST", "message": "query is required."},
+        }
+    current_page_id = str(params.get("current_page_id") or "").strip() or None
+    return {
+        "success": True,
+        "matches": search_pages(query, current_page_id=current_page_id),
+    }
 
 
 def _load_catalog_from_dynamodb() -> list[dict]:
@@ -195,6 +226,8 @@ def _invoke_lambda(tool_name: str, params: dict) -> dict:
         "list_services": settings.list_services_lambda_name,
         "get_service_schema": settings.get_service_schema_lambda_name,
         "submit_service_request": settings.submit_service_request_lambda_name,
+        "get_page_context": settings.get_page_context_lambda_name,
+        "search_pages": settings.search_pages_lambda_name,
     }
     function_name = function_names.get(tool_name)
     if not function_name:
@@ -246,6 +279,8 @@ def _gateway_tool_name(tool_name: str) -> str:
         "list_services": settings.mcp_list_services_tool_name,
         "get_service_schema": settings.mcp_get_service_schema_tool_name,
         "submit_service_request": settings.mcp_submit_service_request_tool_name,
+        "get_page_context": settings.mcp_get_page_context_tool_name,
+        "search_pages": settings.mcp_search_pages_tool_name,
     }
     return names.get(tool_name, tool_name)
 
@@ -414,6 +449,8 @@ _EMBEDDED_TOOLS = {
     "list_services": _embedded_list_services,
     "get_service_schema": _embedded_get_service_schema,
     "submit_service_request": _embedded_submit_service_request,
+    "get_page_context": _embedded_get_page_context,
+    "search_pages": _embedded_search_pages,
 }
 
 _DYNAMODB_TOOLS = {

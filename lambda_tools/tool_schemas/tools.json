@@ -59,6 +59,70 @@
     }
   },
   {
+    "name": "get_page_context",
+    "description": "Get structured knowledge for a specific app page.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "page_id": {
+          "type": "string",
+          "description": "Page id such as home, service_form, or request_detail."
+        }
+      },
+      "required": [
+        "page_id"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "page": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "success"
+      ]
+    }
+  },
+  {
+    "name": "search_pages",
+    "description": "Search relevant app pages by a user question.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "User question about app pages or navigation."
+        },
+        "current_page_id": {
+          "type": "string",
+          "description": "Optional current page id."
+        }
+      },
+      "required": [
+        "query"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "matches": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "success"
+      ]
+    }
+  },
+  {
     "name": "submit_service_request",
     "description": "Submit a completed service request form.",
     "inputSchema": {

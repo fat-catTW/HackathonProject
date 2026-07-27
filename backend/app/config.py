@@ -45,6 +45,8 @@ class Settings:
     list_services_lambda_name: str = os.getenv("LIST_SERVICES_LAMBDA_NAME", "")
     get_service_schema_lambda_name: str = os.getenv("GET_SERVICE_SCHEMA_LAMBDA_NAME", "")
     submit_service_request_lambda_name: str = os.getenv("SUBMIT_SERVICE_REQUEST_LAMBDA_NAME", "")
+    get_page_context_lambda_name: str = os.getenv("GET_PAGE_CONTEXT_LAMBDA_NAME", "")
+    search_pages_lambda_name: str = os.getenv("SEARCH_PAGES_LAMBDA_NAME", "")
 
     # AgentCore integration.
     agentcore_runtime_arn: str = os.getenv("AGENTCORE_RUNTIME_ARN", "")
@@ -56,6 +58,8 @@ class Settings:
     mcp_list_services_tool_name: str = os.getenv("MCP_LIST_SERVICES_TOOL_NAME", "list_services")
     mcp_get_service_schema_tool_name: str = os.getenv("MCP_GET_SERVICE_SCHEMA_TOOL_NAME", "get_service_schema")
     mcp_submit_service_request_tool_name: str = os.getenv("MCP_SUBMIT_SERVICE_REQUEST_TOOL_NAME", "submit_service_request")
+    mcp_get_page_context_tool_name: str = os.getenv("MCP_GET_PAGE_CONTEXT_TOOL_NAME", "get_page_context")
+    mcp_search_pages_tool_name: str = os.getenv("MCP_SEARCH_PAGES_TOOL_NAME", "search_pages")
 
     demo_users: dict = field(
         default_factory=lambda: {

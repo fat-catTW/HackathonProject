@@ -22,13 +22,15 @@ _SERVICE_SYSTEM = (
 )
 
 _FIELD_SYSTEM = (
-    "You update a JSON booking form for a Taiwanese home services assistant. "
-    "Use only the provided field ids. "
+    "You fill a JSON booking form for a Taiwanese home services assistant. "
+    "Use only the provided field ids from the current form schema. "
     "Read the current form schema and current form draft before deciding updates. "
-    "For select fields, return one of the exact option values when possible. "
+    "Your job is to interpret the latest user message and write only the form fields the user is providing or correcting. "
+    "For select fields, return one of the exact option values whenever possible. "
     "For dates, prefer YYYY-MM-DD. "
-    "If a value is not clearly present in the latest user message, omit it. "
+    "If the latest user message is not giving field values, return an empty object. "
     "Do not overwrite an existing value unless the user clearly changes it. "
+    "Do not answer questions or explain anything outside the JSON. "
     "Return JSON only in the format {\"fields\": { ... }}."
 )
 
@@ -39,6 +41,19 @@ _REPLY_SYSTEM = (
     "If asking for information, ask for only one next thing at a time. "
     "Do not invent booking details, prices, or promises. "
     "Return JSON only in the format {\"reply\": string}."
+)
+
+_PAGE_HELP_SYSTEM = (
+    "You are a warm Taiwanese app navigation assistant speaking Traditional Chinese. "
+    "Answer only with facts provided in the tool payload. "
+    "Choose the single best target page from the tool payload before writing the reply. "
+    "If the user asks where to apply, book, fill, or manually submit a service request, prefer a service-specific form page over a generic home page whenever the payload supports it. "
+    "If the current page is already the best page, say the user can continue there. "
+    "If the target page is different, explain the shortest useful path in 1-3 steps. "
+    "Mention the chosen page title explicitly. "
+    "Do not invent UI elements, routes, or actions that are not in the payload. "
+    "Do not mention internal relevance scores or backend logic. "
+    "Return JSON only in the format {\"target_page_id\": string|null, \"reply\": string}."
 )
 
 
@@ -199,6 +214,29 @@ def compose_reply(
     }
     payload = _converse_json(
         _REPLY_SYSTEM,
+        json.dumps(prompt_payload, ensure_ascii=False, indent=2),
+        max_tokens=320,
+    )
+    if not payload:
+        return None
+    reply = payload.get("reply")
+    return reply.strip() if isinstance(reply, str) and reply.strip() else None
+
+
+def compose_page_help_reply(
+    *,
+    latest_user_message: str,
+    current_page_id: str = "",
+    tool_payload: dict | None = None,
+) -> str | None:
+    prompt_payload = {
+        "today": date.today().isoformat(),
+        "latest_user_message": latest_user_message,
+        "current_page_id": current_page_id or "",
+        "tool_payload": tool_payload or {},
+    }
+    payload = _converse_json(
+        _PAGE_HELP_SYSTEM,
         json.dumps(prompt_payload, ensure_ascii=False, indent=2),
         max_tokens=320,
     )

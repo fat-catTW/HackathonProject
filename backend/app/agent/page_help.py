@@ -1,346 +1,220 @@
-"""Deterministic page help and app navigation guidance."""
+"""Page guidance helpers backed by shared page knowledge."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class PageInfo:
-    title: str
-    aliases: tuple[str, ...]
-    description: str
-    features: tuple[str, ...]
-    navigation_hint: str
-
-
-PAGE_CATALOG: dict[str, PageInfo] = {
-    "landing": PageInfo(
-        title="首頁",
-        aliases=("首頁", "開場頁", "landing", "landing page"),
-        description="這是應用程式的入口頁，會先介紹 AI 管家和目前提供的主要服務。",
-        features=(
-            "快速了解這個 app 在做什麼",
-            "前往登入頁開始使用",
-        ),
-        navigation_hint="如果你想開始使用，下一步可以先前往登入頁。",
-    ),
-    "login": PageInfo(
-        title="登入頁",
-        aliases=("登入", "登入頁", "login", "sign in"),
-        description="這裡用來登入系統，登入後才會進到服務首頁。",
-        features=(
-            "輸入帳號資料登入",
-            "使用 Demo 帳號快速體驗",
-        ),
-        navigation_hint="登入完成後，系統會帶你進到服務首頁。",
-    ),
-    "home": PageInfo(
-        title="服務首頁",
-        aliases=("服務首頁", "首頁", "主頁", "home"),
-        description="這裡會列出目前所有服務入口，也可以從底部開啟 AI 管家浮層。",
-        features=(
-            "查看目前提供的服務卡片",
-            "進入我的服務頁查看案件",
-            "從底部打開 AI 管家詢問或建立需求",
-        ),
-        navigation_hint="如果你想直接申請服務，可以點服務卡片；如果想先問問題，就按底部的 AI 管家。",
-    ),
-    "my_services": PageInfo(
-        title="我的服務",
-        aliases=("我的服務", "服務紀錄", "我的案件", "案件進度"),
-        description="這裡會列出你已經送出的服務案件，包含目前狀態與更新時間。",
-        features=(
-            "查看所有已送出的案件",
-            "點進單一案件看詳情",
-            "追蹤目前案件進度",
-        ),
-        navigation_hint="如果你想追蹤案件進度，可以從這裡點進每一筆服務。",
-    ),
-    "assistant": PageInfo(
-        title="AI 管家",
-        aliases=("AI 管家", "管家", "助手", "聊天視窗", "assistant"),
-        description="AI 管家會協助你介紹頁面、引導操作、整理需求，並在資料齊全時協助建立服務案件。",
-        features=(
-            "介紹你目前所在頁面的功能",
-            "告訴你其他頁面要怎麼找到",
-            "幫你整理服務需求並引導填資料",
-        ),
-        navigation_hint="每個頁面底部都能看到啟動 AI 管家的按鈕，點下去就會打開。",
-    ),
-    "service_form": PageInfo(
-        title="服務表單頁",
-        aliases=("服務表單", "表單頁", "申請表單", "預約表單", "填單頁", "service form"),
-        description="這裡是手動填寫服務需求的頁面，使用者可以直接輸入資料並送出案件。",
-        features=(
-            "填寫服務需求欄位",
-            "確認聯絡資訊與地址",
-            "送出新的服務案件",
-        ),
-        navigation_hint="從首頁點任一服務卡片，就會進入對應的服務表單。",
-    ),
-    "request_detail": PageInfo(
-        title="案件詳情頁",
-        aliases=("案件詳情", "服務詳情", "訂單詳情", "單筆案件", "request detail"),
-        description="這裡會顯示單一案件的詳細資料、欄位內容、狀態與對話紀錄。",
-        features=(
-            "查看案件完整內容",
-            "確認最新狀態與更新時間",
-            "查看和 AI 管家的相關對話紀錄",
-        ),
-        navigation_hint="先進入我的服務，再點其中一筆案件，就能查看案件詳情。",
-    ),
-}
-
-NAVIGATION_RULES: tuple[dict[str, object], ...] = (
-    {
-        "target_page_id": "my_services",
-        "keywords": ("我的服務", "服務紀錄", "我的案件", "案件進度", "已送出的服務", "案件"),
-        "reply": "如果你想查看已送出的案件和進度，可以到「我的服務」。",
-    },
-    {
-        "target_page_id": "assistant",
-        "keywords": ("AI 管家", "管家", "助手", "聊天視窗"),
-        "reply": "如果你想用聊天方式問功能、整理需求或建立服務，可以打開 AI 管家。",
-    },
-    {
-        "target_page_id": "request_detail",
-        "keywords": ("案件詳情", "服務詳情", "訂單詳情", "單筆案件"),
-        "reply": "如果你想看某一筆案件的完整內容，可以先進入我的服務，再點進對應案件。",
-    },
-    {
-        "target_page_id": "service_form",
-        "keywords": ("服務表單", "申請表單", "預約表單", "填單頁", "手動填表"),
-        "reply": "如果你想自己手動填資料送出服務，就可以進入服務表單頁。",
-    },
-    {
-        "target_page_id": "home",
-        "keywords": ("服務首頁", "首頁", "主頁", "home"),
-        "reply": "如果你想回到服務入口總覽，可以回到「服務首頁」。",
-    },
-    {
-        "target_page_id": "login",
-        "keywords": ("登入", "登入頁", "login"),
-        "reply": "如果你還沒登入，先到登入頁完成登入就能開始使用。",
-    },
+from .page_catalog import (
+    is_application_query,
+    is_navigation_query,
+    load_page,
+    load_pages,
+    page_keywords,
+    search_pages,
 )
 
 CURRENT_PAGE_HINTS = (
-    "我現在在哪",
-    "我現在在哪裡",
-    "我現在所在的頁面",
-    "這是什麼頁面",
-    "目前頁面",
-    "當前頁面",
-    "現在這頁",
-)
-
-CURRENT_PAGE_REFERENCES = (
-    "這頁",
-    "這一頁",
-    "這頁面",
-    "這個頁面",
-    "這個畫面",
-    "這裡",
-    "目前這頁",
-    "當前這頁",
+    "\u9019\u9801",
+    "\u9019\u4e00\u9801",
+    "\u76ee\u524d\u9801\u9762",
+    "\u7576\u524d\u9801\u9762",
+    "\u73fe\u5728\u9019\u9801",
+    "\u73fe\u5728\u9019\u500b\u9801\u9762",
+    "\u76ee\u524d\u9019\u500b\u756b\u9762",
 )
 
 ALL_PAGE_HINTS = (
-    "有哪些頁面",
-    "所有頁面",
-    "全部頁面",
-    "app 有哪些頁面",
-    "這個 app 有哪些頁面",
-    "應用程式有哪些頁面",
-)
-
-PAGE_ACTION_HINTS = (
-    "功能",
-    "做什麼",
-    "能做什麼",
-    "可以做什麼",
-    "用途",
-    "怎麼用",
-    "介紹",
-    "操作",
-    "可以幹嘛",
-    "在幹嘛",
-    "幹嘛用",
-    "作用",
+    "\u6709\u54ea\u4e9b\u9801\u9762",
+    "\u6240\u6709\u9801\u9762",
+    "\u6574\u500b app \u6709\u54ea\u4e9b\u9801\u9762",
+    "\u6574\u500b app \u6709\u4ec0\u9ebc\u9801\u9762",
+    "\u9019\u500b app \u6709\u54ea\u4e9b\u9801\u9762",
 )
 
 NAVIGATION_HINTS = (
-    "怎麼去",
-    "怎麼到",
-    "怎麼進去",
-    "去哪裡看",
-    "在哪裡看",
-    "在哪看",
-    "哪裡可以看",
-    "哪裡可以用",
-    "怎麼回",
-    "怎麼回首頁",
-    "怎麼走",
-    "帶我去",
-    "怎麼開",
-    "怎麼打開",
+    "\u600e\u9ebc\u53bb",
+    "\u600e\u9ebc\u5230",
+    "\u53bb\u54ea\u88e1",
+    "\u54ea\u88e1\u770b",
+    "\u54ea\u88e1\u53ef\u4ee5",
+    "\u600e\u9ebc\u770b",
+    "\u5f9e\u54ea\u88e1",
+    "\u5982\u4f55\u524d\u5f80",
+    "\u5982\u4f55\u9032\u5165",
 )
 
-ASSISTANT_ROLE_HINTS = (
-    "你的任務",
-    "你能做什麼",
-    "你可以做什麼",
-    "你會什麼",
-    "你可以幫我什麼",
-    "你知道你的任務",
-    "你是做什麼的",
-    "還有什麼功能",
-    "其他功能",
+PAGE_ACTION_HINTS = (
+    "\u53ef\u4ee5\u505a\u4ec0\u9ebc",
+    "\u80fd\u505a\u4ec0\u9ebc",
+    "\u600e\u9ebc\u7528",
+    "\u7528\u9014",
+    "\u529f\u80fd",
+    "\u4e0b\u4e00\u6b65",
+    "\u63a5\u4e0b\u4f86",
+    "\u5728\u54ea\u88e1",
+    "\u770b\u4ec0\u9ebc",
+)
+
+APPLICATION_HINTS = (
+    "\u7533\u8acb",
+    "\u8868\u55ae",
+    "\u586b\u8868",
+    "\u586b\u55ae",
+    "\u586b\u5beb",
+    "\u9810\u7d04",
+    "\u624b\u52d5\u586b",
+    "\u9001\u51fa",
+)
+
+PAGE_TERMS = (
+    "\u9801\u9762",
+    "\u756b\u9762",
+    "app",
+    "\u4ecb\u9762",
+    "\u529f\u80fd",
 )
 
 
-def answer_page_question(message: str, current_page_id: str | None = None) -> str | None:
+def looks_like_page_question(message: str, current_page_id: str | None = None) -> bool:
     text = (message or "").strip()
     if not text:
+        return False
+    if any(hint in text for hint in CURRENT_PAGE_HINTS + ALL_PAGE_HINTS + NAVIGATION_HINTS + PAGE_ACTION_HINTS):
+        return True
+    if any(term in text for term in PAGE_TERMS):
+        return True
+    if current_page_id and current_page_id in text:
+        return True
+    return any(keyword in text for keyword in page_keywords())
+
+
+def build_page_tool_request(message: str, current_page_id: str | None = None) -> tuple[str, dict] | None:
+    text = (message or "").strip()
+    if not looks_like_page_question(text, current_page_id):
         return None
+    if any(hint in text for hint in ALL_PAGE_HINTS):
+        return None
+    if current_page_id and _prefer_current_page(text):
+        return ("get_page_context", {"page_id": current_page_id})
+    return ("search_pages", {"query": text, "current_page_id": current_page_id})
 
-    if any(keyword in text for keyword in ("新增服務需求", "新增需求", "新增服務")):
-        assistant_page = PAGE_CATALOG["assistant"]
-        return "\n".join(
-            (
-                "如果你想新增服務需求，可以直接打開 AI 管家，用對話方式告訴它你的需求。",
-                f"{assistant_page.title}：{assistant_page.description}",
-                assistant_page.navigation_hint,
-            )
-        )
 
-    assistant_reply = _answer_assistant_capability_question(text, current_page_id)
-    if assistant_reply:
-        return assistant_reply
-
-    navigation_reply = _answer_navigation_question(text)
-    if navigation_reply:
-        return navigation_reply
-
-    if not _looks_like_page_question(text, current_page_id):
+def answer_page_question(
+    message: str,
+    current_page_id: str | None = None,
+    tool_payload: dict | None = None,
+) -> str | None:
+    text = (message or "").strip()
+    if not looks_like_page_question(text, current_page_id):
         return None
 
     if any(hint in text for hint in ALL_PAGE_HINTS):
         return _build_all_pages_reply(current_page_id)
 
-    target_ids = _find_target_pages(text, current_page_id)
-    if not target_ids and current_page_id in PAGE_CATALOG:
-        target_ids = [current_page_id]
-    if not target_ids:
-        return _build_all_pages_reply(current_page_id)
-    return _build_page_reply(target_ids, current_page_id, text)
+    if isinstance(tool_payload, dict) and tool_payload.get("success"):
+        if isinstance(tool_payload.get("page"), dict):
+            return _format_page_reply(tool_payload["page"], current_page_id=current_page_id)
+        matches = tool_payload.get("matches")
+        if isinstance(matches, list) and matches:
+            return _format_search_reply(matches, message=text, current_page_id=current_page_id)
+
+    if current_page_id and _prefer_current_page(text):
+        page = load_page(current_page_id)
+        if page:
+            return _format_page_reply(page, current_page_id=current_page_id)
+
+    matches = search_pages(text, current_page_id=current_page_id)
+    if matches:
+        return _format_search_reply(matches, message=text, current_page_id=current_page_id)
+
+    if current_page_id:
+        page = load_page(current_page_id)
+        if page:
+            return _format_page_reply(page, current_page_id=current_page_id)
+    return _build_all_pages_reply(current_page_id)
 
 
-def _answer_assistant_capability_question(text: str, current_page_id: str | None) -> str | None:
-    if not any(hint in text for hint in ASSISTANT_ROLE_HINTS):
-        return None
-
-    lines = [
-        "我是這個 app 的 AI 管家，主要會幫你三件事：介紹頁面、帶你找功能、協助整理服務需求。",
-        "你可以直接問我現在這頁在做什麼、某個功能要去哪裡找，或是讓我陪你把服務資料一步一步填完。",
-    ]
-
-    current_page = PAGE_CATALOG.get(current_page_id or "")
-    if current_page:
-        lines.append(f"你現在所在的是「{current_page.title}」，如果你要，我也可以直接介紹這一頁。")
-    return "\n".join(lines)
-
-
-def _answer_navigation_question(text: str) -> str | None:
-    if not _looks_like_navigation_question(text):
-        return None
-
-    matched_rules = [
-        rule
-        for rule in NAVIGATION_RULES
-        if any(keyword in text for keyword in rule["keywords"])
-    ]
-    if not matched_rules:
-        return None
-
-    lines: list[str] = []
-    for index, rule in enumerate(matched_rules):
-        page = PAGE_CATALOG[rule["target_page_id"]]
-        if index > 0:
-            lines.append("")
-        lines.append(str(rule["reply"]))
-        lines.append(f"{page.title}：{page.description}")
-        lines.append(page.navigation_hint)
-    return "\n".join(lines)
-
-
-def _looks_like_navigation_question(text: str) -> bool:
-    return any(hint in text for hint in NAVIGATION_HINTS)
-
-
-def _looks_like_page_question(text: str, current_page_id: str | None) -> bool:
+def _prefer_current_page(text: str) -> bool:
     if any(hint in text for hint in CURRENT_PAGE_HINTS):
         return True
-    if any(hint in text for hint in ALL_PAGE_HINTS):
-        return True
-    if (
-        current_page_id in PAGE_CATALOG
-        and any(reference in text for reference in CURRENT_PAGE_REFERENCES)
-        and any(hint in text for hint in PAGE_ACTION_HINTS)
-    ):
-        return True
-    if any(hint in text for hint in PAGE_ACTION_HINTS):
-        return any(_mentions_page_alias(text, page.aliases) for page in PAGE_CATALOG.values())
-    if current_page_id in PAGE_CATALOG and any(alias in text for alias in PAGE_CATALOG[current_page_id].aliases):
+    if any(hint in text for hint in PAGE_ACTION_HINTS) and not any(keyword in text for keyword in page_keywords()):
         return True
     return False
 
 
-def _mentions_page_alias(text: str, aliases: tuple[str, ...]) -> bool:
-    lowered = text.lower()
-    return any(alias.lower() in lowered for alias in aliases)
-
-
-def _find_target_pages(text: str, current_page_id: str | None) -> list[str]:
-    targets: list[str] = []
-    if current_page_id in PAGE_CATALOG:
-        if any(hint in text for hint in CURRENT_PAGE_HINTS) or any(
-            reference in text for reference in CURRENT_PAGE_REFERENCES
-        ):
-            targets.append(current_page_id)
-    for page_id, page in PAGE_CATALOG.items():
-        if _mentions_page_alias(text, page.aliases) and page_id not in targets:
-            targets.append(page_id)
-    return targets
-
-
-def _build_page_reply(target_ids: list[str], current_page_id: str | None, message: str) -> str:
-    lines: list[str] = []
-    current_page_question = any(hint in message for hint in CURRENT_PAGE_HINTS) or any(
-        reference in message for reference in CURRENT_PAGE_REFERENCES
-    )
-
-    for index, page_id in enumerate(target_ids):
-        page = PAGE_CATALOG[page_id]
-        if index == 0 and current_page_id == page_id and current_page_question:
-            lines.append(f"你現在看到的是「{page.title}」。")
-        else:
-            lines.append(f"「{page.title}」的用途是這樣：")
-        lines.append(page.description)
-        lines.append("這一頁你可以：")
-        for item_index, feature in enumerate(page.features, start=1):
-            lines.append(f"{item_index}. {feature}")
-        lines.append(page.navigation_hint)
-        if index != len(target_ids) - 1:
-            lines.append("")
+def _format_page_reply(page: dict, current_page_id: str | None = None) -> str:
+    is_current = page.get("page_id") == current_page_id
+    lines = [
+        f"\u4f60\u73fe\u5728\u770b\u5230\u7684\u662f\u300c{page['title']}\u300d\u3002"
+        if is_current
+        else f"\u300c{page['title']}\u300d\u9019\u9801\u4e3b\u8981\u662f\uff1a"
+    ]
+    lines.append(page["summary"])
+    actions = page.get("available_actions") or page.get("features") or []
+    if actions:
+        lines.append("\u4f60\u53ef\u4ee5\u5728\u9019\u88e1\u505a\u7684\u4e8b\u60c5\uff1a")
+        for index, action in enumerate(actions[:4], start=1):
+            lines.append(f"{index}. {action}")
+    next_steps = page.get("next_steps") or []
+    if next_steps:
+        lines.append(f"\u5efa\u8b70\u4e0b\u4e00\u6b65\uff1a{next_steps[0]}")
     return "\n".join(lines)
 
 
-def _build_all_pages_reply(current_page_id: str | None) -> str:
-    order = ("landing", "login", "home", "my_services", "assistant", "service_form", "request_detail")
-    lines = ["目前應用程式主要頁面有："]
-    for page_id in order:
-        page = PAGE_CATALOG[page_id]
-        suffix = "（你目前在這一頁）" if current_page_id == page_id else ""
-        lines.append(f"- {page.title}：{page.description}{suffix}")
+def _format_search_reply(
+    matches: list[dict],
+    message: str = "",
+    current_page_id: str | None = None,
+) -> str:
+    top = matches[0]
+    if _should_guide_service_application(message, top):
+        return _format_service_application_reply(top, current_page_id=current_page_id)
+
+    lines = [
+        f"\u548c\u4f60\u7684\u554f\u984c\u6700\u76f8\u95dc\u7684\u662f\u300c{top['title']}\u300d\u3002",
+        top["summary"],
+    ]
+    reason = top.get("relevance_reason")
+    if reason:
+        lines.append(f"\u6211\u6703\u9019\u6a23\u5224\u65b7\uff1a{reason}")
+    if top.get("page_id") != current_page_id:
+        lines.append(
+            f"\u5982\u679c\u4f60\u8981\u627e\u9019\u500b\u529f\u80fd\uff0c\u512a\u5148\u524d\u5f80\u9019\u4e00\u9801\uff1a{top['title']}\u3002"
+        )
+    else:
+        lines.append("\u4f60\u73fe\u5728\u5c31\u5728\u9019\u4e00\u9801\uff0c\u53ef\u4ee5\u76f4\u63a5\u5728\u9019\u88e1\u7e7c\u7e8c\u64cd\u4f5c\u3002")
+    if len(matches) > 1:
+        alternatives = "\u3001".join(match["title"] for match in matches[1:3])
+        lines.append(f"\u53e6\u5916\u4e5f\u53ef\u80fd\u548c\u300c{alternatives}\u300d\u6709\u95dc\u3002")
+    return "\n".join(lines)
+
+
+def _should_guide_service_application(message: str, top: dict) -> bool:
+    if not top.get("page_id", "").startswith("service_form_"):
+        return False
+    return is_navigation_query(message) and (
+        is_application_query(message) or any(hint in message for hint in APPLICATION_HINTS)
+    )
+
+
+def _format_service_application_reply(top: dict, current_page_id: str | None = None) -> str:
+    service_name = top["title"].removesuffix("\u8868\u55ae")
+    lines = [f"\u4f60\u8981\u627e\u7684\u662f\u300c{top['title']}\u300d\u3002"]
+
+    if top.get("page_id") == current_page_id:
+        lines.append("\u4f60\u73fe\u5728\u5df2\u7d93\u5728\u9019\u4e00\u9801\uff0c\u53ef\u4ee5\u76f4\u63a5\u958b\u59cb\u586b\u5beb\u8cc7\u6599\u3002")
+    elif current_page_id == "home":
+        lines.append(f"1. \u4f60\u73fe\u5728\u5c31\u5728\u300c\u670d\u52d9\u9996\u9801\u300d\uff0c\u76f4\u63a5\u9ede\u9078\u300c{service_name}\u300d\u670d\u52d9\u5361\u7247\u3002")
+        lines.append(f"2. \u9032\u5165\u300c{top['title']}\u300d\u5f8c\uff0c\u586b\u5b8c\u8cc7\u6599\u5c31\u80fd\u9001\u51fa\u7533\u8acb\u3002")
+        return "\n".join(lines)
+    else:
+        lines.append("1. \u5148\u5230\u300c\u670d\u52d9\u9996\u9801\u300d\u3002")
+        lines.append(f"2. \u5728\u9996\u9801\u9ede\u9078\u300c{service_name}\u300d\u670d\u52d9\u5361\u7247\u3002")
+
+    lines.append(f"3. \u9032\u5165\u300c{top['title']}\u300d\u5f8c\uff0c\u586b\u5beb\u8cc7\u6599\u4e26\u9001\u51fa\u7533\u8acb\u3002")
+    return "\n".join(lines)
+
+
+def _build_all_pages_reply(current_page_id: str | None = None) -> str:
+    lines = ["\u76ee\u524d app \u4e3b\u8981\u9801\u9762\u6709\uff1a"]
+    for page in load_pages():
+        suffix = "\uff08\u4f60\u76ee\u524d\u5728\u9019\u4e00\u9801\uff09" if page.get("page_id") == current_page_id else ""
+        lines.append(f"- {page['title']}\uff1a{page['summary']}{suffix}")
     return "\n".join(lines)

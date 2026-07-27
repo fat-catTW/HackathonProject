@@ -80,6 +80,8 @@ If you already deploy the functions under `lambda_tools/`, set:
 - `LIST_SERVICES_LAMBDA_NAME`
 - `GET_SERVICE_SCHEMA_LAMBDA_NAME`
 - `SUBMIT_SERVICE_REQUEST_LAMBDA_NAME`
+- `GET_PAGE_CONTEXT_LAMBDA_NAME`
+- `SEARCH_PAGES_LAMBDA_NAME`
 
 The backend will invoke Lambda directly with boto3.
 
@@ -97,6 +99,8 @@ Optional settings:
 - `MCP_LIST_SERVICES_TOOL_NAME`
 - `MCP_GET_SERVICE_SCHEMA_TOOL_NAME`
 - `MCP_SUBMIT_SERVICE_REQUEST_TOOL_NAME`
+- `MCP_GET_PAGE_CONTEXT_TOOL_NAME`
+- `MCP_SEARCH_PAGES_TOOL_NAME`
 
 Notes:
 

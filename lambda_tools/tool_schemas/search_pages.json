@@ -1,0 +1,30 @@
+{
+  "name": "search_pages",
+  "description": "Search relevant app pages by a user question.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "User question about app pages or navigation."
+      },
+      "current_page_id": {
+        "type": "string",
+        "description": "Optional current page id."
+      }
+    },
+    "required": ["query"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "matches": {
+        "type": "array"
+      }
+    },
+    "required": ["success"]
+  }
+}

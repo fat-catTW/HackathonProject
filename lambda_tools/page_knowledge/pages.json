@@ -1,0 +1,407 @@
+[
+  {
+    "page_id": "landing",
+    "route": "/",
+    "title": "歡迎頁",
+    "summary": "介紹服務助理 App 的價值，並提供登入入口。",
+    "features": [
+      "查看服務介紹",
+      "認識 AI 管家",
+      "前往登入"
+    ],
+    "available_actions": [
+      "閱讀介紹",
+      "點擊登入"
+    ],
+    "next_steps": [
+      "前往登入頁",
+      "登入後進入服務首頁"
+    ],
+    "related_pages": [
+      "login",
+      "home",
+      "assistant"
+    ],
+    "keywords": [
+      "歡迎頁",
+      "開場頁",
+      "landing",
+      "landing page",
+      "首頁介紹",
+      "登入入口"
+    ]
+  },
+  {
+    "page_id": "login",
+    "route": "/login",
+    "title": "登入頁",
+    "summary": "讓使用者輸入帳號資訊或使用 Demo 帳號登入。",
+    "features": [
+      "輸入帳號密碼",
+      "選擇 Demo 帳號",
+      "完成登入"
+    ],
+    "available_actions": [
+      "登入",
+      "切換 Demo 帳號"
+    ],
+    "next_steps": [
+      "登入成功後前往服務首頁"
+    ],
+    "related_pages": [
+      "landing",
+      "home"
+    ],
+    "keywords": [
+      "登入頁",
+      "登入",
+      "login",
+      "sign in",
+      "帳號",
+      "密碼",
+      "demo account"
+    ]
+  },
+  {
+    "page_id": "home",
+    "route": "/home",
+    "title": "服務首頁",
+    "summary": "顯示可申請的服務卡片，並可前往我的服務或打開 AI 管家。",
+    "features": [
+      "瀏覽服務卡片",
+      "前往我的服務",
+      "打開 AI 管家"
+    ],
+    "available_actions": [
+      "點選服務卡片",
+      "查看我的服務",
+      "詢問 AI 管家"
+    ],
+    "next_steps": [
+      "選一項服務開始申請",
+      "或先打開 AI 管家詢問"
+    ],
+    "related_pages": [
+      "service_form",
+      "service_form_plumbing_repair",
+      "service_form_washing_machine_cleaning",
+      "service_form_air_conditioner_cleaning",
+      "service_form_home_cleaning",
+      "my_services",
+      "assistant"
+    ],
+    "keywords": [
+      "服務首頁",
+      "首頁",
+      "home",
+      "服務卡片",
+      "我的服務",
+      "AI 管家"
+    ]
+  },
+  {
+    "page_id": "my_services",
+    "route": "/my-services",
+    "title": "我的服務",
+    "summary": "列出已送出的服務案件，讓使用者追蹤每一筆案件進度。",
+    "features": [
+      "查看案件列表",
+      "查看案件狀態",
+      "進入案件詳情"
+    ],
+    "available_actions": [
+      "點進單一案件",
+      "查看進度"
+    ],
+    "next_steps": [
+      "選一筆案件查看詳情"
+    ],
+    "related_pages": [
+      "home",
+      "request_detail"
+    ],
+    "keywords": [
+      "我的服務",
+      "案件列表",
+      "服務紀錄",
+      "申請紀錄",
+      "案件進度",
+      "orders",
+      "requests"
+    ]
+  },
+  {
+    "page_id": "assistant",
+    "route": "/new",
+    "title": "AI 管家",
+    "summary": "用對話方式協助使用者挑選服務、填寫資料、確認內容與送出申請。",
+    "features": [
+      "對話式填單",
+      "詢問頁面用途",
+      "引導完成申請"
+    ],
+    "available_actions": [
+      "描述需求",
+      "回答問題",
+      "確認送出"
+    ],
+    "next_steps": [
+      "告訴 AI 你的需求",
+      "依提示補齊資料"
+    ],
+    "related_pages": [
+      "home",
+      "service_form",
+      "service_form_plumbing_repair",
+      "service_form_washing_machine_cleaning",
+      "service_form_air_conditioner_cleaning",
+      "service_form_home_cleaning",
+      "request_detail"
+    ],
+    "keywords": [
+      "AI 管家",
+      "聊天",
+      "assistant",
+      "butler",
+      "對話",
+      "幫我申請",
+      "幫我填"
+    ]
+  },
+  {
+    "page_id": "service_form",
+    "route": "/services/:serviceId",
+    "title": "服務表單",
+    "summary": "這是通用的手動填單頁類型，實際會依照不同服務顯示不同欄位。",
+    "features": [
+      "填寫服務欄位",
+      "檢查必填資料",
+      "送出服務申請"
+    ],
+    "available_actions": [
+      "填寫需求",
+      "選日期",
+      "選時段",
+      "輸入地址電話",
+      "送出申請"
+    ],
+    "next_steps": [
+      "依服務內容填完必填欄位",
+      "確認資料後送出案件"
+    ],
+    "related_pages": [
+      "home",
+      "service_form_plumbing_repair",
+      "service_form_washing_machine_cleaning",
+      "service_form_air_conditioner_cleaning",
+      "service_form_home_cleaning",
+      "assistant",
+      "request_detail"
+    ],
+    "keywords": [
+      "服務表單",
+      "申請表單",
+      "service form",
+      "填資料",
+      "必填",
+      "送出申請",
+      "手動填表"
+    ]
+  },
+  {
+    "page_id": "service_form_plumbing_repair",
+    "route": "/services/plumbing_repair",
+    "title": "水電維修表單",
+    "summary": "用來填寫漏水、堵塞、設備故障等水電維修需求，送出後可安排到府處理。",
+    "features": [
+      "描述漏水、堵塞或設備故障情況",
+      "選擇希望到府的日期與時段",
+      "填寫服務地址與聯絡電話"
+    ],
+    "available_actions": [
+      "填寫問題描述",
+      "選日期",
+      "選時段",
+      "輸入地址",
+      "輸入電話",
+      "送出水電維修申請"
+    ],
+    "next_steps": [
+      "先描述問題情況，再補日期、時段和聯絡資訊",
+      "確認資料無誤後送出案件"
+    ],
+    "related_pages": [
+      "home",
+      "service_form",
+      "assistant",
+      "request_detail"
+    ],
+    "keywords": [
+      "水電維修表單",
+      "水電表單",
+      "維修表單",
+      "plumbing repair form",
+      "漏水",
+      "堵塞",
+      "設備故障",
+      "手動填水電維修",
+      "水電維修申請"
+    ]
+  },
+  {
+    "page_id": "service_form_washing_machine_cleaning",
+    "route": "/services/washing_machine_cleaning",
+    "title": "洗衣機清潔表單",
+    "summary": "用來填寫洗衣機清潔需求，包含台數、機型、預約時間與聯絡資訊。",
+    "features": [
+      "填寫洗衣機台數",
+      "選擇直立式或滾筒式機型",
+      "安排清潔日期與時段",
+      "填寫服務地址與電話"
+    ],
+    "available_actions": [
+      "輸入洗衣機台數",
+      "選機型",
+      "選日期",
+      "選時段",
+      "輸入地址",
+      "輸入電話",
+      "送出洗衣機清潔申請"
+    ],
+    "next_steps": [
+      "先確認洗衣機台數與機型，再補預約時間和聯絡資訊",
+      "確認資料後送出洗衣機清潔案件"
+    ],
+    "related_pages": [
+      "home",
+      "service_form",
+      "assistant",
+      "request_detail"
+    ],
+    "keywords": [
+      "洗衣機清潔表單",
+      "洗衣機表單",
+      "清洗洗衣機表單",
+      "washing machine cleaning form",
+      "直立式",
+      "滾筒式",
+      "洗衣機台數",
+      "手動填洗衣機清潔",
+      "洗衣機清潔申請"
+    ]
+  },
+  {
+    "page_id": "service_form_air_conditioner_cleaning",
+    "route": "/services/air_conditioner_cleaning",
+    "title": "冷氣清潔表單",
+    "summary": "用來填寫冷氣清潔需求，包含冷氣台數、預約時間與聯絡資訊。",
+    "features": [
+      "填寫冷氣台數",
+      "選擇希望到府清潔的日期與時段",
+      "填寫服務地址與聯絡電話"
+    ],
+    "available_actions": [
+      "輸入冷氣台數",
+      "選日期",
+      "選時段",
+      "輸入地址",
+      "輸入電話",
+      "送出冷氣清潔申請"
+    ],
+    "next_steps": [
+      "先填冷氣台數，再補日期、時段和聯絡資訊",
+      "確認資料完整後送出冷氣清潔案件"
+    ],
+    "related_pages": [
+      "home",
+      "service_form",
+      "assistant",
+      "request_detail"
+    ],
+    "keywords": [
+      "冷氣清潔表單",
+      "冷氣服務",
+      "冷氣表單",
+      "冷氣清洗表單",
+      "air conditioner cleaning form",
+      "冷氣台數",
+      "手動填冷氣清潔",
+      "冷氣清潔申請",
+      "洗冷氣表單"
+    ]
+  },
+  {
+    "page_id": "service_form_home_cleaning",
+    "route": "/services/home_cleaning",
+    "title": "居家清潔表單",
+    "summary": "用來填寫居家清潔需求，包含預估時數、預約時間與聯絡資訊。",
+    "features": [
+      "填寫需要的清潔時數",
+      "選擇到府日期與時段",
+      "填寫服務地址與聯絡電話"
+    ],
+    "available_actions": [
+      "輸入清潔時數",
+      "選日期",
+      "選時段",
+      "輸入地址",
+      "輸入電話",
+      "送出居家清潔申請"
+    ],
+    "next_steps": [
+      "先估算清潔時數，再補預約時間與聯絡資訊",
+      "確認資料後送出居家清潔案件"
+    ],
+    "related_pages": [
+      "home",
+      "service_form",
+      "assistant",
+      "request_detail"
+    ],
+    "keywords": [
+      "居家清潔表單",
+      "家庭清潔表單",
+      "打掃表單",
+      "home cleaning form",
+      "清潔時數",
+      "手動填居家清潔",
+      "居家清潔申請"
+    ]
+  },
+  {
+    "page_id": "request_detail",
+    "route": "/requests/:requestId",
+    "title": "案件詳情",
+    "summary": "查看單一案件的狀態、表單內容與對話紀錄，也能追問或取消案件。",
+    "features": [
+      "查看案件狀態",
+      "查看表單資料",
+      "查看對話紀錄",
+      "追問案件",
+      "取消案件"
+    ],
+    "available_actions": [
+      "傳送追問訊息",
+      "取消案件",
+      "再次申請同類服務"
+    ],
+    "next_steps": [
+      "先查看目前進度",
+      "若有疑問可以追問 AI 管家"
+    ],
+    "related_pages": [
+      "my_services",
+      "assistant",
+      "home"
+    ],
+    "keywords": [
+      "案件詳情",
+      "案件進度",
+      "訂單詳情",
+      "request detail",
+      "status",
+      "追問",
+      "取消案件"
+    ]
+  }
+]

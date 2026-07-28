@@ -17,13 +17,8 @@ class CurrentUser:
 
 
 def _demo_user_or_401(token: str) -> CurrentUser:
+    """示範帳號 token → 使用者；註冊帳號的 token 已在 get_current_user 解析過。"""
     settings = get_settings()
-    # Email 註冊／登入發出的 token 優先解析（app.auth.users）
-    from .users import USERS
-
-    registered = USERS.resolve(token)
-    if registered is not None:
-        return registered
     user = settings.demo_users.get(token)
     if not user:
         raise HTTPException(
@@ -50,11 +45,28 @@ def get_current_user(
         )
 
     token = credentials.credentials
+
+    # Email 註冊／登入的 token 存在 DynamoDB，mock 與正式模式都要能換回使用者。
+    from .users import USERS
+
+    registered = USERS.resolve(token)
+    if registered is not None:
+        return registered
+
     if settings.use_mock:
         return _demo_user_or_401(token)
 
     if settings.allow_demo_auth and token in settings.demo_users:
         return _demo_user_or_401(token)
+
+    if not (settings.cognito_user_pool_id and settings.cognito_client_id):
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "success": False,
+                "error": {"code": "UNAUTHORIZED", "message": "Invalid or expired token."},
+            },
+        )
 
     try:
         import jwt

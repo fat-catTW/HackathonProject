@@ -42,6 +42,24 @@ def ensure_table() -> str:
     return f"DynamoDB table created: {table_name}"
 
 
+def ensure_token_ttl() -> str:
+    """Enable the ttl attribute so expired login tokens (AUTH#TOKEN#…) self-clean."""
+    settings = get_settings()
+    client = get_aws_client("dynamodb")
+    table_name = settings.dynamodb_table_name
+
+    description = client.describe_time_to_live(TableName=table_name)
+    spec = description.get("TimeToLiveDescription", {})
+    if spec.get("TimeToLiveStatus") in {"ENABLED", "ENABLING"}:
+        return f"DynamoDB TTL already enabled on {table_name}.{spec.get('AttributeName', 'ttl')}"
+
+    client.update_time_to_live(
+        TableName=table_name,
+        TimeToLiveSpecification={"Enabled": True, "AttributeName": "ttl"},
+    )
+    return f"DynamoDB TTL enabled on {table_name}.ttl"
+
+
 def probe_bedrock() -> str:
     settings = get_settings()
     client = get_aws_client("bedrock-runtime")
@@ -68,6 +86,10 @@ def main() -> None:
         "steps": [],
     }
     summary["steps"].append(ensure_table())
+    try:
+        summary["steps"].append(ensure_token_ttl())
+    except Exception as exc:  # noqa: BLE001
+        summary["steps"].append(f"DynamoDB TTL setup skipped or failed: {exc}")
     try:
         summary["steps"].append(probe_bedrock())
     except Exception as exc:  # noqa: BLE001

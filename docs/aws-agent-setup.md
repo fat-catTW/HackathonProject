@@ -67,6 +67,18 @@ Stored items use these patterns:
 - `USER#<actor_id>` / `SESSION#<session_id>`
 - `USER#<actor_id>` / `REQUEST#<request_id>`
 - `USER#<actor_id>` / `PREFERENCES`
+- `USER#<actor_id>` / `PROFILE` — account profile (sub, email, name)
+- `AUTH#EMAIL#<email>` / `CREDENTIAL` — login credential (PBKDF2 salt + hash, base64)
+- `AUTH#TOKEN#<token>` / `SESSION` — issued bearer token → actor, 30-day expiry
+
+Enable TTL on the `ttl` attribute so expired tokens are removed automatically
+(`python scripts/bootstrap_aws.py` does this). Items without a `ttl` attribute
+are never touched by TTL.
+
+**Accounts only persist when `USE_MOCK=false`.** `USE_MOCK` defaults to `true`,
+which selects the in-memory store — registered accounts and issued tokens are
+then lost on every restart. Set `USE_MOCK=false` in `.env` for any environment
+where logins must survive a restart.
 
 If you use `AGENT_TOOL_MODE=dynamodb`, also seed service catalog items like:
 

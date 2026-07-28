@@ -194,7 +194,7 @@ export function ServiceFormPage() {
   if (!schema) {
     return (
       <>
-        <main className="mx-auto min-h-dvh max-w-md bg-[#eef3f9] px-5 pb-32 pt-16 text-center">
+        <main className="mx-auto min-h-dvh max-w-md bg-canvas px-5 pb-32 pt-16 text-center">
           <p className="text-red-600">找不到這個服務表單。</p>
           <button
             type="button"
@@ -211,7 +211,7 @@ export function ServiceFormPage() {
 
   return (
     <>
-      <main className="mx-auto min-h-dvh max-w-md bg-[linear-gradient(180deg,#edf4fb_0%,#f5f9fd_42%,#eef3f9_100%)] px-5 pb-32 pt-6">
+      <main className="mx-auto min-h-dvh max-w-md bg-[linear-gradient(180deg,var(--color-brand-soft)_0%,var(--color-canvas)_100%)] px-5 pb-32 pt-6">
         <header className="flex items-center gap-3">
           <button
             type="button"

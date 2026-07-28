@@ -4,6 +4,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from functools import lru_cache
+from pathlib import Path
+
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
 try:
     from dotenv import find_dotenv, load_dotenv
@@ -40,6 +43,8 @@ class Settings:
         "apac.amazon.nova-pro-v1:0",
     )
     dynamodb_table_name: str = os.getenv("DYNAMODB_TABLE_NAME", "ServiceAssistant")
+    mock_store_path: Path = _BACKEND_ROOT / os.getenv("MOCK_STORE_PATH", ".local-store.json")
+    user_store_path: Path = _BACKEND_ROOT / os.getenv("USER_STORE_PATH", ".local-users.json")
     allow_demo_auth: bool = _env_flag("ALLOW_DEMO_AUTH", True)
     agent_tool_mode: str = os.getenv("AGENT_TOOL_MODE", "embedded").strip().lower()
     list_services_lambda_name: str = os.getenv("LIST_SERVICES_LAMBDA_NAME", "")

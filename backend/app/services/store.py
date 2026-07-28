@@ -238,7 +238,7 @@ class ResilientStore(BaseStore):
 def build_store() -> BaseStore:
     settings = get_settings()
     if settings.use_mock:
-        return MemoryStore()
+        return MemoryStore(storage_path=settings.mock_store_path)
     return DynamoDBStore(settings.dynamodb_table_name)
 
 

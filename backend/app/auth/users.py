@@ -12,12 +12,15 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import os
 import re
 import secrets
 import threading
 import uuid
+from pathlib import Path
 
+from ..config import get_settings
 from .cognito import CurrentUser
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -38,13 +41,19 @@ def _hash_password(password: str, salt: bytes) -> bytes:
 
 
 class UserStore:
-    """記憶體使用者表（thread-safe），模擬 Cognito User Pool。"""
+    """記憶體使用者表（thread-safe），模擬 Cognito User Pool。
 
-    def __init__(self) -> None:
+    可選擇性地把使用者與 token 寫入本機 JSON 檔（storage_path），
+    讓 Mock 模式下重啟後端伺服器後，先前註冊的帳號仍能登入。
+    """
+
+    def __init__(self, storage_path: Path | None = None) -> None:
         self._by_email: dict[str, dict] = {}
         self._tokens: dict[str, str] = {}  # token -> sub
         self._by_sub: dict[str, dict] = {}
         self._lock = threading.Lock()
+        self._storage_path = storage_path
+        self._load()
 
     # ---- 註冊 ----
     def register(self, email: str, password: str, name: str) -> tuple[CurrentUser, str]:
@@ -72,6 +81,7 @@ class UserStore:
             self._by_email[email] = user
             self._by_sub[sub] = user
             token = self._issue_token(sub)
+            self._flush()
         return CurrentUser(sub=sub, name=name), token
 
     # ---- 登入 ----
@@ -86,6 +96,7 @@ class UserStore:
             raise UserError("INVALID_CREDENTIALS", "Email 或密碼錯誤")
         with self._lock:
             token = self._issue_token(user["sub"])
+            self._flush()
         return CurrentUser(sub=user["sub"], name=user["name"]), token
 
     # ---- token 換使用者 ----
@@ -101,11 +112,56 @@ class UserStore:
     def logout(self, token: str) -> None:
         with self._lock:
             self._tokens.pop(token, None)
+            self._flush()
 
     def _issue_token(self, sub: str) -> str:
         token = secrets.token_urlsafe(32)
         self._tokens[token] = sub
         return token
 
+    def _load(self) -> None:
+        if not self._storage_path or not self._storage_path.exists():
+            return
+        try:
+            payload = json.loads(self._storage_path.read_text(encoding="utf-8"))
+        except Exception:
+            return
+        for record in payload.get("users") or []:
+            try:
+                user = {
+                    "sub": record["sub"],
+                    "email": record["email"],
+                    "name": record["name"],
+                    "salt": bytes.fromhex(record["salt"]),
+                    "pw_hash": bytes.fromhex(record["pw_hash"]),
+                }
+            except (KeyError, ValueError):
+                continue
+            self._by_email[user["email"]] = user
+            self._by_sub[user["sub"]] = user
+        self._tokens = dict(payload.get("tokens") or {})
 
-USERS = UserStore()
+    def _flush(self) -> None:
+        if not self._storage_path:
+            return
+        self._storage_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "users": [
+                {
+                    "sub": user["sub"],
+                    "email": user["email"],
+                    "name": user["name"],
+                    "salt": user["salt"].hex(),
+                    "pw_hash": user["pw_hash"].hex(),
+                }
+                for user in self._by_sub.values()
+            ],
+            "tokens": self._tokens,
+        }
+        self._storage_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+
+USERS = UserStore(storage_path=get_settings().user_store_path)

@@ -36,7 +36,7 @@ export function MyServicesPage() {
 
   return (
     <>
-      <main className="mx-auto min-h-dvh max-w-md bg-[#eef3f9] px-5 pb-32 pt-8">
+      <main className="mx-auto min-h-dvh max-w-md bg-canvas px-5 pb-32 pt-8">
         <header className="flex items-center gap-3">
           <button
             type="button"

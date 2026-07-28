@@ -3,21 +3,21 @@ const NAME_KEY = "assistant_name";
 const API_BASE_URL = "";
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return sessionStorage.getItem(TOKEN_KEY);
 }
 
 export function setAuth(token: string, name: string) {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(NAME_KEY, name);
+  sessionStorage.setItem(TOKEN_KEY, token);
+  sessionStorage.setItem(NAME_KEY, name);
 }
 
 export function clearAuth() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(NAME_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(NAME_KEY);
 }
 
 export function getUserName(): string {
-  return localStorage.getItem(NAME_KEY) ?? "";
+  return sessionStorage.getItem(NAME_KEY) ?? "";
 }
 
 export class ApiError extends Error {

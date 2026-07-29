@@ -7,6 +7,7 @@ import {
   getDeliveryOrder,
   getDeliveryStore,
   listDeliveryStores,
+  simulateDeliveryStatus,
   submitDeliveryOrder,
 } from "../api/delivery";
 import type {
@@ -512,6 +513,35 @@ export function DeliveryFlowPage() {
                 <span>已送達</span>
               </div>
             </div>
+
+            {(() => {
+              const PLATFORM_STATUS_ORDER = ["01", "02", "03", "04", "05", "70"];
+              const currentIndex = PLATFORM_STATUS_ORDER.indexOf(order.order_status);
+              if (currentIndex === -1 || currentIndex === PLATFORM_STATUS_ORDER.length - 1) return null;
+              const nextVendorStatus = currentIndex + 1;
+              const driver =
+                nextVendorStatus >= 3
+                  ? {
+                      driver_name: "示範外送員",
+                      driver_phone: "0912345678",
+                      eta_minutes: Math.max(0, (5 - nextVendorStatus) * 10),
+                    }
+                  : undefined;
+              return (
+                <button
+                  type="button"
+                  onClick={() =>
+                    simulateDeliveryStatus(order.request_id, nextVendorStatus, driver).then(async () => {
+                      const updated = await getDeliveryOrder(order.request_id);
+                      setOrder(updated);
+                    })
+                  }
+                  className="mt-2 min-h-[44px] rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand"
+                >
+                  Demo：模擬下一個外送狀態
+                </button>
+              );
+            })()}
 
             <button
               type="button"

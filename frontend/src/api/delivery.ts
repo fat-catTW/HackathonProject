@@ -33,3 +33,17 @@ export function cancelDeliveryOrder(requestId: string, reason = "USER_CANCEL"): 
     body: JSON.stringify({ reason }),
   });
 }
+
+export function simulateDeliveryStatus(
+  requestId: string,
+  vendorStatus: number,
+  driver?: { driver_name: string; driver_phone: string; eta_minutes: number },
+): Promise<{ success: boolean; order_status: string; order_status_label: string }> {
+  return api<{ success: boolean; order_status: string; order_status_label: string }>(
+    `/api/delivery/orders/${requestId}/simulate`,
+    {
+      method: "POST",
+      body: JSON.stringify({ vendor_status: vendorStatus, delivery: driver }),
+    },
+  );
+}

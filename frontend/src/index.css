@@ -55,7 +55,11 @@ html[data-a11y="true"] {
 html[data-a11y="true"] .text-gray-300,
 html[data-a11y="true"] .text-gray-400,
 html[data-a11y="true"] .text-gray-500,
-html[data-a11y="true"] .text-gray-600 {
+html[data-a11y="true"] .text-gray-600,
+html[data-a11y="true"] .text-slate-300,
+html[data-a11y="true"] .text-slate-400,
+html[data-a11y="true"] .text-slate-500,
+html[data-a11y="true"] .text-slate-600 {
   color: #1F2933;
 }
 

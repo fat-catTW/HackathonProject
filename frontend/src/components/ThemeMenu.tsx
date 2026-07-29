@@ -34,7 +34,7 @@ export function ThemeMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="true"
         aria-expanded={open}
-        aria-label="更換管家顏色"
+        aria-label="開啟外觀設定"
         className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
         <Mascot size={36} />
@@ -43,10 +43,10 @@ export function ThemeMenu() {
       {open && (
         <div
           role="menu"
-          aria-label="選擇管家的顏色"
-          className="absolute left-0 top-[calc(100%+8px)] z-30 w-[272px] rounded-[24px] border border-gray-100 bg-white p-4 shadow-xl"
+          aria-label="外觀設定"
+          className="absolute left-0 top-[calc(100%+8px)] z-30 w-[15.1rem] rounded-[24px] border border-gray-100 bg-white p-4 shadow-xl"
         >
-          <p className="mb-3 text-sm font-bold text-slate-500">選擇管家的顏色</p>
+          <p className="mb-3 text-sm font-bold text-slate-500">外觀設定</p>
           <div className="grid grid-cols-3 gap-3">
             {themes.map((t) => {
               const active = t.id === themeId;

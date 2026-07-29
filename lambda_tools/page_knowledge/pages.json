@@ -87,6 +87,8 @@
       "service_form_washing_machine_cleaning",
       "service_form_air_conditioner_cleaning",
       "service_form_home_cleaning",
+      "service_form_restaurant_reservation",
+      "service_form_food_delivery",
       "my_services",
       "assistant"
     ],
@@ -366,6 +368,81 @@
       "清潔時數",
       "手動填居家清潔",
       "居家清潔申請"
+    ]
+  },
+  {
+    "page_id": "service_form_restaurant_reservation",
+    "route": "/services/restaurant_reservation",
+    "title": "餐廳訂位",
+    "summary": "用來選餐廳、選日期時段與人數，完成 22 世紀風味館的餐廳訂位。",
+    "features": [
+      "從精選餐廳清單挑選分店",
+      "選擇用餐日期（限今天起 60 天內）與午餐/晚餐時段",
+      "填寫用餐人數、聯絡人姓名與電話",
+      "選擇一般訂位或高級訂位"
+    ],
+    "available_actions": [
+      "選餐廳",
+      "選日期",
+      "選時段",
+      "輸入人數",
+      "輸入聯絡人姓名",
+      "輸入電話",
+      "送出訂位申請"
+    ],
+    "next_steps": [
+      "先選好餐廳與用餐時段，再補人數和聯絡資訊",
+      "確認資料無誤後送出訂位"
+    ],
+    "related_pages": [
+      "home",
+      "assistant",
+      "request_detail"
+    ],
+    "keywords": [
+      "餐廳訂位表單",
+      "訂位表單",
+      "restaurant reservation form",
+      "手動填訂位",
+      "餐廳訂位申請",
+      "訂位申請頁面"
+    ]
+  },
+  {
+    "page_id": "service_form_food_delivery",
+    "route": "/services/food_delivery",
+    "title": "美食外送",
+    "summary": "用來填寫外送地址、選店家與餐點，完成美食外送下單。",
+    "features": [
+      "輸入外送地址（含樓層備註）",
+      "從附近店家清單選一間店",
+      "從店家菜單選餐點與數量",
+      "確認金額後送出訂單",
+      "查看外送即時進度"
+    ],
+    "available_actions": [
+      "輸入地址",
+      "選店家",
+      "選餐點",
+      "調整數量",
+      "填寫收件人姓名",
+      "送出外送訂單"
+    ],
+    "next_steps": [
+      "先輸入外送地址，再選店家與餐點",
+      "確認金額與明細後送出訂單"
+    ],
+    "related_pages": [
+      "home",
+      "assistant",
+      "request_detail"
+    ],
+    "keywords": [
+      "美食外送表單",
+      "外送表單",
+      "food delivery form",
+      "手動填外送",
+      "外送申請頁面"
     ]
   },
   {

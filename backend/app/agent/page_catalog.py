@@ -59,6 +59,20 @@ SERVICE_FORM_ALIASES = {
         "打掃",
         "居家打掃",
     ),
+    "service_form_restaurant_reservation": (
+        "餐廳",
+        "訂位",
+        "訂餐廳",
+        "吃飯",
+        "用餐",
+    ),
+    "service_form_food_delivery": (
+        "外送",
+        "美食",
+        "外帶",
+        "叫外送",
+        "點餐",
+    ),
 }
 
 

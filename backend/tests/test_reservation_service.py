@@ -61,6 +61,7 @@ def test_create_reservation_order_pending_and_retried_on_adapter_error():
     order = reservation.get_reservation_order("user-1", result["request_id"])
     assert order["retry_info"]["retry_count"] >= 0
     assert order["retry_info"]["needs_manual"] is False
+    assert order["retry_info"]["last_retry_at"] is not None
 
 
 def test_create_reservation_order_premium_skips_adapter_even_if_supported():
@@ -120,3 +121,34 @@ def test_cancel_reservation_order_sets_cancelled_status():
 
 def test_get_reservation_order_returns_none_for_missing_request():
     assert reservation.get_reservation_order("user-1", "REQ-NOPE") is None
+
+
+def test_create_reservation_order_rejects_missing_required_field():
+    result = reservation.create_reservation_order("user-1", valid_payload(contact_name=None))
+    assert result["success"] is False
+    assert result["error"]["code"] == "INVALID_FORM_DATA"
+
+
+def test_create_reservation_order_rejects_invalid_date():
+    result = reservation.create_reservation_order("user-1", valid_payload(reserved_date="2026-10-15"))
+    assert result["success"] is False
+    assert result["error"]["code"] == "INVALID_DATE"
+
+
+def test_create_reservation_order_rejects_invalid_time_slot():
+    result = reservation.create_reservation_order("user-1", valid_payload(time_slot="BRUNCH"))
+    assert result["success"] is False
+    assert result["error"]["code"] == "INVALID_TIME_SLOT"
+
+
+def test_create_reservation_order_rejects_blank_contact_name():
+    result = reservation.create_reservation_order("user-1", valid_payload(contact_name="   "))
+    assert result["success"] is False
+    assert result["error"]["code"] == "INVALID_CONTACT_NAME"
+
+
+def test_create_reservation_order_rejects_preference_note_too_long():
+    long_note = "a" * 201
+    result = reservation.create_reservation_order("user-1", valid_payload(preference_note=long_note))
+    assert result["success"] is False
+    assert result["error"]["code"] == "PREFERENCE_TOO_LONG"

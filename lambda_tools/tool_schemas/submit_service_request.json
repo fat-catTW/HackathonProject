@@ -13,7 +13,7 @@
         },
         "payload": {
           "type": "object",
-          "description": "Completed form values matching get_service_schema."
+          "description": "Completed form values matching get_service_schema. Use field ids as keys, HH:MM for time fields, and include conditional fields only when their visibleWhen condition is met."
         }
       },
       "required": [

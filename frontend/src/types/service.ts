@@ -3,7 +3,7 @@ import type { ServiceIconType } from "../components/ServiceIcon";
 export interface ServiceField {
   id: string;
   label: string;
-  type: "text" | "number" | "date" | "select";
+  type: "text" | "textarea" | "number" | "date" | "time" | "select" | "file";
   required: boolean;
   options?: string[];
   /** number 欄位的最小值，未指定時為 1（不允許 0 與負數）。 */
@@ -12,6 +12,14 @@ export interface ServiceField {
   step?: number;
   hint?: string;
   placeholder?: string;
+  minValue?: string;
+  maxValue?: string;
+  rows?: number;
+  accept?: string;
+  visibleWhen?: {
+    fieldId: string;
+    value: string;
+  };
   sectionTitle?: string;
   inputIcon?: ServiceIconType;
 }

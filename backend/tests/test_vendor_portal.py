@@ -11,6 +11,8 @@ VENDOR_PLUMBING = ("vendor11@demo.local", "vendor1234")  # service_vendor_id = 1
 
 AC_CLEANING_FORM = {
     "quantity": 2,
+    "air_conditioner_type": "WALL_MOUNTED",
+    "antibacterial_film_addon": "NO",
     "preferred_date": "2026-08-01",
     "preferred_time_slot": "MORNING",
     "address": "台北市信義區市府路1號",

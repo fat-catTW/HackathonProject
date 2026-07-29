@@ -1,7 +1,7 @@
 [
   {
     "name": "get_service_schema",
-    "description": "Get the booking form schema for a specific service.",
+    "description": "Get the booking form schema for a specific service, including field metadata such as options, time limits, and conditional visibility.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -27,7 +27,60 @@
           "type": "string"
         },
         "fields": {
-          "type": "array"
+          "type": "array",
+          "description": "Field definitions for the target service form.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["text", "textarea", "number", "date", "time", "select", "file"]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "minValue": {
+                "type": "string",
+                "description": "Minimum allowed value, for example 08:30 for time fields."
+              },
+              "maxValue": {
+                "type": "string",
+                "description": "Maximum allowed value, for example 18:00 for time fields."
+              },
+              "step": {
+                "type": "integer",
+                "description": "Step interval, for example 300 seconds for 5-minute time selection."
+              },
+              "visibleWhen": {
+                "type": "object",
+                "properties": {
+                  "fieldId": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": ["fieldId", "value"]
+              },
+              "question": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "label", "type", "required"]
+          }
         }
       },
       "required": [

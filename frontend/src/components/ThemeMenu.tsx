@@ -88,7 +88,9 @@ export function ThemeMenu() {
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-slate-600">
                 <ServiceIcon type="zoom" size={26} />
               </span>
-              <span className="text-xs font-bold text-slate-600">無障礙模式</span>
+              <span className="text-xs font-bold text-slate-600">
+                無障礙模式{a11yEnabled ? "：已開啟" : "：已關閉"}
+              </span>
             </button>
           </div>
         </div>

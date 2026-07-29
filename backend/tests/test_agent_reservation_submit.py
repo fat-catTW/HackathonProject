@@ -1,4 +1,3 @@
-import asyncio
 import tempfile
 from datetime import date
 from pathlib import Path
@@ -17,20 +16,6 @@ def isolated_store(monkeypatch):
         monkeypatch.setattr(store_module, "STORE", test_store)
         monkeypatch.setattr(reservation, "STORE", test_store)
         yield test_store
-
-
-@pytest.fixture(autouse=True)
-def restore_default_event_loop():
-    """reservation.create_reservation_order runs its booking-adapter call via
-    asyncio.run(), which explicitly clears the thread's default event loop
-    when it returns. Because this test module sorts alphabetically before
-    test_booking_adapter.py (which still uses the deprecated
-    asyncio.get_event_loop() pattern), leaving the loop cleared here breaks
-    that unrelated file when the whole suite runs in one process. Restore a
-    fresh loop after each test so no state leaks across test modules.
-    """
-    yield
-    asyncio.set_event_loop(asyncio.new_event_loop())
 
 
 def _run_turn(state, message, actor_id="user-1", session_id="sess-1"):

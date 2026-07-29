@@ -4,7 +4,7 @@ from backend.app.services.booking_adapter import BookingStatus, MockEZTableAdapt
 
 
 def run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def test_create_booking_confirms_for_verification_enabled_restaurant():

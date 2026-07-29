@@ -402,10 +402,13 @@ def _normalize_field_value(field: dict, value, original_text: str):
                 or nlu.parse_machine_type(original_text)
             )
         if field_id == "restaurant_id":
+            # 餐廳代碼（r001~r006）對 LLM 不具語意，容易在合法代碼間猜錯；
+            # 優先信任從原始文字比對餐廳名稱的規則解析（決定性、不會猜錯），
+            # LLM 給的代碼只在規則解析找不到時才採用。
             return (
-                _normalize_select(str(value), field.get("options", []))
+                nlu.parse_restaurant(original_text)
                 or nlu.parse_restaurant(str(value))
-                or nlu.parse_restaurant(original_text)
+                or _normalize_select(str(value), field.get("options", []))
             )
         if field_id == "time_slot":
             return (

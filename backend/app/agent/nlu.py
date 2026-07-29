@@ -10,6 +10,7 @@ import re
 from datetime import date, timedelta
 from pathlib import Path
 
+from ..services import delivery_catalog
 from ..services.catalog import SERVICES
 from ..services.restaurant_catalog import RESTAURANTS
 
@@ -119,6 +120,31 @@ def parse_restaurant(text: str) -> str | None:
         branch = restaurant["name"].split(" ")[-1] if " " in restaurant["name"] else restaurant["name"]
         if branch and branch in text:
             return restaurant["id"]
+    return None
+
+
+def parse_delivery_store(text: str) -> str | None:
+    """依店家名稱比對文字，回傳 store_id。"""
+    for store in delivery_catalog.list_stores():
+        if store["name"] in text:
+            return store["id"]
+    return None
+
+
+def parse_menu_item(text: str, store_id: str) -> dict | None:
+    """依指定店家菜單比對品項名稱，並擷取數量（找不到數量時預設 1 份）。"""
+    store = delivery_catalog.get_store(store_id)
+    if not store:
+        return None
+    for item in store["menu"]:
+        if item["title"] in text:
+            quantity = parse_quantity(text, unit_chars="份個杯碗") or 1
+            return {
+                "id": item["id"],
+                "title": item["title"],
+                "price": item["price"],
+                "quantity": quantity,
+            }
     return None
 
 

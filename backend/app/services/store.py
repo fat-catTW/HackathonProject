@@ -5,6 +5,7 @@ import json
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 from time import monotonic
 
@@ -16,6 +17,23 @@ TZ = timezone(timedelta(hours=8))
 
 def now_iso() -> str:
     return datetime.now(TZ).isoformat(timespec="seconds")
+
+
+def convert_floats_to_decimal(value):
+    """Recursively convert Python float values to Decimal.
+
+    DynamoDB (via boto3) rejects native float values outright ("Float
+    types are not supported. Use Decimal types instead."), so any item
+    written through DynamoDBStore needs this applied first — callers
+    shouldn't have to know about this constraint themselves.
+    """
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, dict):
+        return {key: convert_floats_to_decimal(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [convert_floats_to_decimal(item) for item in value]
+    return value
 
 
 class BaseStore:
@@ -220,14 +238,14 @@ class DynamoDBStore(BaseStore):
         self._table = get_aws_resource("dynamodb").Table(table_name)
 
     def put_item(self, item: dict) -> None:
-        self._table.put_item(Item=item)
+        self._table.put_item(Item=convert_floats_to_decimal(item))
 
     def put_item_if_absent(self, item: dict) -> bool:
         from botocore.exceptions import ClientError
 
         try:
             self._table.put_item(
-                Item=item,
+                Item=convert_floats_to_decimal(item),
                 ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
             )
             return True

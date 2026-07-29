@@ -210,3 +210,10 @@ def test_delivery_chat_flow_reports_error_without_crashing_when_cart_empty():
 
     assert result["state"]["request_id"] is None
     assert "reply" in result
+    # awaiting_confirmation must clear on failure too — otherwise the
+    # frontend's confirmation card (ButlerPanel's isConfirming view, which
+    # only renders while status stays AWAITING_USER_CONFIRMATION) never
+    # switches back to the normal chat view, so the error reply above gets
+    # appended to `events` but is never actually shown. From the user's
+    # side that looks exactly like clicking "確認送出" doing nothing.
+    assert result["state"]["awaiting_confirmation"] is False

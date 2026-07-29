@@ -1071,6 +1071,8 @@ def _submit_delivery(actor_id: str, state: dict, latest_user_message: str) -> di
 
     if not result.get("success"):
         message = result.get("error", {}).get("message", "外送訂單建立失敗")
+        state["awaiting_confirmation"] = False
+        state["status"] = "COLLECTING_INFORMATION"
         return _reply(
             state,
             _model_reply(

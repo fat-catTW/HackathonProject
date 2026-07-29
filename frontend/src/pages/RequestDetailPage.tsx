@@ -115,13 +115,28 @@ export function RequestDetailPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-gray-200 bg-white px-5">
-            {Object.entries(detail.form_data).map(([key, value]) => (
+        <div className="rounded-3xl border border-gray-200 bg-white px-5">
+          {Object.entries(detail.form_data).map(([key, value]) => {
+            const isImage = typeof value === "string" && value.startsWith("data:image/");
+
+            if (isImage) {
+              return (
+                <div key={key} className="border-b border-gray-100 py-3.5 last:border-b-0">
+                  <span className="text-gray-500">{fieldLabel(key)}</span>
+                  <div className="mt-3 overflow-hidden rounded-2xl border border-gray-200">
+                    <img src={value} alt={fieldLabel(key)} className="h-56 w-full object-cover" />
+                  </div>
+                </div>
+              );
+            }
+
+            return (
               <div key={key} className="flex justify-between gap-3 border-b border-gray-100 py-3.5 last:border-b-0">
                 <span className="text-gray-500">{fieldLabel(key)}</span>
                 <span className="text-right font-bold">{formatFieldValue(value)}</span>
               </div>
-            ))}
+            );
+          })}
             <div className="border-t border-dashed border-gray-200 py-3.5 text-sm text-gray-400">
               建立時間：{new Date(detail.created_at).toLocaleString("zh-TW")}
               <br />

@@ -4,7 +4,14 @@ import { buildFieldRows, fieldLabel, fieldValueLabel, formatFieldValue } from ".
 describe("fieldLabel", () => {
   it("translates known field keys", () => {
     expect(fieldLabel("quantity")).toBe("數量");
+    expect(fieldLabel("cleaning_service_option")).toBe("服務選項");
     expect(fieldLabel("address")).toBe("服務地址");
+    expect(fieldLabel("air_conditioner_type")).toBe("冷氣機種");
+    expect(fieldLabel("antibacterial_film_addon")).toBe("是否加購日本抗菌膜");
+    expect(fieldLabel("antibacterial_film_quantity")).toBe("日本抗菌膜數量");
+    expect(fieldLabel("repair_item")).toBe("叫修工項");
+    expect(fieldLabel("issue_photo")).toBe("現場照片");
+    expect(fieldLabel("notes")).toBe("備註");
   });
 
   it("falls back to the raw key when unknown", () => {
@@ -16,20 +23,23 @@ describe("fieldValueLabel", () => {
   it("translates known enum values", () => {
     expect(fieldValueLabel("MORNING")).toBe("上午");
     expect(fieldValueLabel("FRONT_LOAD")).toBe("滾筒式");
+    expect(fieldValueLabel("YES")).toBe("需要");
+    expect(fieldValueLabel("NO")).toBe("不需要");
   });
 
   it("stringifies unknown values as-is", () => {
     expect(fieldValueLabel(2)).toBe("2");
     expect(fieldValueLabel("台北市大安區")).toBe("台北市大安區");
+    expect(fieldValueLabel("data:image/png;base64,abc")).toBe("已上傳照片");
   });
 });
 
 describe("buildFieldRows", () => {
   it("maps collected fields into labeled rows preserving insertion order", () => {
-    const rows = buildFieldRows({ quantity: 2, preferred_time_slot: "AFTERNOON" });
+    const rows = buildFieldRows({ quantity: 2, preferred_time_slot: "14:00" });
     expect(rows).toEqual([
       { key: "quantity", label: "數量", value: "2" },
-      { key: "preferred_time_slot", label: "希望時段", value: "下午" },
+      { key: "preferred_time_slot", label: "服務時間", value: "14:00" },
     ]);
   });
 

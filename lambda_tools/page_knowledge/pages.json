@@ -2,20 +2,20 @@
   {
     "page_id": "landing",
     "route": "/",
-    "title": "歡迎頁",
-    "summary": "介紹服務助理 App 的價值，並提供登入入口。",
+    "title": "Landing page",
+    "summary": "Introduces the app and provides the login entry point.",
     "features": [
-      "查看服務介紹",
-      "認識 AI 管家",
-      "前往登入"
+      "Read the product overview",
+      "Meet the AI butler",
+      "Go to login"
     ],
     "available_actions": [
-      "閱讀介紹",
-      "點擊登入"
+      "Open login",
+      "Read the overview"
     ],
     "next_steps": [
-      "前往登入頁",
-      "登入後進入服務首頁"
+      "Go to the login page",
+      "Sign in and enter the home page"
     ],
     "related_pages": [
       "login",
@@ -23,63 +23,62 @@
       "assistant"
     ],
     "keywords": [
-      "歡迎頁",
-      "開場頁",
       "landing",
       "landing page",
-      "首頁介紹",
-      "登入入口"
+      "welcome",
+      "intro",
+      "login entry"
     ]
   },
   {
     "page_id": "login",
     "route": "/login",
-    "title": "登入頁",
-    "summary": "讓使用者輸入帳號資訊或使用 Demo 帳號登入。",
+    "title": "Login page",
+    "summary": "Lets the user sign in with an account or use demo access.",
     "features": [
-      "輸入帳號密碼",
-      "選擇 Demo 帳號",
-      "完成登入"
+      "Email login",
+      "Password login",
+      "Demo account access"
     ],
     "available_actions": [
-      "登入",
-      "切換 Demo 帳號"
+      "Sign in",
+      "Register",
+      "Use a demo account"
     ],
     "next_steps": [
-      "登入成功後前往服務首頁"
+      "Complete login",
+      "Enter the home page"
     ],
     "related_pages": [
       "landing",
       "home"
     ],
     "keywords": [
-      "登入頁",
-      "登入",
       "login",
       "sign in",
-      "帳號",
-      "密碼",
+      "register",
+      "auth",
       "demo account"
     ]
   },
   {
     "page_id": "home",
     "route": "/home",
-    "title": "服務首頁",
-    "summary": "顯示可申請的服務卡片，並可前往我的服務或打開 AI 管家。",
+    "title": "Home page",
+    "summary": "Shows available services and entry points to AI assistance and request history.",
     "features": [
-      "瀏覽服務卡片",
-      "前往我的服務",
-      "打開 AI 管家"
+      "Browse service cards",
+      "Open AI assistant",
+      "View request history"
     ],
     "available_actions": [
-      "點選服務卡片",
-      "查看我的服務",
-      "詢問 AI 管家"
+      "Select a service",
+      "Open AI assistant",
+      "Open my services"
     ],
     "next_steps": [
-      "選一項服務開始申請",
-      "或先打開 AI 管家詢問"
+      "Choose a service to start",
+      "Or ask the AI assistant first"
     ],
     "related_pages": [
       "service_form",
@@ -93,63 +92,58 @@
       "assistant"
     ],
     "keywords": [
-      "服務首頁",
-      "首頁",
       "home",
-      "服務卡片",
-      "我的服務",
-      "AI 管家"
+      "services",
+      "service cards",
+      "dashboard"
     ]
   },
   {
     "page_id": "my_services",
     "route": "/my-services",
-    "title": "我的服務",
-    "summary": "列出已送出的服務案件，讓使用者追蹤每一筆案件進度。",
+    "title": "My services",
+    "summary": "Lists submitted requests and lets the user track each case.",
     "features": [
-      "查看案件列表",
-      "查看案件狀態",
-      "進入案件詳情"
+      "See request list",
+      "Check status",
+      "Open request details"
     ],
     "available_actions": [
-      "點進單一案件",
-      "查看進度"
+      "Open a request",
+      "Review progress"
     ],
     "next_steps": [
-      "選一筆案件查看詳情"
+      "Pick a request to inspect"
     ],
     "related_pages": [
       "home",
       "request_detail"
     ],
     "keywords": [
-      "我的服務",
-      "案件列表",
-      "服務紀錄",
-      "申請紀錄",
-      "案件進度",
+      "my services",
+      "requests",
       "orders",
-      "requests"
+      "history"
     ]
   },
   {
     "page_id": "assistant",
     "route": "/new",
-    "title": "AI 管家",
-    "summary": "用對話方式協助使用者挑選服務、填寫資料、確認內容與送出申請。",
+    "title": "AI assistant",
+    "summary": "Collects requirements through conversation and helps prepare a request.",
     "features": [
-      "對話式填單",
-      "詢問頁面用途",
-      "引導完成申請"
+      "Conversational intake",
+      "Follow-up questions",
+      "Submission guidance"
     ],
     "available_actions": [
-      "描述需求",
-      "回答問題",
-      "確認送出"
+      "Describe a need",
+      "Answer follow-up questions",
+      "Confirm submission"
     ],
     "next_steps": [
-      "告訴 AI 你的需求",
-      "依提示補齊資料"
+      "Tell the AI what you need",
+      "Fill missing details"
     ],
     "related_pages": [
       "home",
@@ -161,35 +155,32 @@
       "request_detail"
     ],
     "keywords": [
-      "AI 管家",
-      "聊天",
       "assistant",
       "butler",
-      "對話",
-      "幫我申請",
-      "幫我填"
+      "chat",
+      "ai"
     ]
   },
   {
     "page_id": "service_form",
     "route": "/services/:serviceId",
-    "title": "服務表單",
-    "summary": "這是通用的手動填單頁類型，實際會依照不同服務顯示不同欄位。",
+    "title": "Service form",
+    "summary": "Generic manual form page that renders different fields for each service.",
     "features": [
-      "填寫服務欄位",
-      "檢查必填資料",
-      "送出服務申請"
+      "Manual field entry",
+      "Required field checks",
+      "Submit a service request"
     ],
     "available_actions": [
-      "填寫需求",
-      "選日期",
-      "選時段",
-      "輸入地址電話",
-      "送出申請"
+      "Fill form fields",
+      "Pick date",
+      "Pick time",
+      "Enter address and phone",
+      "Submit request"
     ],
     "next_steps": [
-      "依服務內容填完必填欄位",
-      "確認資料後送出案件"
+      "Complete required fields",
+      "Submit the request"
     ],
     "related_pages": [
       "home",
@@ -201,36 +192,32 @@
       "request_detail"
     ],
     "keywords": [
-      "服務表單",
-      "申請表單",
       "service form",
-      "填資料",
-      "必填",
-      "送出申請",
-      "手動填表"
+      "manual form",
+      "request form"
     ]
   },
   {
     "page_id": "service_form_plumbing_repair",
     "route": "/services/plumbing_repair",
-    "title": "水電維修表單",
-    "summary": "用來填寫漏水、堵塞、設備故障等水電維修需求，送出後可安排到府處理。",
+    "title": "Plumbing repair form",
+    "summary": "Collects plumbing repair details such as issue description, schedule, and contact info.",
     "features": [
-      "描述漏水、堵塞或設備故障情況",
-      "選擇希望到府的日期與時段",
-      "填寫服務地址與聯絡電話"
+      "Describe the issue",
+      "Select date and time",
+      "Enter address and phone"
     ],
     "available_actions": [
-      "填寫問題描述",
-      "選日期",
-      "選時段",
-      "輸入地址",
-      "輸入電話",
-      "送出水電維修申請"
+      "Describe the problem",
+      "Pick date",
+      "Pick time",
+      "Enter address",
+      "Enter phone",
+      "Submit repair request"
     ],
     "next_steps": [
-      "先描述問題情況，再補日期、時段和聯絡資訊",
-      "確認資料無誤後送出案件"
+      "Describe the issue first",
+      "Then add scheduling and contact details"
     ],
     "related_pages": [
       "home",
@@ -239,40 +226,35 @@
       "request_detail"
     ],
     "keywords": [
-      "水電維修表單",
-      "水電表單",
-      "維修表單",
+      "plumbing",
+      "repair",
       "plumbing repair form",
-      "漏水",
-      "堵塞",
-      "設備故障",
-      "手動填水電維修",
-      "水電維修申請"
+      "manual plumbing request"
     ]
   },
   {
     "page_id": "service_form_washing_machine_cleaning",
     "route": "/services/washing_machine_cleaning",
-    "title": "洗衣機清潔表單",
-    "summary": "用來填寫洗衣機清潔需求，包含台數、機型、預約時間與聯絡資訊。",
+    "title": "Washing machine cleaning form",
+    "summary": "Collects washer cleaning details such as quantity, machine type, schedule, and contact info.",
     "features": [
-      "填寫洗衣機台數",
-      "選擇直立式或滾筒式機型",
-      "安排清潔日期與時段",
-      "填寫服務地址與電話"
+      "Enter washer quantity",
+      "Choose machine type",
+      "Pick date and time",
+      "Enter address and phone"
     ],
     "available_actions": [
-      "輸入洗衣機台數",
-      "選機型",
-      "選日期",
-      "選時段",
-      "輸入地址",
-      "輸入電話",
-      "送出洗衣機清潔申請"
+      "Enter quantity",
+      "Choose machine type",
+      "Pick date",
+      "Pick time",
+      "Enter address",
+      "Enter phone",
+      "Submit washer cleaning request"
     ],
     "next_steps": [
-      "先確認洗衣機台數與機型，再補預約時間和聯絡資訊",
-      "確認資料後送出洗衣機清潔案件"
+      "Confirm quantity and machine type",
+      "Then add schedule and contact details"
     ],
     "related_pages": [
       "home",
@@ -281,38 +263,32 @@
       "request_detail"
     ],
     "keywords": [
-      "洗衣機清潔表單",
-      "洗衣機表單",
-      "清洗洗衣機表單",
-      "washing machine cleaning form",
-      "直立式",
-      "滾筒式",
-      "洗衣機台數",
-      "手動填洗衣機清潔",
-      "洗衣機清潔申請"
+      "washing machine",
+      "cleaning",
+      "washer cleaning form"
     ]
   },
   {
     "page_id": "service_form_air_conditioner_cleaning",
     "route": "/services/air_conditioner_cleaning",
-    "title": "冷氣清潔表單",
-    "summary": "用來填寫冷氣清潔需求，包含冷氣台數、預約時間與聯絡資訊。",
+    "title": "Air conditioner cleaning form",
+    "summary": "Collects AC cleaning details such as quantity, schedule, and contact info.",
     "features": [
-      "填寫冷氣台數",
-      "選擇希望到府清潔的日期與時段",
-      "填寫服務地址與聯絡電話"
+      "Enter AC quantity",
+      "Pick date and time",
+      "Enter address and phone"
     ],
     "available_actions": [
-      "輸入冷氣台數",
-      "選日期",
-      "選時段",
-      "輸入地址",
-      "輸入電話",
-      "送出冷氣清潔申請"
+      "Enter quantity",
+      "Pick date",
+      "Pick time",
+      "Enter address",
+      "Enter phone",
+      "Submit AC cleaning request"
     ],
     "next_steps": [
-      "先填冷氣台數，再補日期、時段和聯絡資訊",
-      "確認資料完整後送出冷氣清潔案件"
+      "Fill the AC quantity first",
+      "Then complete scheduling and contact details"
     ],
     "related_pages": [
       "home",
@@ -321,38 +297,32 @@
       "request_detail"
     ],
     "keywords": [
-      "冷氣清潔表單",
-      "冷氣服務",
-      "冷氣表單",
-      "冷氣清洗表單",
-      "air conditioner cleaning form",
-      "冷氣台數",
-      "手動填冷氣清潔",
-      "冷氣清潔申請",
-      "洗冷氣表單"
+      "air conditioner",
+      "ac cleaning",
+      "air conditioner cleaning form"
     ]
   },
   {
     "page_id": "service_form_home_cleaning",
     "route": "/services/home_cleaning",
-    "title": "居家清潔表單",
-    "summary": "用來填寫居家清潔需求，包含預估時數、預約時間與聯絡資訊。",
+    "title": "Home cleaning form",
+    "summary": "Collects home cleaning preferences, schedule, and contact details.",
     "features": [
-      "填寫需要的清潔時數",
-      "選擇到府日期與時段",
-      "填寫服務地址與聯絡電話"
+      "Choose service option",
+      "Pick date and time",
+      "Enter address and phone"
     ],
     "available_actions": [
-      "輸入清潔時數",
-      "選日期",
-      "選時段",
-      "輸入地址",
-      "輸入電話",
-      "送出居家清潔申請"
+      "Choose cleaning option",
+      "Pick date",
+      "Pick time",
+      "Enter address",
+      "Enter phone",
+      "Submit home cleaning request"
     ],
     "next_steps": [
-      "先估算清潔時數，再補預約時間與聯絡資訊",
-      "確認資料後送出居家清潔案件"
+      "Choose a cleaning option first",
+      "Then complete scheduling and contact details"
     ],
     "related_pages": [
       "home",
@@ -361,38 +331,34 @@
       "request_detail"
     ],
     "keywords": [
-      "居家清潔表單",
-      "家庭清潔表單",
-      "打掃表單",
-      "home cleaning form",
-      "清潔時數",
-      "手動填居家清潔",
-      "居家清潔申請"
+      "home cleaning",
+      "cleaning form",
+      "manual cleaning request"
     ]
   },
   {
     "page_id": "service_form_restaurant_reservation",
     "route": "/services/restaurant_reservation",
-    "title": "餐廳訂位",
-    "summary": "用來選餐廳、選日期時段與人數，完成 22 世紀風味館的餐廳訂位。",
+    "title": "Restaurant reservation",
+    "summary": "Collects reservation details such as restaurant, dining time, party size, and contact info.",
     "features": [
-      "從精選餐廳清單挑選分店",
-      "選擇用餐日期（限今天起 60 天內）與午餐/晚餐時段",
-      "填寫用餐人數、聯絡人姓名與電話",
-      "選擇一般訂位或高級訂位"
+      "Choose restaurant",
+      "Choose date and meal slot",
+      "Enter party size and contact info",
+      "Choose reservation tier"
     ],
     "available_actions": [
-      "選餐廳",
-      "選日期",
-      "選時段",
-      "輸入人數",
-      "輸入聯絡人姓名",
-      "輸入電話",
-      "送出訂位申請"
+      "Choose restaurant",
+      "Pick date",
+      "Pick time slot",
+      "Enter people count",
+      "Enter contact name",
+      "Enter phone",
+      "Submit reservation"
     ],
     "next_steps": [
-      "先選好餐廳與用餐時段，再補人數和聯絡資訊",
-      "確認資料無誤後送出訂位"
+      "Select restaurant and dining slot first",
+      "Then complete party size and contact details"
     ],
     "related_pages": [
       "home",
@@ -400,37 +366,34 @@
       "request_detail"
     ],
     "keywords": [
-      "餐廳訂位表單",
-      "訂位表單",
-      "restaurant reservation form",
-      "手動填訂位",
-      "餐廳訂位申請",
-      "訂位申請頁面"
+      "restaurant reservation",
+      "reservation form",
+      "booking"
     ]
   },
   {
     "page_id": "service_form_food_delivery",
     "route": "/services/food_delivery",
-    "title": "美食外送",
-    "summary": "用來填寫外送地址、選店家與餐點，完成美食外送下單。",
+    "title": "Food delivery",
+    "summary": "Collects delivery address, store choice, and cart items for a food delivery order.",
     "features": [
-      "輸入外送地址（含樓層備註）",
-      "從附近店家清單選一間店",
-      "從店家菜單選餐點與數量",
-      "確認金額後送出訂單",
-      "查看外送即時進度"
+      "Enter delivery address",
+      "Choose a store",
+      "Choose items and quantity",
+      "Review amount",
+      "Track delivery progress"
     ],
     "available_actions": [
-      "輸入地址",
-      "選店家",
-      "選餐點",
-      "調整數量",
-      "填寫收件人姓名",
-      "送出外送訂單"
+      "Enter address",
+      "Choose store",
+      "Choose items",
+      "Adjust quantity",
+      "Enter recipient name",
+      "Submit delivery order"
     ],
     "next_steps": [
-      "先輸入外送地址，再選店家與餐點",
-      "確認金額與明細後送出訂單"
+      "Enter the address first",
+      "Then choose store and items"
     ],
     "related_pages": [
       "home",
@@ -438,33 +401,31 @@
       "request_detail"
     ],
     "keywords": [
-      "美食外送表單",
-      "外送表單",
-      "food delivery form",
-      "手動填外送",
-      "外送申請頁面"
+      "food delivery",
+      "delivery form",
+      "manual delivery order"
     ]
   },
   {
     "page_id": "request_detail",
     "route": "/requests/:requestId",
-    "title": "案件詳情",
-    "summary": "查看單一案件的狀態、表單內容與對話紀錄，也能追問或取消案件。",
+    "title": "Request detail",
+    "summary": "Shows request status, submitted form data, and related conversation history.",
     "features": [
-      "查看案件狀態",
-      "查看表單資料",
-      "查看對話紀錄",
-      "追問案件",
-      "取消案件"
+      "View request status",
+      "View submitted form data",
+      "View conversation history",
+      "Follow up on a request",
+      "Cancel a request"
     ],
     "available_actions": [
-      "傳送追問訊息",
-      "取消案件",
-      "再次申請同類服務"
+      "Send a follow-up message",
+      "Cancel request",
+      "Start a similar request again"
     ],
     "next_steps": [
-      "先查看目前進度",
-      "若有疑問可以追問 AI 管家"
+      "Review the current progress",
+      "Ask the AI if anything is unclear"
     ],
     "related_pages": [
       "my_services",
@@ -472,13 +433,11 @@
       "home"
     ],
     "keywords": [
-      "案件詳情",
-      "案件進度",
-      "訂單詳情",
       "request detail",
       "status",
-      "追問",
-      "取消案件"
+      "history",
+      "follow up",
+      "cancel"
     ]
   }
 ]

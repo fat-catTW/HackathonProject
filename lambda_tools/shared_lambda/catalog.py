@@ -183,17 +183,45 @@ FALLBACK_SERVICES: list[dict] = [
         "description": "處理漏水、堵塞、馬桶、水管、插座與燈具等居家修繕問題。",
         "schema": {
             "fields": [
-                {"id": "issue_description", "label": "問題描述", "type": "text", "required": True},
-                {"id": "preferred_date", "label": "希望日期", "type": "date", "required": True},
                 {
-                    "id": "preferred_time_slot",
-                    "label": "希望時段",
+                    "id": "repair_item",
+                    "label": "叫修工項",
                     "type": "select",
                     "required": True,
-                    "options": ["MORNING", "AFTERNOON", "EVENING"],
+                    "options": [
+                        "水管",
+                        "水龍頭",
+                        "馬桶",
+                        "電燈",
+                        "洗手台",
+                        "流理臺",
+                        "浴廁設備",
+                        "插座",
+                        "配電箱",
+                        "電熱水器",
+                        "馬達",
+                        "水塔",
+                        "防水工程",
+                        "門窗/紗窗",
+                        "泥作工程(地磚)",
+                        "採光罩",
+                    ],
+                },
+                {"id": "issue_description", "label": "問題描述", "type": "textarea", "required": True},
+                {"id": "issue_photo", "label": "現場照片", "type": "file", "required": False},
+                {"id": "preferred_date", "label": "服務日期", "type": "date", "required": True},
+                {
+                    "id": "preferred_time_slot",
+                    "label": "服務時間",
+                    "type": "time",
+                    "required": True,
+                    "minValue": "08:30",
+                    "maxValue": "18:00",
+                    "step": 300,
                 },
                 {"id": "address", "label": "服務地址", "type": "text", "required": True},
                 {"id": "phone", "label": "聯絡電話", "type": "text", "required": True},
+                {"id": "notes", "label": "備註", "type": "textarea", "required": False},
             ]
         },
     },
@@ -214,13 +242,16 @@ FALLBACK_SERVICES: list[dict] = [
                 {"id": "preferred_date", "label": "希望日期", "type": "date", "required": True},
                 {
                     "id": "preferred_time_slot",
-                    "label": "希望時段",
-                    "type": "select",
+                    "label": "希望時間",
+                    "type": "time",
                     "required": True,
-                    "options": ["MORNING", "AFTERNOON", "EVENING"],
+                    "minValue": "08:30",
+                    "maxValue": "18:00",
+                    "step": 300,
                 },
                 {"id": "address", "label": "服務地址", "type": "text", "required": True},
                 {"id": "phone", "label": "聯絡電話", "type": "text", "required": True},
+                {"id": "notes", "label": "備註", "type": "textarea", "required": False},
             ]
         },
     },
@@ -231,16 +262,40 @@ FALLBACK_SERVICES: list[dict] = [
         "schema": {
             "fields": [
                 {"id": "quantity", "label": "數量", "type": "number", "required": True},
-                {"id": "preferred_date", "label": "希望日期", "type": "date", "required": True},
                 {
-                    "id": "preferred_time_slot",
-                    "label": "希望時段",
+                    "id": "air_conditioner_type",
+                    "label": "冷氣機種",
                     "type": "select",
                     "required": True,
-                    "options": ["MORNING", "AFTERNOON", "EVENING"],
+                    "options": ["壁掛式", "天花板嵌入式", "四方吹業務型"],
+                },
+                {
+                    "id": "antibacterial_film_addon",
+                    "label": "是否加購日本抗菌膜",
+                    "type": "select",
+                    "required": True,
+                    "options": ["YES", "NO"],
+                },
+                {
+                    "id": "antibacterial_film_quantity",
+                    "label": "日本抗菌膜數量",
+                    "type": "number",
+                    "required": False,
+                    "visibleWhen": {"fieldId": "antibacterial_film_addon", "value": "YES"},
+                },
+                {"id": "preferred_date", "label": "服務日期", "type": "date", "required": True},
+                {
+                    "id": "preferred_time_slot",
+                    "label": "服務時間",
+                    "type": "time",
+                    "required": True,
+                    "minValue": "08:30",
+                    "maxValue": "18:00",
+                    "step": 300,
                 },
                 {"id": "address", "label": "服務地址", "type": "text", "required": True},
                 {"id": "phone", "label": "聯絡電話", "type": "text", "required": True},
+                {"id": "notes", "label": "備註", "type": "textarea", "required": False},
             ]
         },
     },
@@ -250,17 +305,33 @@ FALLBACK_SERVICES: list[dict] = [
         "description": "提供居家打掃與鐘點清潔服務。",
         "schema": {
             "fields": [
-                {"id": "hours", "label": "服務時數", "type": "number", "required": True},
+                {
+                    "id": "cleaning_service_option",
+                    "label": "服務選項",
+                    "type": "select",
+                    "required": True,
+                    "options": [
+                        "地板清潔",
+                        "石材地板研磨 晶化 拋光",
+                        "地毯清潔",
+                        "玻璃清潔",
+                        "天花板除塵",
+                        "廁所清潔",
+                    ],
+                },
                 {"id": "preferred_date", "label": "希望日期", "type": "date", "required": True},
                 {
                     "id": "preferred_time_slot",
-                    "label": "希望時段",
-                    "type": "select",
+                    "label": "服務時間",
+                    "type": "time",
                     "required": True,
-                    "options": ["MORNING", "AFTERNOON", "EVENING"],
+                    "minValue": "08:30",
+                    "maxValue": "18:00",
+                    "step": 300,
                 },
                 {"id": "address", "label": "服務地址", "type": "text", "required": True},
                 {"id": "phone", "label": "聯絡電話", "type": "text", "required": True},
+                {"id": "notes", "label": "備註", "type": "textarea", "required": False},
             ]
         },
     },
@@ -396,6 +467,21 @@ def load_service(service_id: str) -> dict | None:
     return fallback_service(service_id) if CATALOG_FALLBACK else None
 
 
+def field_is_visible(field: dict, payload: dict) -> bool:
+    visible_when = field.get("visibleWhen")
+    if not isinstance(visible_when, dict):
+        return True
+    parent_field_id = visible_when.get("fieldId")
+    expected_value = visible_when.get("value")
+    if not isinstance(parent_field_id, str):
+        return True
+    return payload.get(parent_field_id) == expected_value
+
+
 def validate_required_fields(fields: list[dict], payload: dict) -> list[str]:
-    required = [field["id"] for field in fields if field.get("required")]
+    required = [
+        field["id"]
+        for field in fields
+        if field.get("required") and field_is_visible(field, payload)
+    ]
     return [field_id for field_id in required if payload.get(field_id) in (None, "")]

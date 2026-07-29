@@ -1,12 +1,19 @@
 const FIELD_LABELS: Record<string, string> = {
   quantity: "數量",
   hours: "服務時數",
+  cleaning_service_option: "服務選項",
   machine_type: "洗衣機類型",
+  air_conditioner_type: "冷氣機種",
+  antibacterial_film_addon: "是否加購日本抗菌膜",
+  antibacterial_film_quantity: "日本抗菌膜數量",
+  repair_item: "叫修工項",
   issue_description: "問題描述",
-  preferred_date: "希望日期",
-  preferred_time_slot: "希望時段",
+  issue_photo: "現場照片",
+  preferred_date: "服務日期",
+  preferred_time_slot: "服務時間",
   address: "服務地址",
   phone: "聯絡電話",
+  notes: "備註",
   restaurant_name: "餐廳",
   reserved_date: "用餐日期",
   time_slot: "用餐時段",
@@ -25,6 +32,8 @@ const VALUE_LABELS: Record<string, string> = {
   EVENING: "晚上",
   TOP_LOAD: "直立式",
   FRONT_LOAD: "滾筒式",
+  YES: "需要",
+  NO: "不需要",
   LUNCH: "午餐",
   DINNER: "晚餐",
   "true": "高級訂位",
@@ -61,6 +70,9 @@ export function fieldLabel(key: string): string {
 }
 
 export function fieldValueLabel(value: string | number): string {
+  if (typeof value === "string" && value.startsWith("data:image/")) {
+    return "已上傳照片";
+  }
   return VALUE_LABELS[String(value)] ?? String(value);
 }
 
@@ -74,7 +86,6 @@ function addressValueLabel(address: AddressLike): string {
   return address.remark ? `${line}（${address.remark}）` : line;
 }
 
-/** 格式化任一種 collected/form_data 欄位值，涵蓋一般文字/數字、購物車清單、地址物件。 */
 export function formatFieldValue(value: CollectedFieldValue): string {
   if (isCartLineItemArray(value)) return cartValueLabel(value);
   if (isAddressLike(value)) return addressValueLabel(value);

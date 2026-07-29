@@ -7,14 +7,99 @@ import { ServiceIcon } from "../components/ServiceIcon";
 import { Toast } from "../components/Toast";
 import { getServiceDefinition } from "../data/services";
 import type { ServiceField } from "../types/service";
-import { fieldValueLabel } from "../utils/fieldLabels";
+import { fieldLabel, fieldValueLabel } from "../utils/fieldLabels";
 
 type FormValues = Record<string, string>;
+
+const AIRCON_BASE_PRICE = 2800;
+const ANTIBACTERIAL_FILM_PRICE = 500;
+const TOP_LOAD_WASHER_PRICE = 2200;
+const FRONT_LOAD_WASHER_PRICE = 3800;
+const HOME_CLEANING_ESTIMATES: Record<
+  string,
+  { price: number; unit?: string; note: string }
+> = {
+  地板清潔: {
+    price: 2000,
+    note: "一般居家地板清潔多落在基礎到府清潔的起始區間。",
+  },
+  "石材地板研磨 晶化 拋光": {
+    price: 1400,
+    unit: "/坪",
+    note: "石材地板研磨、晶化與拋光通常依坪數計價，實際金額會看磨耗程度調整。",
+  },
+  地毯清潔: {
+    price: 3000,
+    note: "地毯到府清潔常見以單次出工或坪數報價，50 坪以下常見基本價約 3,000 元起。",
+  },
+  玻璃清潔: {
+    price: 2000,
+    note: "玻璃清潔常見會有基本出工門檻，窗型與高度不同也會影響報價。",
+  },
+  天花板除塵: {
+    price: 1500,
+    note: "天花板除塵多半併入鐘點清潔計價，這裡先以常見基本出工估算。",
+  },
+  廁所清潔: {
+    price: 2000,
+    note: "廁所深度清潔常以每間計價，是否需除霉或除水垢會影響最後費用。",
+  },
+};
 
 function minDateIso() {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 10);
+}
+
+function isFieldVisible(field: ServiceField, values: FormValues) {
+  if (!field.visibleWhen) return true;
+  return (values[field.visibleWhen.fieldId] ?? "") === field.visibleWhen.value;
+}
+
+function formatPrice(value: number) {
+  return new Intl.NumberFormat("zh-TW").format(value);
+}
+
+function parseTimeToMinutes(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
+  return hours * 60 + minutes;
+}
+
+function formatMinutesAsTime(totalMinutes: number) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function buildTimeOptions(field: ServiceField) {
+  const start = parseTimeToMinutes(field.minValue ?? "00:00");
+  const end = parseTimeToMinutes(field.maxValue ?? "23:55");
+  const stepMinutes = Math.max(Math.floor((field.step ?? 300) / 60), 1);
+
+  if (start === null || end === null || start > end) return [];
+
+  const options: string[] = [];
+  for (let minutes = start; minutes <= end; minutes += stepMinutes) {
+    options.push(formatMinutesAsTime(minutes));
+  }
+  return options;
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("讀取圖片失敗"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function preventWheelValueChange(event: React.WheelEvent<HTMLInputElement>) {
+  if (document.activeElement === event.currentTarget) {
+    event.currentTarget.blur();
+  }
 }
 
 function buildInitialValues(fields: ServiceField[]) {
@@ -29,7 +114,6 @@ function numberStep(field: ServiceField) {
   return field.step ?? 1;
 }
 
-/** 過濾數字欄位的輸入，擋掉負號、指數符號與多餘的前導 0。 */
 function sanitizeNumberValue(raw: string, allowDecimal: boolean) {
   let cleaned = allowDecimal ? raw.replace(/[^\d.]/g, "") : raw.replace(/\D/g, "");
   if (allowDecimal) {
@@ -77,36 +161,166 @@ export function ServiceFormPage() {
     return () => clearTimeout(timer);
   }, [createdRequestId, navigate]);
 
-  const groupedFields = useMemo(() => groupFields(schema?.fields ?? []), [schema]);
-  const completedCount = useMemo(
-    () =>
-      (schema?.fields ?? []).filter((field) => {
-        const value = (values[field.id] ?? "").trim();
-        return value !== "";
-      }).length,
+  const visibleFields = useMemo(
+    () => (schema?.fields ?? []).filter((field) => isFieldVisible(field, values)),
     [schema, values],
   );
+  const groupedFields = useMemo(() => groupFields(visibleFields), [visibleFields]);
+  const requiredFieldCount = useMemo(
+    () => visibleFields.filter((field) => field.required).length,
+    [visibleFields],
+  );
+  const completedCount = useMemo(
+    () =>
+      visibleFields.filter((field) => {
+        const value = (values[field.id] ?? "").trim();
+        return field.required && value !== "";
+      }).length,
+    [visibleFields, values],
+  );
+  const airconEstimate = useMemo(() => {
+    if (serviceId !== "air_conditioner_cleaning") return null;
 
-  function updateValue(field: ServiceField, value: string) {
-    const nextValue =
-      field.type === "number"
-        ? sanitizeNumberValue(value, !Number.isInteger(numberStep(field)))
-        : value;
+    const quantity = Number(values.quantity);
+    const quantityValid = Number.isInteger(quantity) && quantity > 0;
+    const addonSelected = values.antibacterial_film_addon === "YES";
+    const addonQuantity = Number(values.antibacterial_film_quantity);
+    const addonQuantityValid = Number.isInteger(addonQuantity) && addonQuantity > 0;
 
-    setValues((prev) => ({ ...prev, [field.id]: nextValue }));
-    setErrors((prev) => {
-      if (!prev[field.id]) return prev;
+    if (!quantityValid) {
+      return {
+        ready: false,
+        needsAddonQuantity: false,
+        baseQuantity: 0,
+        addonQuantity: 0,
+        baseSubtotal: 0,
+        addonSubtotal: 0,
+        total: 0,
+      };
+    }
+
+    const baseSubtotal = quantity * AIRCON_BASE_PRICE;
+    const addonSubtotal =
+      addonSelected && addonQuantityValid ? addonQuantity * ANTIBACTERIAL_FILM_PRICE : 0;
+
+    return {
+      ready: !addonSelected || addonQuantityValid,
+      needsAddonQuantity: addonSelected && !addonQuantityValid,
+      baseQuantity: quantity,
+      addonQuantity: addonSelected && addonQuantityValid ? addonQuantity : 0,
+      baseSubtotal,
+      addonSubtotal,
+      total: baseSubtotal + addonSubtotal,
+    };
+  }, [serviceId, values]);
+  const washerEstimate = useMemo(() => {
+    if (serviceId !== "washing_machine_cleaning") return null;
+
+    const quantity = Number(values.quantity);
+    const quantityValid = Number.isInteger(quantity) && quantity > 0;
+    const machineType = values.machine_type;
+    const unitPrice =
+      machineType === "TOP_LOAD"
+        ? TOP_LOAD_WASHER_PRICE
+        : machineType === "FRONT_LOAD"
+          ? FRONT_LOAD_WASHER_PRICE
+          : 0;
+
+    if (!quantityValid || !unitPrice) {
+      return {
+        ready: false,
+        quantity: quantityValid ? quantity : 0,
+        machineType,
+        unitPrice,
+        total: 0,
+      };
+    }
+
+    return {
+      ready: true,
+      quantity,
+      machineType,
+      unitPrice,
+      total: quantity * unitPrice,
+    };
+  }, [serviceId, values]);
+  const homeCleaningEstimate = useMemo(() => {
+    if (serviceId !== "home_cleaning") return null;
+
+    const selectedOption = values.cleaning_service_option;
+    const estimate = selectedOption ? HOME_CLEANING_ESTIMATES[selectedOption] : null;
+
+    return {
+      selectedOption,
+      estimate,
+    };
+  }, [serviceId, values]);
+
+  useEffect(() => {
+    if (!schema) return;
+
+    const visibleFieldIds = new Set(visibleFields.map((field) => field.id));
+
+    setValues((prev) => {
+      let changed = false;
       const next = { ...prev };
-      delete next[field.id];
+      for (const field of schema.fields) {
+        if (!visibleFieldIds.has(field.id) && next[field.id]) {
+          next[field.id] = "";
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+
+    setErrors((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const fieldId of Object.keys(next)) {
+        if (!visibleFieldIds.has(fieldId)) {
+          delete next[fieldId];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [schema, visibleFields]);
+
+  function updateValue(fieldOrId: ServiceField | string, value: string) {
+    const fieldId = typeof fieldOrId === "string" ? fieldOrId : fieldOrId.id;
+    const nextValue =
+      typeof fieldOrId === "string" || fieldOrId.type !== "number"
+        ? value
+        : sanitizeNumberValue(value, !Number.isInteger(numberStep(fieldOrId)));
+
+    setValues((prev) => ({ ...prev, [fieldId]: nextValue }));
+    setErrors((prev) => {
+      if (!prev[fieldId]) return prev;
+      const next = { ...prev };
+      delete next[fieldId];
       return next;
     });
+  }
+
+  async function handleFileChange(fieldId: string, file: File | null) {
+    if (!file) {
+      updateValue(fieldId, "");
+      return;
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      updateValue(fieldId, dataUrl);
+    } catch {
+      setErrors((prev) => ({ ...prev, [fieldId]: "照片讀取失敗，請重新選擇一張圖片" }));
+    }
   }
 
   function validate() {
     if (!schema) return false;
 
     const nextErrors: Record<string, string> = {};
-    for (const field of schema.fields) {
+    for (const field of visibleFields) {
       const rawValue = (values[field.id] ?? "").trim();
       if (field.required && !rawValue) {
         nextErrors[field.id] = `請填寫${field.label}`;
@@ -117,9 +331,12 @@ export function ServiceFormPage() {
         const parsed = Number(rawValue);
         const min = numberMin(field);
         const step = numberStep(field);
+
         if (!Number.isFinite(parsed) || parsed < min) {
           nextErrors[field.id] = `${field.label}需為 ${min} 以上的數字`;
-        } else if (Number.isInteger(step) && !Number.isInteger(parsed)) {
+          continue;
+        }
+        if (Number.isInteger(step) && !Number.isInteger(parsed)) {
           nextErrors[field.id] = `${field.label}需為整數`;
         }
       }
@@ -134,7 +351,7 @@ export function ServiceFormPage() {
     if (!validate()) return;
 
     const payload: Record<string, string | number> = {};
-    for (const field of schema.fields) {
+    for (const field of visibleFields) {
       const rawValue = (values[field.id] ?? "").trim();
       if (!rawValue) continue;
       payload[field.id] = field.type === "number" ? Number(rawValue) : rawValue;
@@ -145,7 +362,20 @@ export function ServiceFormPage() {
       const result = await createServiceRequest(schema.service_id, payload);
       setCreatedRequestId(result.request_id);
     } catch (error) {
-      setToastText(error instanceof ApiError ? error.message : "送出失敗，請稍後再試");
+      if (error instanceof ApiError) {
+        if (error.code === "INVALID_FORM_DATA" && error.details?.missingFields?.length) {
+          setErrors((prev) => {
+            const next = { ...prev };
+            for (const fieldId of error.details?.missingFields ?? []) {
+              next[fieldId] = `請填寫${fieldLabel(fieldId)}`;
+            }
+            return next;
+          });
+        }
+        setToastText(error.message);
+      } else {
+        setToastText("送出失敗，請稍後再試");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -179,7 +409,7 @@ export function ServiceFormPage() {
               {field.type === "select" ? (
                 <select
                   value={value}
-                  onChange={(e) => updateValue(field, e.target.value)}
+                  onChange={(e) => updateValue(field.id, e.target.value)}
                   className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
                 >
                   <option value="">請選擇</option>
@@ -189,6 +419,51 @@ export function ServiceFormPage() {
                     </option>
                   ))}
                 </select>
+              ) : field.type === "time" ? (
+                <select
+                  value={value}
+                  onChange={(e) => updateValue(field.id, e.target.value)}
+                  className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
+                >
+                  <option value="">請選擇</option>
+                  {buildTimeOptions(field).map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              ) : field.type === "file" ? (
+                <div className="space-y-3">
+                  <input
+                    type="file"
+                    accept={field.accept}
+                    onChange={(e) => void handleFileChange(field.id, e.target.files?.[0] ?? null)}
+                    className="block w-full rounded-2xl border-2 border-white bg-white px-4 py-3 text-sm text-slate-600 file:mr-4 file:rounded-full file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:font-bold file:text-brand"
+                  />
+                  {value && (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                      <img src={value} alt={`${field.label}預覽`} className="h-48 w-full object-cover" />
+                      <div className="flex items-center justify-between gap-3 px-4 py-3">
+                        <p className="text-sm text-slate-500">已選擇現場照片，可送出前再次更換。</p>
+                        <button
+                          type="button"
+                          onClick={() => updateValue(field.id, "")}
+                          className="rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-500"
+                        >
+                          移除
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : field.type === "textarea" ? (
+                <textarea
+                  value={value}
+                  onChange={(e) => updateValue(field.id, e.target.value)}
+                  rows={field.rows ?? 4}
+                  placeholder={field.placeholder ?? `請填寫${field.label}`}
+                  className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
+                />
               ) : (
                 <input
                   type={
@@ -207,12 +482,9 @@ export function ServiceFormPage() {
                         : undefined
                   }
                   step={field.type === "number" ? numberStep(field) : undefined}
-                  // 數字欄位聚焦時滾動頁面會被瀏覽器解讀成調整數值，送出前捲動就會偷偷改掉輸入。
-                  onWheel={
-                    field.type === "number"
-                      ? (event) => event.currentTarget.blur()
-                      : undefined
-                  }
+                  value={value}
+                  onChange={(e) => updateValue(field, e.target.value)}
+                  onWheel={field.type === "number" ? preventWheelValueChange : undefined}
                   onKeyDown={
                     field.type === "number"
                       ? (event) => {
@@ -220,8 +492,6 @@ export function ServiceFormPage() {
                         }
                       : undefined
                   }
-                  value={value}
-                  onChange={(e) => updateValue(field, e.target.value)}
                   placeholder={
                     field.type === "text" || field.type === "number"
                       ? field.placeholder ?? `請填寫${field.label}`
@@ -307,7 +577,7 @@ export function ServiceFormPage() {
             <div>
               <p className="text-sm font-semibold text-brand">填寫進度</p>
               <h2 className="mt-1 text-lg font-black text-slate-900">
-                已完成 {completedCount} / {schema.fields.length} 項
+                已完成 {completedCount} / {requiredFieldCount} 項
               </h2>
             </div>
             <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-brand">
@@ -317,7 +587,7 @@ export function ServiceFormPage() {
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
             <div
               className="h-full rounded-full bg-brand transition-all"
-              style={{ width: `${(completedCount / Math.max(schema.fields.length, 1)) * 100}%` }}
+              style={{ width: `${(completedCount / Math.max(requiredFieldCount, 1)) * 100}%` }}
             />
           </div>
         </section>
@@ -333,6 +603,143 @@ export function ServiceFormPage() {
             </div>
           ))}
         </section>
+
+        {airconEstimate && (
+          <section className="mt-6 rounded-[28px] bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <p className="text-sm font-semibold text-brand">目前估價</p>
+              <h3 className="mt-1 text-lg font-black text-slate-900">依照目前選項試算最低費用</h3>
+            </div>
+
+            {!airconEstimate.ready && airconEstimate.baseQuantity === 0 ? (
+              <p className="text-sm leading-7 text-slate-500">
+                請先填寫有效的冷氣數量，系統就會顯示目前服務的最低估價。
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                  <span className="text-sm text-slate-500">
+                    冷氣清潔 {airconEstimate.baseQuantity} 台 x {formatPrice(AIRCON_BASE_PRICE)} 元
+                  </span>
+                  <span className="font-bold text-slate-900">
+                    {formatPrice(airconEstimate.baseSubtotal)} 元起
+                  </span>
+                </div>
+
+                {values.antibacterial_film_addon === "YES" && (
+                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                    <span className="text-sm text-slate-500">
+                      日本抗菌膜{" "}
+                      {airconEstimate.addonQuantity > 0
+                        ? `${airconEstimate.addonQuantity} 個 x ${formatPrice(ANTIBACTERIAL_FILM_PRICE)} 元`
+                        : "尚未填寫數量"}
+                    </span>
+                    <span className="font-bold text-slate-900">
+                      {airconEstimate.addonQuantity > 0
+                        ? `${formatPrice(airconEstimate.addonSubtotal)} 元`
+                        : "待補數量"}
+                    </span>
+                  </div>
+                )}
+
+                {airconEstimate.needsAddonQuantity ? (
+                  <p className="text-sm leading-7 text-amber-600">
+                    已選擇加購日本抗菌膜，請填寫有效數量後才會完成完整估價。
+                  </p>
+                ) : (
+                  <div className="rounded-[24px] bg-brand-soft px-4 py-4">
+                    <p className="text-sm font-semibold text-brand">最低估價</p>
+                    <p className="mt-1 text-2xl font-black text-slate-900">
+                      {formatPrice(airconEstimate.total)} 元起
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                      例如：冷氣清潔 2 台 + 日本抗菌膜 2 個 = 6,600 元起
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {washerEstimate && (
+          <section className="mt-6 rounded-[28px] bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <p className="text-sm font-semibold text-brand">目前估價</p>
+              <h3 className="mt-1 text-lg font-black text-slate-900">依照目前選項試算最低費用</h3>
+            </div>
+
+            {!washerEstimate.quantity ? (
+              <p className="text-sm leading-7 text-slate-500">
+                請先填寫有效的洗衣機數量，系統就會顯示目前服務的最低估價。
+              </p>
+            ) : !washerEstimate.ready ? (
+              <p className="text-sm leading-7 text-slate-500">
+                請先選擇洗衣機類型，系統就會顯示目前服務的最低估價。
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                  <span className="text-sm text-slate-500">
+                    {fieldValueLabel(washerEstimate.machineType)}洗衣機 {washerEstimate.quantity} 台 x{" "}
+                    {formatPrice(washerEstimate.unitPrice)} 元
+                  </span>
+                  <span className="font-bold text-slate-900">
+                    {formatPrice(washerEstimate.total)} 元起
+                  </span>
+                </div>
+
+                <div className="rounded-[24px] bg-brand-soft px-4 py-4">
+                  <p className="text-sm font-semibold text-brand">最低估價</p>
+                  <p className="mt-1 text-2xl font-black text-slate-900">
+                    {formatPrice(washerEstimate.total)} 元起
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    直立式洗衣機 1 台 2,200 元起，滾筒式洗衣機 1 台 3,800 元起。
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {homeCleaningEstimate && (
+          <section className="mt-6 rounded-[28px] bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <p className="text-sm font-semibold text-brand">目前估價</p>
+              <h3 className="mt-1 text-lg font-black text-slate-900">依照目前選項試算最低費用</h3>
+            </div>
+
+            {!homeCleaningEstimate.selectedOption || !homeCleaningEstimate.estimate ? (
+              <p className="text-sm leading-7 text-slate-500">
+                請先選擇服務選項，系統就會顯示目前服務的常見估價。
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                  <span className="text-sm text-slate-500">
+                    {homeCleaningEstimate.selectedOption}
+                  </span>
+                  <span className="font-bold text-slate-900">
+                    {formatPrice(homeCleaningEstimate.estimate.price)} 元
+                    {homeCleaningEstimate.estimate.unit ?? ""}起
+                  </span>
+                </div>
+
+                <div className="rounded-[24px] bg-brand-soft px-4 py-4">
+                  <p className="text-sm font-semibold text-brand">最低估價</p>
+                  <p className="mt-1 text-2xl font-black text-slate-900">
+                    {formatPrice(homeCleaningEstimate.estimate.price)} 元
+                    {homeCleaningEstimate.estimate.unit ?? ""}起
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    {homeCleaningEstimate.estimate.note}
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="mt-6 rounded-[28px] border border-white/80 bg-white/96 p-4 shadow-[0_24px_60px_rgba(30,41,59,0.14)]">
           <div className="mb-3">

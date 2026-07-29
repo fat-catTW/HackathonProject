@@ -53,9 +53,28 @@ export function LandingPage() {
         ease: "power2.out",
         delay: 0.05,
       });
-      gsap.from(".ld-hero-sub", { opacity: 0, y: 16, duration: 0.6, ease: "power2.out", delay: 0.3 });
-      gsap.from(".ld-hero-cta", { opacity: 0, y: 16, duration: 0.6, stagger: 0.08, ease: "power2.out", delay: 0.42 });
-      gsap.from(".ld-hero-panel", { opacity: 0, y: 24, duration: 0.7, ease: "power2.out", delay: 0.2 });
+      gsap.from(".ld-hero-sub", {
+        opacity: 0,
+        y: 16,
+        duration: 0.6,
+        ease: "power2.out",
+        delay: 0.3,
+      });
+      gsap.from(".ld-hero-cta", {
+        opacity: 0,
+        y: 16,
+        duration: 0.6,
+        stagger: 0.08,
+        ease: "power2.out",
+        delay: 0.42,
+      });
+      gsap.from(".ld-hero-panel", {
+        opacity: 0,
+        y: 24,
+        duration: 0.7,
+        ease: "power2.out",
+        delay: 0.2,
+      });
       gsap.utils.toArray<HTMLElement>(".ld-highlight-row").forEach((row, i) => {
         gsap.from(row, {
           opacity: 0,
@@ -92,7 +111,10 @@ export function LandingPage() {
     <main ref={rootRef} className="min-h-dvh overflow-hidden bg-paper text-ink">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[30rem]"
-        style={{ background: "radial-gradient(ellipse at top, var(--color-brand-soft) 0%, transparent 65%)" }}
+        style={{
+          background:
+            "radial-gradient(ellipse at top, var(--color-brand-soft) 0%, transparent 65%)",
+        }}
       />
 
       <section className="mx-auto max-w-6xl px-6 pb-24 pt-8 md:px-10 lg:px-12">

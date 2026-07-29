@@ -50,7 +50,13 @@ export function getVendorId(): number | null {
 }
 
 export class ApiError extends Error {
-  constructor(public code: string, message: string) {
+  constructor(
+    public code: string,
+    message: string,
+    public details?: {
+      missingFields?: string[];
+    },
+  ) {
     super(message);
   }
 }
@@ -72,20 +78,20 @@ async function request<T>(
   if (!res.ok) {
     let code = "INTERNAL_ERROR";
     let message = `HTTP ${res.status}`;
+    let missingFields: string[] | undefined;
     try {
       const body = await res.json();
       const err = body?.detail?.error ?? body?.error;
       if (err) {
         code = err.code ?? code;
         message = err.message ?? message;
+        missingFields = Array.isArray(err.missing_fields) ? err.missing_fields : undefined;
       }
     } catch {
       /* 保留預設錯誤 */
     }
-    // 只有 401 才清登入狀態；403 代表 token 有效但身分不對（住戶打廠商 API），
-    // 清掉反而會把還在使用的人登出。
     if (res.status === 401) onUnauthorized();
-    throw new ApiError(code, message);
+    throw new ApiError(code, message, { missingFields });
   }
   return res.json() as Promise<T>;
 }

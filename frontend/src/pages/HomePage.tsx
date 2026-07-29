@@ -51,16 +51,6 @@ export function HomePage() {
           </p>
         </section>
 
-        {a11yEnabled && (
-          <a
-            href="tel:0800000000"
-            className="mt-8 flex items-center justify-center gap-3 rounded-2xl bg-brand py-6 text-xl font-black text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          >
-            <ServiceIcon type="phone" size={28} />
-            撥打客服專線 0800-000-000
-          </a>
-        )}
-
         <section className="mt-8">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-black text-slate-900">目前所有服務</h2>
@@ -103,6 +93,16 @@ export function HomePage() {
             <ServiceIcon type="chevronRight" size={20} className="text-slate-400" />
           </button>
         </section>
+
+        {a11yEnabled && (
+          <a
+            href="tel:0800000000"
+            className="mt-8 flex items-center justify-center gap-3 rounded-2xl bg-brand py-6 text-xl font-black text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            <ServiceIcon type="phone" size={28} />
+            撥打客服專線 0800-000-000
+          </a>
+        )}
       </main>
 
       <ButlerLauncher currentPageId="home" />

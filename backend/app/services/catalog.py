@@ -231,6 +231,19 @@ def get_service(service_id: str) -> dict | None:
     )
 
 
+def vendor_id_for_service(service_id: str) -> int | None:
+    """服務所屬的廠商；已下架的服務也要能查到，既有案件仍屬於原廠商。"""
+    service = next((s for s in SERVICES if s["id"] == service_id), None)
+    if not service:
+        return None
+    vendor_id = service.get("service_vendor_id")
+    return int(vendor_id) if vendor_id is not None else None
+
+
+def service_ids_for_vendor(vendor_id: int) -> list[str]:
+    return [s["id"] for s in SERVICES if s.get("service_vendor_id") == vendor_id]
+
+
 def get_service_schema(service_id: str) -> dict | None:
     service = get_service(service_id)
     if not service:

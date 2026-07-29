@@ -105,6 +105,40 @@ FALLBACK_SERVICES: list[dict] = [
             ]
         },
     },
+    {
+        "id": "restaurant_reservation",
+        "name": "餐廳訂位",
+        "description": "22世紀風味館 精選餐廳訂位服務。",
+        "schema": {
+            "fields": [
+                {
+                    "id": "restaurant_id",
+                    "label": "餐廳選擇",
+                    "type": "select",
+                    "required": True,
+                    "options": ["r001", "r002", "r003", "r004", "r005", "r006"],
+                },
+                {"id": "reserved_date", "label": "用餐日期", "type": "date", "required": True},
+                {
+                    "id": "time_slot",
+                    "label": "用餐時段",
+                    "type": "select",
+                    "required": True,
+                    "options": ["LUNCH", "DINNER"],
+                },
+                {"id": "people", "label": "用餐人數", "type": "number", "required": True},
+                {"id": "contact_name", "label": "聯絡人姓名", "type": "text", "required": True},
+                {"id": "phone", "label": "聯絡電話", "type": "text", "required": True},
+                {
+                    "id": "is_premium",
+                    "label": "訂位類型",
+                    "type": "select",
+                    "required": True,
+                    "options": ["STANDARD", "PREMIUM"],
+                },
+            ]
+        },
+    },
 ]
 
 

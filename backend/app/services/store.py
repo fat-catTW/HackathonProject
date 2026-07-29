@@ -257,10 +257,9 @@ class ResilientStore(BaseStore):
             return []
 
     def scan_by_entity_type(self, entity_type: str) -> list[dict]:
-        try:
-            return self._fallback.scan_by_entity_type(entity_type)
-        except Exception:
-            pass
+        fallback_items = self._fallback.scan_by_entity_type(entity_type)
+        if fallback_items:
+            return fallback_items
         if not self._primary_available():
             return []
         try:

@@ -1,4 +1,4 @@
-# 餐廳訂位功能 Implementation Plan
+﻿# 餐廳訂位功能 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -128,7 +128,7 @@ def test_scan_by_entity_type_ignores_other_entity_types():
 
 - [ ] **Step 2: 執行測試確認失敗**
 
-Run: `cd backend && python -m pytest tests/test_store_scan.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_store_scan.py -v`
 Expected: FAIL，錯誤訊息包含 `AttributeError: 'MemoryStore' object has no attribute 'scan_by_entity_type'`
 
 - [ ] **Step 3: 實作 `scan_by_entity_type`**
@@ -186,7 +186,7 @@ Expected: FAIL，錯誤訊息包含 `AttributeError: 'MemoryStore' object has no
 
 - [ ] **Step 4: 執行測試確認通過**
 
-Run: `cd backend && python -m pytest tests/test_store_scan.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_store_scan.py -v`
 Expected: PASS（2 passed）
 
 - [ ] **Step 5: Commit**
@@ -245,7 +245,7 @@ def test_supports_third_party_booking_false_for_unknown_restaurant():
 
 - [ ] **Step 2: 執行測試確認失敗**
 
-Run: `cd backend && python -m pytest tests/test_restaurant_catalog.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_restaurant_catalog.py -v`
 Expected: FAIL，`ModuleNotFoundError: No module named 'backend.app.services.restaurant_catalog'`
 
 - [ ] **Step 3: 實作**
@@ -339,7 +339,7 @@ def supports_third_party_booking(restaurant_id: str) -> bool:
 
 - [ ] **Step 4: 執行測試確認通過**
 
-Run: `cd backend && python -m pytest tests/test_restaurant_catalog.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_restaurant_catalog.py -v`
 Expected: PASS（6 passed）
 
 - [ ] **Step 5: Commit**
@@ -535,7 +535,7 @@ def test_property_nonblank_name_within_50_chars_always_valid(name):
 
 - [ ] **Step 3: 執行測試確認失敗**
 
-Run: `cd backend && python -m pytest tests/test_reservation_validators.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_reservation_validators.py -v`
 Expected: FAIL，`ModuleNotFoundError: No module named 'backend.app.services.reservation_validators'`
 
 - [ ] **Step 4: 實作**
@@ -617,7 +617,7 @@ def build_service_time(date_str: str, specific_time: str | None, time_slot: str)
 
 - [ ] **Step 5: 執行測試確認通過**
 
-Run: `cd backend && python -m pytest tests/test_reservation_validators.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_reservation_validators.py -v`
 Expected: PASS（全部通過，包含 4 個 hypothesis property test）
 
 - [ ] **Step 6: Commit**
@@ -696,7 +696,7 @@ def test_check_availability_always_available_in_mock():
 
 - [ ] **Step 2: 執行測試確認失敗**
 
-Run: `cd backend && python -m pytest tests/test_booking_adapter.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_booking_adapter.py -v`
 Expected: FAIL，`ModuleNotFoundError`
 
 - [ ] **Step 3: 實作**
@@ -806,7 +806,7 @@ def get_booking_adapter() -> BookingAdapter:
 
 - [ ] **Step 4: 執行測試確認通過**
 
-Run: `cd backend && python -m pytest tests/test_booking_adapter.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_booking_adapter.py -v`
 Expected: PASS（4 passed）
 
 - [ ] **Step 5: Commit**
@@ -983,7 +983,7 @@ def test_get_reservation_order_returns_none_for_missing_request():
 
 - [ ] **Step 2: 執行測試確認失敗**
 
-Run: `cd backend && python -m pytest tests/test_reservation_service.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_reservation_service.py -v`
 Expected: FAIL，`ModuleNotFoundError`
 
 - [ ] **Step 3: 實作**
@@ -1217,7 +1217,7 @@ def cancel_reservation_order(actor_id: str, request_id: str) -> dict:
 
 - [ ] **Step 4: 執行測試確認通過**
 
-Run: `cd backend && python -m pytest tests/test_reservation_service.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_reservation_service.py -v`
 Expected: PASS（11 passed）
 
 - [ ] **Step 5: Commit**
@@ -1316,7 +1316,7 @@ def test_get_retry_count_returns_zero_for_fresh_order():
 
 - [ ] **Step 2: 執行測試確認失敗**
 
-Run: `cd backend && python -m pytest tests/test_retry_service.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_retry_service.py -v`
 Expected: FAIL（`process_retry_queue`/`get_retry_count` 不存在）
 
 - [ ] **Step 3: 實作**
@@ -1416,12 +1416,12 @@ def process_retry_queue() -> dict:
 
 - [ ] **Step 4: 執行測試確認通過**
 
-Run: `cd backend && python -m pytest tests/test_retry_service.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_retry_service.py -v`
 Expected: PASS（4 passed）
 
 - [ ] **Step 5: 重新執行 Task 5 的測試，確認骨架替換沒有破壞既有行為**
 
-Run: `cd backend && python -m pytest tests/test_reservation_service.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_reservation_service.py -v`
 Expected: PASS（11 passed，無回歸）
 
 - [ ] **Step 6: Commit**
@@ -1554,7 +1554,7 @@ def test_run_status_advancement_processes_all_eligible_orders_and_continues_afte
 
 - [ ] **Step 2: 執行測試確認失敗**
 
-Run: `cd backend && python -m pytest tests/test_status_scheduler.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_status_scheduler.py -v`
 Expected: FAIL，`ModuleNotFoundError`
 
 - [ ] **Step 3: 實作**
@@ -1649,7 +1649,7 @@ def run_status_advancement(now: datetime | None = None) -> dict:
 
 - [ ] **Step 4: 執行測試確認通過**
 
-Run: `cd backend && python -m pytest tests/test_status_scheduler.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_status_scheduler.py -v`
 Expected: PASS（5 passed）
 
 - [ ] **Step 5: Commit**
@@ -1827,7 +1827,7 @@ def test_admin_retry_queue_run_endpoint(client):
 
 - [ ] **Step 3: 執行測試確認失敗**
 
-Run: `cd backend && python -m pytest tests/test_reservations_api.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_reservations_api.py -v`
 Expected: FAIL（路由不存在，404 或 import error）
 
 - [ ] **Step 4: 實作**
@@ -1936,12 +1936,12 @@ app.include_router(reservations.router)
 
 - [ ] **Step 5: 執行測試確認通過**
 
-Run: `cd backend && python -m pytest tests/test_reservations_api.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_reservations_api.py -v`
 Expected: PASS（全部通過；若 `auth_headers` fixture 因既有 auth 端點格式不同而失敗，依 Step 2 的提示修正 fixture 後重跑）
 
 - [ ] **Step 6: 執行全部後端測試確認無回歸**
 
-Run: `cd backend && python -m pytest -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests -v`
 Expected: 全部 PASS
 
 - [ ] **Step 7: Commit**
@@ -2021,7 +2021,7 @@ def test_simulate_status_syncs_order_status_for_reservation():
 
 - [ ] **Step 2: 執行測試確認失敗**
 
-Run: `cd backend && python -m pytest tests/test_requests_simulate_reservation.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_requests_simulate_reservation.py -v`
 Expected: FAIL（`order_status` 不會被同步更新，仍是送出時的舊值或缺少 `status_history` 更新）
 
 - [ ] **Step 3: 實作**
@@ -2065,12 +2065,12 @@ def simulate_status(request_id: str, next_status: str, user: CurrentUser = Depen
 
 - [ ] **Step 4: 執行測試確認通過**
 
-Run: `cd backend && python -m pytest tests/test_requests_simulate_reservation.py -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_requests_simulate_reservation.py -v`
 Expected: PASS
 
 - [ ] **Step 5: 執行全部後端測試確認無回歸**
 
-Run: `cd backend && python -m pytest -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests -v`
 Expected: 全部 PASS
 
 - [ ] **Step 6: Commit**
@@ -3685,7 +3685,7 @@ git commit -m "feat: add verification demo transition for completed reservations
 
 - [ ] **Step 1: 後端全測試**
 
-Run: `cd backend && python -m pytest -v`
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests -v`
 Expected: 全部 PASS，無既有測試被破壞
 
 - [ ] **Step 2: 前端全測試**

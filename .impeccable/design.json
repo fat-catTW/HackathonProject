@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-27T00:00:00Z",
+  "title": "Design System: AI 智慧生活服務管家",
+  "extensions": {
+    "colorMeta": {
+      "brand": { "role": "primary", "displayName": "Deep Ocean Blue", "canonical": "#0F4C81", "tonalRamp": ["#081F35", "#0A3A63", "#0F4C81", "#1A5FA0", "#2E7CC2", "#6BA5D8", "#AECCE8", "#EAF1F8"] },
+      "accent": { "role": "secondary", "displayName": "Warm Amber", "canonical": "#F2A93B", "tonalRamp": ["#5C3B0C", "#8C5A14", "#C17F20", "#E8A13D", "#F2A93B", "#F6C171", "#FADFA8", "#FDF3E1"] },
+      "success": { "role": "semantic-success", "displayName": "Reassuring Green", "canonical": "#2FA766", "tonalRamp": ["#123A25", "#1E6540", "#278A55", "#2FA766", "#57BD84", "#8CD3AA", "#C3E9D3", "#E7F5EC"] },
+      "info": { "role": "semantic-info", "displayName": "Progress Blue", "canonical": "#2C7BE5", "tonalRamp": ["#0F2E5C", "#174A8F", "#2264C4", "#2C7BE5", "#5C99EB", "#8FBAF1", "#C4DBF8", "#EAF1FC"] },
+      "danger": { "role": "semantic-danger", "displayName": "Alert Brick", "canonical": "#C0392B", "tonalRamp": ["#3D0F0A", "#6B1D14", "#96291D", "#C0392B", "#D06154", "#E0897F", "#EFC0BA", "#F9E2DF"] },
+      "paper": { "role": "neutral-bg", "displayName": "Warm Paper", "canonical": "#FFFDF8", "tonalRamp": ["#FFFDF8"] },
+      "canvas": { "role": "neutral-shell", "displayName": "Soft Canvas", "canonical": "#EEF1F4", "tonalRamp": ["#EEF1F4"] },
+      "ink": { "role": "neutral-text", "displayName": "Deep Ink", "canonical": "#1F2933", "tonalRamp": ["#1F2933"] },
+      "pine-reserved": { "role": "reserved-theme", "displayName": "Reserved: Pine (未接線，預留給機器人換色主題)", "canonical": "#14655B", "tonalRamp": ["#0E4A43", "#14655B", "#E3F0EE"] },
+      "leaf-reserved": { "role": "reserved-theme", "displayName": "Reserved: Leaf (未接線，預留給機器人換色主題)", "canonical": "#2E9E5B", "tonalRamp": ["#1F6E3F", "#2E9E5B", "#E5F4EB"] },
+      "sky-reserved": { "role": "reserved-theme", "displayName": "Reserved: Sky (未接線，預留給機器人換色主題)", "canonical": "#2C7FB8", "tonalRamp": ["#1E5A82", "#2C7FB8", "#E4F0F8"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "面板／頁面主標題，如服務名稱、AI 管家標題。" },
+      "title": { "displayName": "Title", "purpose": "卡片內主要資訊，如服務名稱、金額。" },
+      "body": { "displayName": "Body", "purpose": "對話內容與說明文字，控制在 65-75ch。" },
+      "label": { "displayName": "Label", "purpose": "欄位標籤與次要資訊。" }
+    },
+    "shadows": [
+      { "name": "surface-low", "value": "0 1px 2px rgba(0,0,0,0.05)", "purpose": "一般卡片的預設淡陰影。" },
+      { "name": "overlay-high", "value": "0 20px 25px -5px rgba(0,0,0,0.1)", "purpose": "彈窗等需要立刻被注意的浮層。" },
+      { "name": "butler-overlay", "value": "0 40px 120px rgba(0,0,0,0.48)", "purpose": "AI 管家面板以浮層模式開啟時的專屬陰影。" }
+    ],
+    "motion": [
+      { "name": "reduced-motion-fallback", "value": "prefers-reduced-motion: reduce -> animation/transition: none", "purpose": "全域已落地的無障礙動效降級規則。" }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "主要行動按鈕，如「確認送出」。",
+      "html": "<button class=\"ds-btn-primary\">確認送出</button>",
+      "css": ".ds-btn-primary { background: #0F4C81; color: #FFFDF8; padding: 20px 24px; border-radius: 16px; font-weight: 700; font-size: 1.125rem; border: none; width: 100%; transition: opacity 0.15s ease-out; } .ds-btn-primary:hover { opacity: 0.92; } .ds-btn-primary:focus-visible { outline: 2px solid #0A3A63; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.4; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "次要動作按鈕，如「返回修改」「取消」。",
+      "html": "<button class=\"ds-btn-secondary\">返回修改</button>",
+      "css": ".ds-btn-secondary { background: #FFFDF8; color: #6B7280; padding: 18px 24px; border-radius: 16px; font-weight: 700; font-size: 1rem; border: 2px solid #E5E7EB; transition: border-color 0.15s ease-out; } .ds-btn-secondary:hover { border-color: #0F4C81; color: #0F4C81; } .ds-btn-secondary:focus-visible { outline: 2px solid #0F4C81; outline-offset: 2px; }"
+    },
+    {
+      "name": "Request Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "案件清單項目，含服務圖示、名稱、時間、狀態徽章。",
+      "html": "<a class=\"ds-card\" href=\"#\"><span class=\"ds-card-icon\">🔧</span><div class=\"ds-card-body\"><p class=\"ds-card-title\">水電修繕</p><p class=\"ds-card-time\">7/27 14:30</p></div><span class=\"ds-badge-success\">進行中</span></a>",
+      "css": ".ds-card { display: flex; align-items: center; gap: 16px; border-radius: 16px; border: 1px solid #E5E7EB; background: #FFFDF8; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); text-decoration: none; transition: border-color 0.15s ease-out; } .ds-card:hover { border-color: #0F4C81; } .ds-card:focus-visible { outline: 2px solid #0F4C81; outline-offset: 2px; } .ds-card-icon { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 16px; background: #EAF1F8; color: #0F4C81; flex-shrink: 0; font-size: 22px; } .ds-card-title { font-weight: 700; font-size: 1.125rem; color: #1F2933; margin: 0; } .ds-card-time { font-size: 0.875rem; color: #6B7280; margin: 2px 0 0; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-success",
+      "description": "案件狀態徽章，顏色隨狀態語意切換，永遠搭配文字。",
+      "html": "<span class=\"ds-badge\"><span class=\"ds-badge-dot\"></span>已完成</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 9999px; padding: 4px 12px; font-size: 0.875rem; font-weight: 500; background: #EAF1FC; color: #2C7BE5; } .ds-badge-dot { width: 8px; height: 8px; border-radius: 9999px; background: currentColor; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "對話輸入框，語音輸入時 placeholder 文案改變。",
+      "html": "<input class=\"ds-input\" placeholder=\"輸入需求，或描述你想預約的服務\" />",
+      "css": ".ds-input { width: 100%; border-radius: 16px; border: 2px solid #E5E7EB; background: #FFFDF8; padding: 14px 16px; font-size: 1rem; color: #1F2933; outline: none; transition: border-color 0.15s ease-out; } .ds-input:focus { border-color: #0F4C81; } .ds-input::placeholder { color: #6B7280; }"
+    },
+    {
+      "name": "Confirm Modal",
+      "kind": "card",
+      "description": "破壞性操作（取消案件等）的二次確認彈窗，磚紅色強調危險動作。",
+      "html": "<div class=\"ds-modal-backdrop\"><div class=\"ds-modal\"><p class=\"ds-modal-text\">確定要取消這筆申請嗎？</p><div class=\"ds-modal-actions\"><button class=\"ds-btn-secondary\">再想想</button><button class=\"ds-btn-danger\">確定取消</button></div></div></div>",
+      "css": ".ds-modal-backdrop { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(10,25,40,0.45); padding: 24px; } .ds-modal { width: 100%; max-width: 384px; border-radius: 16px; background: #FFFDF8; padding: 28px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); } .ds-modal-text { margin: 0 0 24px; font-size: 1.125rem; font-weight: 700; color: #1F2933; line-height: 1.6; } .ds-modal-actions { display: flex; gap: 12px; } .ds-btn-danger { flex: 1; border-radius: 12px; background: #C0392B; color: #FFFDF8; padding: 12px 16px; font-weight: 700; border: none; }"
+    },
+    {
+      "name": "Mascot (换色訊號元件)",
+      "kind": "custom",
+      "description": "品牌吉祥物機器人，body/eye 顏色為未來機器人換色功能的替換目標；造型結構固定，只換 fill 色值。",
+      "html": "<svg class=\"ds-mascot\" viewBox=\"0 0 200 220\" width=\"120\" height=\"120\" aria-hidden=\"true\"><rect x=\"24\" y=\"28\" width=\"152\" height=\"122\" rx=\"48\" fill=\"var(--mascot-body, #0F4C81)\" /><circle cx=\"100\" cy=\"166\" r=\"17\" fill=\"#FFFFFF\" /><path d=\"M100 176 L91 165 A6.5 6.5 0 0 1 100 156 A6.5 6.5 0 0 1 109 165 Z\" fill=\"var(--mascot-accent, #F2A93B)\" /></svg>",
+      "css": ".ds-mascot { display: block; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "多顏色的小幫手",
+    "overview": "這是一個服務給高齡使用者的生活服務管家 App，核心比喻不是「科技工具」而是「一位可以換裝的家人小幫手」——外殼（Mascot 機器人）可以是不同顏色，但骨架、動作、說話方式永遠是同一位熟悉、可靠的家人。目前的視覺系統本身已經是溫暖、圓潤、平面化、字級放大的高齡友善風格，這份 DESIGN.md 記錄的是現狀，不是重新設計——它是之後加入「機器人色系切換」功能時，用來確保「換色不換個性」的基準線。",
+    "keyCharacteristics": [
+      "大量圓角（16–24px），沒有尖角、沒有 border-left 色條",
+      "整體偏平面，淡陰影只出現在彈窗與少數重要卡片",
+      "大字級（18px base）、粗體標籤、寬鬆內距、大觸控區",
+      "一套主色（深海藍）+ 一個強調色（溫暖琥珀）+ 三個語意色，色彩角色分工明確，不混用"
+    ],
+    "rules": [
+      { "name": "The One Action Color Rule", "body": "深海藍只用在「可以按下去會發生事情」的元素上（按鈕、連結、focus 狀態）。裝飾性色塊一律用語意色或 soft 色階，不借用主色搶走行動提示的辨識度。", "section": "colors" },
+      { "name": "The Reserved Palette Rule", "body": "pine／leaf／sky 三組色相已定義但未使用，保留給未來「機器人色系切換」功能，不可挪作他用。", "section": "colors" },
+      { "name": "The No-Small-Text Rule", "body": "任何攜帶資訊的文字不得小於 14px；裝飾性圖示旁的說明文字一律沿用 body 或 label 字級。", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "表面在靜止狀態下一律平面；陰影只在「這個元素蓋在別的內容上面」時才出現，不作為裝飾。", "section": "elevation" }
+    ],
+    "dos": [
+      "Do 保持大圓角家族（16px／24px／full），不混用直角或極小圓角。",
+      "Do 陰影只用於彈窗與需要浮出的重要卡片，其餘保持平面。",
+      "Do 狀態一律「顏色 + 文字／圖示」雙重表達，不單靠顏色。",
+      "Do 深海藍只保留給「可互動的行動點」。",
+      "Do 任何新增動效遵守 prefers-reduced-motion。",
+      "Do 未來機器人換色功能只替換 token 值，沿用既有造型與版面結構。"
+    ],
+    "donts": [
+      "Don't 做成年輕人愛用的炫技科技感介面（深色賽博漸層、誇張漸層文字、密集小卡片、小字級）。",
+      "Don't 做成制式官方表單網站的樣子（死板、擁擠、一次攤開大量必填欄位）。",
+      "Don't 使用 border-left 色條作為卡片或列表的強調手法。",
+      "Don't 對正文文字使用漸層或 background-clip: text 效果。",
+      "Don't 挪用保留色相（pine／leaf／sky）做裝飾性背景。",
+      "Don't 讓任何互動元件的觸控區小於 44px，或讓使用者需要同時記住兩個以上步驟才能完成一個操作。"
+    ]
+  }
+}

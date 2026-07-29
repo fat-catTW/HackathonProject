@@ -1,8 +1,9 @@
 import type { ReservationOrder, ReservationPayload, ReservationSubmitResult, RestaurantInfo } from "../types/reservation";
 import { api } from "./client";
 
-export function listRestaurants() {
-  return api<{ restaurants: RestaurantInfo[] }>("/api/restaurants");
+export async function listRestaurants(): Promise<RestaurantInfo[]> {
+  const result = await api<{ restaurants: RestaurantInfo[] }>("/api/restaurants");
+  return result.restaurants;
 }
 
 export function getRestaurant(id: string) {

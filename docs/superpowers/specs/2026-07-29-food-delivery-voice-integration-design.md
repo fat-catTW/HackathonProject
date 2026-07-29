@@ -81,9 +81,11 @@
 
 ### 6. 外送進度 Demo 模擬按鈕（`frontend/src/pages/DeliveryFlowPage.tsx`）
 
-在 tracking 步驟加一顆「Demo：模擬下一個狀態」按鈕，比照 `RequestDetailPage.tsx` 現有的模擬按鈕邏輯，但改成呼叫既有的 `POST /api/webhooks/delivery-callback`，依序推進 `vendor_status`（0→1→2→3→4→5，對應平台 `order_status` 01→02→03→04→05→70），並帶入一組假外送員資訊（姓名、電話、預估到達分鐘數）讓畫面能展示 `vendor_data.delivery` 有值可顯示。這顆按鈕只存在於精靈頁的追蹤畫面，聊天機器人不會用到它（聊天機器人本身不查詢/操作進度）。
+在 tracking 步驟加一顆「Demo：模擬下一個狀態」按鈕，比照 `RequestDetailPage.tsx` 現有的模擬按鈕邏輯，依序推進 `vendor_status`（0→1→2→3→4→5，對應平台 `order_status` 01→02→03→04→05→70），並帶入一組假外送員資訊（姓名、電話、預估到達分鐘數）讓畫面能展示 `vendor_data.delivery` 有值可顯示。這顆按鈕只存在於精靈頁的追蹤畫面，聊天機器人不會用到它（聊天機器人本身不查詢/操作進度）。
 
-需要在 `frontend/src/api/delivery.ts` 新增對應的 fetch 函式呼叫這支 webhook。
+規劃階段發現既有的 `POST /api/webhooks/delivery-callback` 是給第三方系統用的無登入 webhook，需要呼叫端自帶 `actor_id`——前端目前只有 demo token，並不知道對應的 `actor_id`（`sub`），直接從瀏覽器帶明碼 `actor_id` 呼叫也不是好做法。因此改成新增一支**走既有登入驗證**的 Demo 專用端點 `POST /api/delivery/orders/{request_id}/simulate`（body: `{"vendor_status": int, "delivery": {...} | None}`），內部直接呼叫既有的 `delivery.update_delivery_status_from_vendor()`——跟 webhook 走的是同一段更新邏輯，只是換一個有登入驗證的入口，行為完全等價。
+
+需要在 `frontend/src/api/delivery.ts` 新增對應的 fetch 函式呼叫這支新端點。
 
 ## 資料流一致性
 

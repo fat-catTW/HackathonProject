@@ -24,7 +24,14 @@ class BaseStore:
     def put_item(self, item: dict) -> None:
         raise NotImplementedError
 
+    def put_item_if_absent(self, item: dict) -> bool:
+        """Write only when (PK, SK) is absent; returns whether the write happened."""
+        raise NotImplementedError
+
     def get_item(self, pk: str, sk: str) -> dict | None:
+        raise NotImplementedError
+
+    def delete_item(self, pk: str, sk: str) -> None:
         raise NotImplementedError
 
     def query_prefix(self, pk: str, sk_prefix: str) -> list[dict]:
@@ -74,6 +81,41 @@ class BaseStore:
             }
         )
 
+    # ---- Auth: credentials, profiles, and issued tokens ----
+    def save_credential_if_absent(self, email: str, credential: dict) -> bool:
+        """Claim an email address; False means it was already registered."""
+        credential["PK"] = f"AUTH#EMAIL#{email}"
+        credential["SK"] = "CREDENTIAL"
+        credential["entity_type"] = "USER_CREDENTIAL"
+        return self.put_item_if_absent(credential)
+
+    def get_credential(self, email: str) -> dict | None:
+        return self.get_item(f"AUTH#EMAIL#{email}", "CREDENTIAL")
+
+    def delete_credential(self, email: str) -> None:
+        self.delete_item(f"AUTH#EMAIL#{email}", "CREDENTIAL")
+
+    def save_user_profile(self, actor_id: str, profile: dict) -> None:
+        profile["PK"] = f"USER#{actor_id}"
+        profile["SK"] = "PROFILE"
+        profile["entity_type"] = "USER_PROFILE"
+        self.put_item(profile)
+
+    def get_user_profile(self, actor_id: str) -> dict | None:
+        return self.get_item(f"USER#{actor_id}", "PROFILE")
+
+    def save_auth_token(self, token: str, session: dict) -> None:
+        session["PK"] = f"AUTH#TOKEN#{token}"
+        session["SK"] = "SESSION"
+        session["entity_type"] = "AUTH_TOKEN"
+        self.put_item(session)
+
+    def get_auth_token(self, token: str) -> dict | None:
+        return self.get_item(f"AUTH#TOKEN#{token}", "SESSION")
+
+    def delete_auth_token(self, token: str) -> None:
+        self.delete_item(f"AUTH#TOKEN#{token}", "SESSION")
+
     def get_long_term_memory(self, actor_id: str) -> dict:
         item = self.get_item(f"USER#{actor_id}", "LONG_TERM_MEMORY")
         return item.get("data", {}) if item else {}
@@ -108,10 +150,24 @@ class MemoryStore(BaseStore):
             self._items[(item["PK"], item["SK"])] = item
             self._flush()
 
+    def put_item_if_absent(self, item: dict) -> bool:
+        key = (item["PK"], item["SK"])
+        with self._lock:
+            if key in self._items:
+                return False
+            self._items[key] = item
+            self._flush()
+            return True
+
     def get_item(self, pk: str, sk: str) -> dict | None:
         with self._lock:
             item = self._items.get((pk, sk))
             return dict(item) if item else None
+
+    def delete_item(self, pk: str, sk: str) -> None:
+        with self._lock:
+            if self._items.pop((pk, sk), None) is not None:
+                self._flush()
 
     def query_prefix(self, pk: str, sk_prefix: str) -> list[dict]:
         with self._lock:
@@ -166,8 +222,25 @@ class DynamoDBStore(BaseStore):
     def put_item(self, item: dict) -> None:
         self._table.put_item(Item=item)
 
+    def put_item_if_absent(self, item: dict) -> bool:
+        from botocore.exceptions import ClientError
+
+        try:
+            self._table.put_item(
+                Item=item,
+                ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
+            )
+            return True
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise
+
     def get_item(self, pk: str, sk: str) -> dict | None:
         return self._table.get_item(Key={"PK": pk, "SK": sk}).get("Item")
+
+    def delete_item(self, pk: str, sk: str) -> None:
+        self._table.delete_item(Key={"PK": pk, "SK": sk})
 
     def query_prefix(self, pk: str, sk_prefix: str) -> list[dict]:
         from boto3.dynamodb.conditions import Key
@@ -231,6 +304,28 @@ class ResilientStore(BaseStore):
         except Exception:
             self._mark_primary_unavailable()
             return
+
+    def put_item_if_absent(self, item: dict) -> bool:
+        # Uniqueness must be decided by the primary whenever it is reachable —
+        # the local fallback only sees this process's own writes.
+        if self._primary_available():
+            try:
+                if not self._primary.put_item_if_absent(item):
+                    return False
+                self._fallback.put_item(dict(item))
+                return True
+            except Exception:
+                self._mark_primary_unavailable()
+        return self._fallback.put_item_if_absent(dict(item))
+
+    def delete_item(self, pk: str, sk: str) -> None:
+        self._fallback.delete_item(pk, sk)
+        if not self._primary_available():
+            return
+        try:
+            self._primary.delete_item(pk, sk)
+        except Exception:
+            self._mark_primary_unavailable()
 
     def get_item(self, pk: str, sk: str) -> dict | None:
         item = self._fallback.get_item(pk, sk)

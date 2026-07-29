@@ -6,7 +6,7 @@ from datetime import date
 
 from ..config import get_settings
 from ..services import catalog
-from ..services import reservation
+from ..services import delivery, delivery_catalog, reservation
 from ..services.conversation_memory import MEMORY
 from . import llm, nlu, tools
 from .page_help import (
@@ -25,6 +25,7 @@ SERVICE_DISPLAY_NAMES = {
     "washing_machine_cleaning": "洗衣機清洗",
     "air_conditioner_cleaning": "冷氣清洗",
     "home_cleaning": "居家清潔",
+    "food_delivery": "美食外送",
 }
 
 FIELD_DISPLAY_NAMES = {
@@ -41,6 +42,9 @@ FIELD_DISPLAY_NAMES = {
     "time_slot": "用餐時段",
     "people": "用餐人數",
     "contact_name": "聯絡人姓名",
+    "store_id": "店家",
+    "goods": "餐點",
+    "note": "備註需求",
 }
 
 SELECT_ALIASES = {
@@ -73,6 +77,11 @@ RULE_SERVICE_KEYWORDS = (
     ("air_conditioner_cleaning", ("冷氣", "清洗", "保養", "壁掛式", "室內機")),
     ("home_cleaning", ("清潔", "居家", "打掃", "整理", "到府")),
 )
+
+# goods/store_id 一律透過下方的購物車收集子流程取得，不透過 LLM 猜測
+# （store_id 沒有靜態 options 所以本來就猜不中；goods 是清單型別，讓 LLM
+#  猜測容易產生格式不符的字串，直接排除避免污染 collected_fields）。
+_LLM_EXCLUDED_FIELDS = {"store_id", "goods"}
 
 
 def _is_yes(text: str) -> bool:
@@ -119,8 +128,19 @@ def _build_summary_text(state: dict) -> str:
     fields = state["service_schema"]["fields"]
     lines = ["請確認以下申請內容：", f"服務：{_display_service_name(state['service_id'], state['service_name'])}"]
     for field in fields:
-        if field["id"] in state["collected_fields"]:
-            lines.append(_display_value(field["id"], state["collected_fields"][field["id"]], fields))
+        field_id = field["id"]
+        if field_id not in state["collected_fields"]:
+            continue
+        if field_id == "store_id":
+            store = delivery_catalog.get_store(state["collected_fields"]["store_id"])
+            lines.append(f"店家：{store['name'] if store else state['collected_fields']['store_id']}")
+            continue
+        if field_id == "goods":
+            lines.append("餐點：")
+            for item in state["collected_fields"]["goods"]:
+                lines.append(f"　{item['title']} x{item['quantity']}")
+            continue
+        lines.append(_display_value(field_id, state["collected_fields"][field_id], fields))
     lines.append("")
     lines.append("如果資料正確請直接回覆「確認送出」，如果要修改請直接告訴我要改哪一項。")
     return "\n".join(lines)
@@ -481,6 +501,8 @@ def _extract_fields(actor_id: str, state: dict, text: str, events: list[dict] | 
 
     for field in fields:
         field_id = field["id"]
+        if field_id in _LLM_EXCLUDED_FIELDS:
+            continue
         if field_id in state["collected_fields"] or field_id not in llm_fields:
             continue
         normalized = _normalize_field_value(field, llm_fields[field_id], text)
@@ -575,6 +597,7 @@ def new_state() -> dict:
         "pending_pref_value": None,
         "pending_pref_question": None,
         "asked_pref_fields": [],
+        "pending_delivery_field": None,
         "request_id": None,
         "status": "COLLECTING_INFORMATION",
         "short_term_memory": [],
@@ -686,6 +709,9 @@ def handle_message(
         else:
             return _reply(state, _model_reply(actor_id, state, "completed", latest_user_message=text))
 
+    if state.get("pending_delivery_field"):
+        return _handle_delivery_pending_reply(actor_id, state, text, events)
+
     if state.get("pending_pref_field"):
         field_id = state["pending_pref_field"]
         question = state.get("pending_pref_question") or ""
@@ -767,6 +793,61 @@ def handle_message(
 
 
 def _continue_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
+    if state.get("service_id") == "food_delivery":
+        return _continue_delivery_collection(actor_id, state, latest_user_message, events)
+    return _continue_generic_collection(actor_id, state, latest_user_message, events)
+
+
+def _continue_delivery_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
+    collected = state["collected_fields"]
+
+    if "store_id" not in collected:
+        state["pending_delivery_field"] = "store"
+        names = "、".join(s["name"] for s in delivery_catalog.list_stores())
+        return _reply(state, f"請問想點哪一間店家？目前提供：{names}。")
+
+    if not collected.get("goods"):
+        state["pending_delivery_field"] = "item"
+        return _reply(state, "想點餐點裡的哪一項？可以先說一項，要加點我再問。")
+
+    _recompute_missing(state)
+    return _continue_generic_collection(actor_id, state, latest_user_message, events)
+
+
+def _handle_delivery_pending_reply(actor_id: str, state: dict, text: str, events: list[dict] | None) -> dict:
+    pending = state["pending_delivery_field"]
+
+    if pending == "store":
+        store_id = nlu.parse_delivery_store(text)
+        if not store_id:
+            names = "、".join(s["name"] for s in delivery_catalog.list_stores())
+            return _reply(state, f"不好意思，目前沒有找到這間店家，請問想點：{names} 哪一間呢？")
+        state["collected_fields"]["store_id"] = store_id
+        state["pending_delivery_field"] = None
+        return _continue_delivery_collection(actor_id, state, text, events)
+
+    if pending == "item":
+        item = nlu.parse_menu_item(text, state["collected_fields"]["store_id"])
+        if not item:
+            return _reply(state, "這個品項目前菜單上沒有找到，要不要換一個？")
+        state["collected_fields"].setdefault("goods", []).append(item)
+        state["pending_delivery_field"] = "more_items"
+        return _reply(state, f"已加入 {item['title']} x{item['quantity']}。還要加點別的嗎？")
+
+    if pending == "more_items":
+        verdict = _judge_reply("還要加點別的嗎？", text)
+        if verdict == "yes":
+            state["pending_delivery_field"] = "item"
+            return _reply(state, "想點餐點裡的哪一項？")
+        state["pending_delivery_field"] = None
+        _recompute_missing(state)
+        return _continue_delivery_collection(actor_id, state, text, events)
+
+    state["pending_delivery_field"] = None
+    return _continue_delivery_collection(actor_id, state, text, events)
+
+
+def _continue_generic_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
     prefs = _safe_preferences(actor_id)
     fields = state["service_schema"]["fields"]
     asked = state.setdefault("asked_pref_fields", [])

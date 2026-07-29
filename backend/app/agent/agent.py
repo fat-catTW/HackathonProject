@@ -6,6 +6,7 @@ from datetime import date
 
 from ..config import get_settings
 from ..services import catalog
+from ..services import reservation
 from ..services.conversation_memory import MEMORY
 from . import llm, nlu, tools
 from .page_help import (
@@ -850,6 +851,9 @@ def _submit(
         state["status"] = "COLLECTING_INFORMATION"
         return _continue_collection(actor_id, state, latest_user_message=latest_user_message)
 
+    if state["service_id"] == "restaurant_reservation":
+        return _submit_reservation(actor_id, state, latest_user_message)
+
     result = tools.call(
         "submit_service_request",
         {
@@ -892,6 +896,47 @@ def _submit(
             pass
 
     _update_long_term_memory(actor_id, state)
+    return _reply(
+        state,
+        _model_reply(
+            actor_id,
+            state,
+            "submit_success",
+            latest_user_message=latest_user_message,
+            request_id=result["request_id"],
+        ),
+    )
+
+
+def _submit_reservation(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    collected = state["collected_fields"]
+    payload = {
+        "restaurant_id": collected.get("restaurant_id"),
+        "reserved_date": collected.get("reserved_date"),
+        "time_slot": collected.get("time_slot"),
+        "people": collected.get("people"),
+        "contact_name": collected.get("contact_name"),
+        "phone": collected.get("phone"),
+        "is_premium": collected.get("is_premium") == "PREMIUM",
+    }
+    result = reservation.create_reservation_order(actor_id, payload)
+
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "訂位失敗")
+        return _reply(
+            state,
+            _model_reply(
+                actor_id,
+                state,
+                "submit_error",
+                latest_user_message=latest_user_message,
+                error_message=message,
+            ),
+        )
+
+    state["request_id"] = result["request_id"]
+    state["status"] = result["status"]
+    state["awaiting_confirmation"] = False
     return _reply(
         state,
         _model_reply(

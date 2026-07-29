@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import sys
 
 from . import reservation_validators as validators
 from . import restaurant_catalog
@@ -12,26 +11,16 @@ from .store import STORE, now_iso
 
 
 def _run_async(coro):
-    """Run an async coroutine in a safe way that works in threaded contexts (Python 3.10+)."""
+    """Run an async coroutine in a safe way that works in threaded contexts."""
     try:
-        # Try to get the running event loop (if we're already in async context)
-        loop = asyncio.get_running_loop()
-        # We can't use run_until_complete on a running loop, so we'd need to wrap it
-        # But for now, try the old approach first
+        asyncio.get_running_loop()
     except RuntimeError:
-        # No running loop, safe to use get_event_loop or create new one
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        return loop.run_until_complete(coro)
+        # No running loop in current thread, safe to use asyncio.run directly.
+        # This creates, runs, and closes the event loop automatically.
+        return asyncio.run(coro)
 
-    # If we got here, we're in an async context. This shouldn't happen in normal sync code
-    # but we need to handle it gracefully. Fall back to creating a new loop in a thread.
+    # Already inside a running event loop. We can't use asyncio.run() or
+    # run_until_complete() here, so delegate to a thread pool to avoid blocking.
     import concurrent.futures
     with concurrent.futures.ThreadPoolExecutor() as pool:
         return pool.submit(asyncio.run, coro).result()

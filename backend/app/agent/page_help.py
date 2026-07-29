@@ -71,11 +71,30 @@ PAGE_TERMS = (
     "\u529f\u80fd",
 )
 
+VOICE_HINTS = (
+    "\u8a9e\u97f3",
+    "\u9ea5\u514b\u98a8",
+    "\u7528\u8aaa\u7684",
+    "\u7528\u8b1b\u7684",
+    "\u8aaa\u7d66\u4f60",
+    "\u8b1b\u7d66\u4f60",
+    "\u8a9e\u97f3\u4f86\u586b",
+    "\u8a9e\u97f3\u586b",
+    "\u8a9e\u97f3\u8f38\u5165",
+)
+
+
+def is_voice_filling_question(message: str) -> bool:
+    text = (message or "").strip()
+    return bool(text) and any(hint in text for hint in VOICE_HINTS)
+
 
 def looks_like_page_question(message: str, current_page_id: str | None = None) -> bool:
     text = (message or "").strip()
     if not text:
         return False
+    if is_voice_filling_question(text):
+        return True
     if any(hint in text for hint in CURRENT_PAGE_HINTS + ALL_PAGE_HINTS + NAVIGATION_HINTS + PAGE_ACTION_HINTS):
         return True
     if any(term in text for term in PAGE_TERMS):
@@ -105,6 +124,13 @@ def answer_page_question(
     if not looks_like_page_question(text, current_page_id):
         return None
 
+    if is_voice_filling_question(text):
+        if current_page_id:
+            page = load_page(current_page_id)
+            if page:
+                return _format_voice_filling_reply(page)
+        return _format_voice_filling_reply({"page_id": "", "title": "AI 管家"})
+
     if any(hint in text for hint in ALL_PAGE_HINTS):
         return _build_all_pages_reply(current_page_id)
 
@@ -132,11 +158,45 @@ def answer_page_question(
 
 
 def _prefer_current_page(text: str) -> bool:
+    if is_voice_filling_question(text):
+        return True
     if any(hint in text for hint in CURRENT_PAGE_HINTS):
         return True
     if any(hint in text for hint in PAGE_ACTION_HINTS) and not any(keyword in text for keyword in page_keywords()):
         return True
     return False
+
+
+def _format_voice_filling_reply(page: dict) -> str:
+    page_id = page.get("page_id", "")
+    title = page.get("title", "這個頁面")
+
+    if page_id == "assistant":
+        return (
+            "可以，AI 管家支援語音輸入。"
+            "你可以直接按語音按鈕說出需求，例如「我要預約冷氣清洗」或「我要報修水管漏水」，"
+            "我會一步一步幫你整理成表單。"
+        )
+
+    if page_id == "home":
+        return (
+            "可以，AI 管家支援用語音填服務需求。"
+            "你現在可以直接對我說想申請的服務，例如「我要預約冷氣清洗」或「我要居家清潔」，"
+            "我會接著幫你一步一步把資料補齊。"
+        )
+
+    if page_id.startswith("service_form_"):
+        service_name = title.removesuffix("表單")
+        return (
+            f"可以，不一定要手動填這張「{title}」。"
+            f"如果你想改用語音填單，直接告訴我像「我要申請{service_name}」這樣的需求，"
+            "我就會接手一步一步幫你整理資料。"
+        )
+
+    return (
+        "可以，AI 管家支援用語音整理服務需求。"
+        "你直接說想申請的服務和需求內容，我會幫你接著往下填。"
+    )
 
 
 def _format_page_reply(page: dict, current_page_id: str | None = None) -> str:

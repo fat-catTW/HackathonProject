@@ -11,10 +11,13 @@ from . import llm, nlu, tools
 from .page_help import (
     answer_page_question,
     build_page_tool_request,
+    is_voice_filling_question,
     looks_like_page_question,
 )
 
 DECIMAL_NUMBER_RE = re.compile(r"\d+\.\d+")
+SERVICE_TIME_MIN = "08:30"
+SERVICE_TIME_MAX = "18:00"
 
 CONFIRM_WORDS = ("確認", "確定", "好", "可以", "沒問題", "送出", "ok", "OK", "yes", "Yes")
 DENY_WORDS = ("不要", "不用", "取消", "改一下", "先不要", "no", "No")
@@ -28,13 +31,19 @@ SERVICE_DISPLAY_NAMES = {
 
 FIELD_DISPLAY_NAMES = {
     "issue_description": "問題描述",
-    "preferred_date": "希望日期",
-    "preferred_time_slot": "希望時段",
+    "issue_photo": "現場照片",
+    "preferred_date": "服務日期",
+    "preferred_time_slot": "服務時間",
     "address": "服務地址",
     "phone": "聯絡電話",
     "quantity": "數量",
-    "hours": "服務時數",
     "machine_type": "洗衣機類型",
+    "air_conditioner_type": "冷氣機種",
+    "antibacterial_film_addon": "是否加購日本抗菌膜",
+    "antibacterial_film_quantity": "日本抗菌膜數量",
+    "repair_item": "叫修工項",
+    "cleaning_service_option": "服務選項",
+    "notes": "備註",
 }
 
 SELECT_ALIASES = {
@@ -43,6 +52,17 @@ SELECT_ALIASES = {
     "EVENING": ("EVENING", "晚上", "夜間"),
     "TOP_LOAD": ("TOP_LOAD", "直立式"),
     "FRONT_LOAD": ("FRONT_LOAD", "滾筒式"),
+    "YES": ("YES", "要", "需要", "加購"),
+    "NO": ("NO", "不要", "不需要", "不用"),
+    "壁掛式": ("壁掛式", "壁掛", "掛壁"),
+    "天花板嵌入式": ("天花板嵌入式", "嵌入式", "天花板式"),
+    "四方吹業務型": ("四方吹業務型", "四方吹", "業務型"),
+    "地板清潔": ("地板清潔",),
+    "石材地板研磨 晶化 拋光": ("石材地板研磨 晶化 拋光", "石材地板研磨", "晶化", "拋光"),
+    "地毯清潔": ("地毯清潔",),
+    "玻璃清潔": ("玻璃清潔",),
+    "天花板除塵": ("天花板除塵", "除塵"),
+    "廁所清潔": ("廁所清潔", "浴室清潔"),
 }
 
 SELECT_DISPLAY_NAMES = {
@@ -51,6 +71,8 @@ SELECT_DISPLAY_NAMES = {
     "EVENING": "晚上",
     "TOP_LOAD": "直立式",
     "FRONT_LOAD": "滾筒式",
+    "YES": "需要",
+    "NO": "不需要",
 }
 
 RULE_SERVICE_KEYWORDS = (
@@ -83,21 +105,54 @@ def _judge_reply(question: str, text: str) -> str:
 
 
 def _display_service_name(service_id: str | None, fallback: str | None = None) -> str:
-    if service_id and service_id in SERVICE_DISPLAY_NAMES:
-        return SERVICE_DISPLAY_NAMES[service_id]
+    names = {
+        "plumbing_repair": "水電修繕",
+        "washing_machine_cleaning": "洗衣機清洗",
+        "air_conditioner_cleaning": "冷氣清洗",
+        "home_cleaning": "居家清潔",
+    }
+    if service_id and service_id in names:
+        return names[service_id]
     return fallback or "服務"
 
 
 def _display_field_label(field_id: str, fields: list[dict]) -> str:
     field = next((item for item in fields if item["id"] == field_id), None)
-    return FIELD_DISPLAY_NAMES.get(field_id) or (field or {}).get("label") or field_id
+    fallback_labels = {
+        "issue_description": "問題描述",
+        "issue_photo": "現場照片",
+        "preferred_date": "服務日期",
+        "preferred_time_slot": "服務時間",
+        "address": "服務地址",
+        "phone": "聯絡電話",
+        "quantity": "數量",
+        "machine_type": "洗衣機類型",
+        "air_conditioner_type": "冷氣機種",
+        "antibacterial_film_addon": "是否加購日本抗菌膜",
+        "antibacterial_film_quantity": "日本抗菌膜數量",
+        "repair_item": "叫修工項",
+        "cleaning_service_option": "服務選項",
+        "notes": "備註",
+    }
+    return (field or {}).get("label") or fallback_labels.get(field_id) or field_id
 
 
 def _display_value(field_id: str, value, fields: list[dict]) -> str:
     if isinstance(value, str):
-        value = SELECT_DISPLAY_NAMES.get(value, catalog.SELECT_LABELS.get(value, value))
+        display_names = {
+            "TOP_LOAD": "直立式",
+            "FRONT_LOAD": "滾筒式",
+            "YES": "需要",
+            "NO": "不需要",
+            "MORNING": "上午",
+            "AFTERNOON": "下午",
+            "EVENING": "晚上",
+        }
+        value = display_names.get(value, catalog.SELECT_LABELS.get(value, value))
     label = _display_field_label(field_id, fields)
-    unit = " 台" if field_id == "quantity" else " 小時" if field_id == "hours" else ""
+    if field_id == "issue_photo" and isinstance(value, str) and value.startswith("data:image/"):
+        value = "已上傳照片"
+    unit = " 台" if field_id == "quantity" else " 個" if field_id == "antibacterial_film_quantity" else ""
     return f"{label}：{value}{unit}"
 
 
@@ -117,27 +172,37 @@ def _build_field_question(field: dict) -> str:
     if field_id == "preferred_date":
         return "你希望安排哪一天服務呢？請提供日期。"
     if field_id == "preferred_time_slot":
-        return "你希望安排哪個時段服務呢？"
+        return "你希望安排什麼時間服務呢？請直接提供像 14:30 這樣的時間。"
     if field_id == "address":
         return "請提供服務地址。"
     if field_id == "phone":
         return "請提供聯絡電話。"
+    if field_id == "repair_item":
+        return "請問這次的叫修工項是什麼呢？"
     if field["id"] == "issue_description":
         return "請描述你要處理的問題，例如漏水位置、設備故障或想清洗的項目。"
+    if field_id == "issue_photo":
+        return "如果方便的話，也可以補一張現場照片。"
     if field["id"] == "preferred_date":
         return "你希望安排哪一天服務呢？"
     if field["id"] == "preferred_time_slot":
-        return "你比較方便的時段是上午、下午，還是晚上呢？"
+        return "你比較方便的服務時間是幾點呢？例如 09:30 或 14:00。"
     if field["id"] == "address":
         return "請提供完整的服務地址，方便安排人員前往。"
     if field["id"] == "phone":
         return "請提供方便聯絡的電話號碼。"
     if field["id"] == "quantity":
         return "這次需要處理幾台呢？"
-    if field["id"] == "hours":
-        return "這次預計需要幾小時的服務呢？"
     if field["id"] == "machine_type":
         return "請問是直立式還是滾筒式洗衣機呢？"
+    if field_id == "air_conditioner_type":
+        return "請問冷氣機種是壁掛式、天花板嵌入式，還是四方吹業務型呢？"
+    if field_id == "antibacterial_film_addon":
+        return "請問是否需要加購日本抗菌膜呢？"
+    if field_id == "antibacterial_film_quantity":
+        return "請問要加購幾個日本抗菌膜呢？"
+    if field_id == "cleaning_service_option":
+        return "請問這次需要哪一種居家清潔服務呢？"
     return field.get("question") or f"請提供{field.get('label') or field['id']}。"
 
 
@@ -194,6 +259,22 @@ def _safe_preferences(actor_id: str) -> dict:
     return _safe_memory_snapshot(actor_id).get("preferences") or {}
 
 
+def _normalize_saved_time_value(value: str) -> str:
+    legacy_map = {
+        "MORNING": "09:00",
+        "AFTERNOON": "14:00",
+        "EVENING": "18:00",
+    }
+    if value in legacy_map:
+        return legacy_map[value]
+    parsed = nlu.parse_service_time(value)
+    return parsed or value
+
+
+def _is_supported_service_time(value: str) -> bool:
+    return SERVICE_TIME_MIN <= value <= SERVICE_TIME_MAX
+
+
 def _looks_like_memory_question(text: str) -> bool:
     hints = (
         "記得",
@@ -222,8 +303,8 @@ def _reply_from_memory(actor_id: str) -> str | None:
     if prefs.get("last_phone"):
         lines.append(f"上次電話：{prefs['last_phone']}")
     if prefs.get("preferred_time_slot"):
-        slot = SELECT_DISPLAY_NAMES.get(prefs["preferred_time_slot"], prefs["preferred_time_slot"])
-        lines.append(f"常用時段：{slot}")
+        slot = _normalize_saved_time_value(str(prefs["preferred_time_slot"]))
+        lines.append(f"常用時間：{slot}")
     if memory.get("last_request_summary"):
         lines.append(f"最近一次案件摘要：{memory['last_request_summary']}")
 
@@ -255,6 +336,10 @@ def build_form_schema(state: dict) -> dict | None:
                 "type": field.get("type", "text"),
                 "required": bool(field.get("required")),
                 "options": list(field.get("options", [])),
+                "minValue": field.get("minValue"),
+                "maxValue": field.get("maxValue"),
+                "step": field.get("step"),
+                "visibleWhen": field.get("visibleWhen"),
             }
             for field in service_schema["fields"]
         ],
@@ -333,6 +418,11 @@ def _normalize_select(raw_value: str, options: list[str]) -> str | None:
     if raw_value in options:
         return raw_value
 
+    normalized_raw = raw_value.strip()
+    for option in options:
+        if option and (option in normalized_raw or normalized_raw in option):
+            return option
+
     normalized = raw_value.strip().upper()
     for option, aliases in SELECT_ALIASES.items():
         if option in options and any(alias.upper() in normalized for alias in aliases):
@@ -352,8 +442,12 @@ def _normalize_field_value(field: dict, value, original_text: str):
             return value if value > 0 else None
         if isinstance(value, float):
             return int(value) if value > 0 and float(value).is_integer() else None
-        if field_id == "hours":
-            return nlu.parse_hours(str(value)) or nlu.parse_hours(original_text)
+        if field_id == "antibacterial_film_quantity":
+            return (
+                nlu.parse_quantity(str(value), unit_chars="個片張")
+                or nlu.parse_number(str(value))
+                or nlu.parse_quantity(original_text, unit_chars="個片張")
+            )
         return (
             nlu.parse_quantity(str(value), unit_chars="台個")
             or nlu.parse_number(str(value))
@@ -370,18 +464,32 @@ def _normalize_field_value(field: dict, value, original_text: str):
                 pass
         return nlu.parse_date(str(value), today=date.today()) or nlu.parse_date(original_text, today=date.today())
 
+    if field["type"] == "time":
+        if isinstance(value, str) and re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
+            return value if _is_supported_service_time(value) else None
+        parsed_time = nlu.parse_service_time(str(value)) or nlu.parse_service_time(original_text)
+        if parsed_time and _is_supported_service_time(parsed_time):
+            return parsed_time
+        return None
+
     if field["type"] == "select":
-        if field_id == "preferred_time_slot":
-            return (
-                _normalize_select(str(value), field.get("options", []))
-                or nlu.parse_time_slot(str(value))
-                or nlu.parse_time_slot(original_text)
-            )
         if field_id == "machine_type":
             return (
                 _normalize_select(str(value), field.get("options", []))
                 or nlu.parse_machine_type(str(value))
                 or nlu.parse_machine_type(original_text)
+            )
+        if field_id == "antibacterial_film_addon":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_yes_no_option(str(value))
+                or nlu.parse_yes_no_option(original_text)
+            )
+        if field_id in {"repair_item", "air_conditioner_type", "cleaning_service_option"}:
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_option(str(value), field.get("options", []))
+                or nlu.parse_option(original_text, field.get("options", []))
             )
         return _normalize_select(str(value), field.get("options", []))
 
@@ -390,6 +498,10 @@ def _normalize_field_value(field: dict, value, original_text: str):
 
     if field_id == "address":
         return nlu.parse_address(str(value)) or nlu.parse_address(original_text) or str(value).strip()
+
+    if field["type"] == "file":
+        text = str(value).strip()
+        return text if text.startswith("data:image/") else None
 
     text = str(value).strip()
     return text or None
@@ -448,7 +560,7 @@ def _extract_fields(actor_id: str, state: dict, text: str, events: list[dict] | 
 
     for field in fields:
         field_id = field["id"]
-        if field_id in state["collected_fields"] or field_id not in llm_fields:
+        if field_id not in llm_fields:
             continue
         normalized = _normalize_field_value(field, llm_fields[field_id], text)
         if normalized is not None:
@@ -576,6 +688,9 @@ def _looks_like_new_service_request(text: str) -> bool:
 
 
 def _page_help_reply(text: str, current_page_id: str | None, auth_token: str | None) -> str | None:
+    if is_voice_filling_question(text):
+        return answer_page_question(text, current_page_id=current_page_id)
+
     tool_request = build_page_tool_request(text, current_page_id=current_page_id)
     tool_payload: dict | None = None
 
@@ -606,8 +721,8 @@ def _invalid_number_field_message(state: dict, latest_user_message: str) -> str 
     field_id = missing_fields[0]
     if field_id == "quantity":
         return "數量需要填整數，例如 1 台或 2 台，不能填 0.1 台。"
-    if field_id == "hours":
-        return "時數需要填整數，例如 2 小時或 3 小時，不能填 0.5 小時。"
+    if field_id == "antibacterial_film_quantity":
+        return "日本抗菌膜數量需要填整數，例如 1 個或 2 個，不能填 0.5 個。"
     return None
 
 
@@ -749,10 +864,15 @@ def _continue_collection(actor_id: str, state: dict, latest_user_message: str = 
             and state["missing_fields"][0] == field_id
             and field_id not in asked
         ):
-            value = SELECT_DISPLAY_NAMES.get(prefs[pref_key], prefs[pref_key])
+            if field_id == "preferred_time_slot":
+                value = _normalize_saved_time_value(str(prefs[pref_key]))
+                pending_value = value
+            else:
+                value = SELECT_DISPLAY_NAMES.get(prefs[pref_key], prefs[pref_key])
+                pending_value = prefs[pref_key]
             asked.append(field_id)
             state["pending_pref_field"] = field_id
-            state["pending_pref_value"] = prefs[pref_key]
+            state["pending_pref_value"] = pending_value
             question = _model_reply(
                 actor_id,
                 state,

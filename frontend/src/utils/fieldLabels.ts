@@ -14,6 +14,9 @@ const FIELD_LABELS: Record<string, string> = {
   people: "用餐人數",
   contact_name: "聯絡人姓名",
   is_premium: "訂位類型",
+  store_id: "店家",
+  goods: "餐點",
+  note: "備註需求",
 };
 
 const VALUE_LABELS: Record<string, string> = {
@@ -28,6 +31,31 @@ const VALUE_LABELS: Record<string, string> = {
   "false": "一般訂位",
 };
 
+interface CartLineItem {
+  id: string;
+  title: string;
+  price: number;
+  quantity: number;
+}
+
+interface AddressLike {
+  city?: string;
+  area?: string;
+  street?: string;
+  remark?: string;
+  [key: string]: unknown;
+}
+
+export type CollectedFieldValue = string | number | CartLineItem[] | AddressLike;
+
+function isCartLineItemArray(value: CollectedFieldValue): value is CartLineItem[] {
+  return Array.isArray(value);
+}
+
+function isAddressLike(value: CollectedFieldValue): value is AddressLike {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function fieldLabel(key: string): string {
   return FIELD_LABELS[key] ?? key;
 }
@@ -36,16 +64,33 @@ export function fieldValueLabel(value: string | number): string {
   return VALUE_LABELS[String(value)] ?? String(value);
 }
 
+function cartValueLabel(items: CartLineItem[]): string {
+  if (items.length === 0) return "—";
+  return items.map((item) => `${item.title} x${item.quantity}`).join("、");
+}
+
+function addressValueLabel(address: AddressLike): string {
+  const line = `${address.city ?? ""}${address.area ?? ""}${address.street ?? ""}`;
+  return address.remark ? `${line}（${address.remark}）` : line;
+}
+
+/** 格式化任一種 collected/form_data 欄位值，涵蓋一般文字/數字、購物車清單、地址物件。 */
+export function formatFieldValue(value: CollectedFieldValue): string {
+  if (isCartLineItemArray(value)) return cartValueLabel(value);
+  if (isAddressLike(value)) return addressValueLabel(value);
+  return fieldValueLabel(value);
+}
+
 export interface FieldRow {
   key: string;
   label: string;
   value: string;
 }
 
-export function buildFieldRows(collected: Record<string, string | number>): FieldRow[] {
+export function buildFieldRows(collected: Record<string, CollectedFieldValue>): FieldRow[] {
   return Object.entries(collected).map(([key, value]) => ({
     key,
     label: fieldLabel(key),
-    value: fieldValueLabel(value),
+    value: formatFieldValue(value),
   }));
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFieldRows, fieldLabel, fieldValueLabel } from "./fieldLabels";
+import { buildFieldRows, fieldLabel, fieldValueLabel, formatFieldValue } from "./fieldLabels";
 
 describe("fieldLabel", () => {
   it("translates known field keys", () => {
@@ -35,5 +35,63 @@ describe("buildFieldRows", () => {
 
   it("returns an empty array for no collected fields", () => {
     expect(buildFieldRows({})).toEqual([]);
+  });
+
+  it("translates food_delivery field keys", () => {
+    expect(fieldLabel("store_id")).toBe("店家");
+    expect(fieldLabel("goods")).toBe("餐點");
+    expect(fieldLabel("note")).toBe("備註需求");
+  });
+
+  it("formats a goods cart array as a readable list instead of stringifying it", () => {
+    const rows = buildFieldRows({
+      store_id: "store-001",
+      goods: [
+        { id: "item-001", title: "招牌雞腿便當", price: 110, quantity: 1 },
+        { id: "item-010", title: "珍珠奶茶（大）", price: 65, quantity: 2 },
+      ],
+    });
+    expect(rows).toEqual([
+      { key: "store_id", label: "店家", value: "store-001" },
+      { key: "goods", label: "餐點", value: "招牌雞腿便當 x1、珍珠奶茶（大） x2" },
+    ]);
+  });
+
+  it("formats an empty goods cart as a dash rather than an empty string", () => {
+    const rows = buildFieldRows({ goods: [] });
+    expect(rows).toEqual([{ key: "goods", label: "餐點", value: "—" }]);
+  });
+
+  it("formats a food_delivery address object as one readable line, not [object Object]", () => {
+    const rows = buildFieldRows({
+      address: {
+        lat: 25.033,
+        lng: 121.565,
+        city: "台北市",
+        area: "大安區",
+        street: "忠孝東路四段100號",
+        remark: "8樓之2",
+        contact_name: "王小明",
+      },
+    });
+    expect(rows).toEqual([
+      { key: "address", label: "服務地址", value: "台北市大安區忠孝東路四段100號（8樓之2）" },
+    ]);
+  });
+
+  it("omits the remark parentheses when there is no remark", () => {
+    const rows = buildFieldRows({
+      address: { city: "台北市", area: "大安區", street: "忠孝東路四段100號", remark: "" },
+    });
+    expect(rows).toEqual([
+      { key: "address", label: "服務地址", value: "台北市大安區忠孝東路四段100號" },
+    ]);
+  });
+});
+
+describe("formatFieldValue", () => {
+  it("delegates to fieldValueLabel for plain string/number values", () => {
+    expect(formatFieldValue("AFTERNOON")).toBe("下午");
+    expect(formatFieldValue(3)).toBe("3");
   });
 });

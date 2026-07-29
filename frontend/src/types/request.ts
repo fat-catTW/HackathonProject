@@ -1,3 +1,5 @@
+import type { CollectedFieldValue } from "../utils/fieldLabels";
+
 export type RequestStatus =
   | "DRAFT"
   | "AWAITING_USER_CONFIRMATION"
@@ -26,7 +28,7 @@ export interface ChatEvent {
 export interface RequestDetail extends RequestListItem {
   session_id: string | null;
   service_id: string;
-  form_data: Record<string, string | number>;
+  form_data: Record<string, CollectedFieldValue>;
   events: ChatEvent[];
 }
 
@@ -35,7 +37,7 @@ export interface ChatResponse {
   reply: string;
   service_id: string | null;
   service_name: string | null;
-  collected_fields: Record<string, string | number>;
+  collected_fields: Record<string, CollectedFieldValue>;
   missing_fields: string[];
   request_id: string | null;
   status: string;

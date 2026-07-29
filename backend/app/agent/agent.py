@@ -798,6 +798,10 @@ def _continue_collection(actor_id: str, state: dict, latest_user_message: str = 
     return _continue_generic_collection(actor_id, state, latest_user_message, events)
 
 
+def _menu_text(store: dict) -> str:
+    return "、".join(f"{item['title']}（${item['price']}）" for item in store["menu"])
+
+
 def _continue_delivery_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
     collected = state["collected_fields"]
 
@@ -808,7 +812,9 @@ def _continue_delivery_collection(actor_id: str, state: dict, latest_user_messag
 
     if not collected.get("goods"):
         state["pending_delivery_field"] = "item"
-        return _reply(state, "想點餐點裡的哪一項？可以先說一項，要加點我再問。")
+        store = delivery_catalog.get_store(collected["store_id"])
+        menu_text = _menu_text(store)
+        return _reply(state, f"這間店的餐點有：{menu_text}。想點哪一項？可以先說一項，要加點我再問。")
 
     _recompute_missing(state)
     return _continue_generic_collection(actor_id, state, latest_user_message, events)
@@ -827,9 +833,11 @@ def _handle_delivery_pending_reply(actor_id: str, state: dict, text: str, events
         return _continue_delivery_collection(actor_id, state, text, events)
 
     if pending == "item":
+        store = delivery_catalog.get_store(state["collected_fields"]["store_id"])
         item = nlu.parse_menu_item(text, state["collected_fields"]["store_id"])
         if not item:
-            return _reply(state, "這個品項目前菜單上沒有找到，要不要換一個？")
+            menu_text = _menu_text(store)
+            return _reply(state, f"這個品項目前菜單上沒有找到，這間店的餐點有：{menu_text}。要不要換一個？")
         state["collected_fields"].setdefault("goods", []).append(item)
         state["pending_delivery_field"] = "more_items"
         return _reply(state, f"已加入 {item['title']} x{item['quantity']}。還要加點別的嗎？")
@@ -838,7 +846,9 @@ def _handle_delivery_pending_reply(actor_id: str, state: dict, text: str, events
         verdict = _judge_reply("還要加點別的嗎？", text)
         if verdict == "yes":
             state["pending_delivery_field"] = "item"
-            return _reply(state, "想點餐點裡的哪一項？")
+            store = delivery_catalog.get_store(state["collected_fields"]["store_id"])
+            menu_text = _menu_text(store)
+            return _reply(state, f"這間店的餐點有：{menu_text}。想點哪一項？")
         state["pending_delivery_field"] = None
         _recompute_missing(state)
         return _continue_delivery_collection(actor_id, state, text, events)

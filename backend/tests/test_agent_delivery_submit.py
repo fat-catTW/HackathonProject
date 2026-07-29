@@ -71,6 +71,9 @@ def test_delivery_chat_flow_collects_store_then_cart_then_hands_off():
         state = result["state"]
         assert state["collected_fields"]["store_id"] == "store-001"
         assert state["pending_delivery_field"] == "item"
+        assert "招牌雞腿便當" in result["reply"]
+        assert "排骨便當" in result["reply"]
+        assert "素食便當" in result["reply"]
 
         result = _run_turn(state, "招牌雞腿便當一個")
         state = result["state"]
@@ -117,6 +120,32 @@ def test_delivery_chat_flow_reprompts_on_unknown_menu_item():
 
     assert state["pending_delivery_field"] == "item"
     assert state["collected_fields"].get("goods") in (None, [])
+    # the reprompt must re-show the menu, not just say "not found" — otherwise
+    # the user has no way to learn what's actually orderable (this also
+    # covers someone literally asking "你們有什麼" instead of naming a dish,
+    # since that message fails item-matching the same way).
+    assert "招牌雞腿便當" in result["reply"]
+    assert "排骨便當" in result["reply"]
+
+
+def test_delivery_chat_flow_relists_menu_when_adding_another_item():
+    state = agent.new_state()
+
+    with patch("backend.app.agent.agent._available_services", return_value=[
+        {"id": "food_delivery", "name": "美食外送", "description": "附近店家美食外送到府服務"},
+    ]), patch("backend.app.agent.agent.llm.extract_fields", side_effect=_fake_extract_fields):
+        result = _run_turn(state, "我想叫外送")
+        state = result["state"]
+        result = _run_turn(state, "好味道便當")
+        state = result["state"]
+        result = _run_turn(state, "招牌雞腿便當一個")
+        state = result["state"]
+        result = _run_turn(state, "好")
+        state = result["state"]
+
+    assert state["pending_delivery_field"] == "item"
+    assert "排骨便當" in result["reply"]
+    assert "素食便當" in result["reply"]
 
 
 def test_delivery_chat_flow_creates_order_end_to_end():

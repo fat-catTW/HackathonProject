@@ -85,6 +85,10 @@ export function RequestDetailPage() {
     CONFIRMED: { to: "IN_PROGRESS", label: "Demo：模擬服務進行中" },
     IN_PROGRESS: { to: "COMPLETED", label: "Demo：模擬服務已完成" },
   };
+  const isReservation = detail.service_id === "restaurant_reservation";
+  if (isReservation && detail.status === "COMPLETED") {
+    nextDemo.COMPLETED = { to: "VERIFIED", label: "Demo：模擬已核銷" };
+  }
   const demo = nextDemo[detail.status];
 
   return (

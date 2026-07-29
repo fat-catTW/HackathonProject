@@ -1,4 +1,4 @@
-﻿"""Validation rules for the restaurant reservation flow."""
+"""Validation rules for the restaurant reservation flow."""
 from __future__ import annotations
 
 import re
@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 
 TZ = timezone(timedelta(hours=8))
 
-_PHONE_RE = re.compile(r"^09\d{8}$")
+_PHONE_RE = re.compile(r"^09\d{8}\Z")
 _LUNCH_TIMES = [f"{h:02d}:{m:02d}" for h in range(11, 14) for m in (0, 30)]
 _DINNER_TIMES = [f"{h:02d}:{m:02d}" for h in range(17, 21) for m in (0, 30)]
 

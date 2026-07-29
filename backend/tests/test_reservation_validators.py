@@ -74,6 +74,10 @@ def test_validate_phone_rejects_non_digits():
     assert validate_phone("0912-345-678") is False
 
 
+def test_validate_phone_rejects_trailing_newline():
+    assert validate_phone("0912345678\n") is False
+
+
 def test_validate_contact_name_accepts_normal_name():
     assert validate_contact_name("王大明") is True
 

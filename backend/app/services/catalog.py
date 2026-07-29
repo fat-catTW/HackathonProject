@@ -274,6 +274,47 @@ SERVICES: list[dict] = [
             ],
         },
     },
+    {
+        "id": "food_delivery",
+        "name": "美食外送",
+        "description": "附近店家美食外送到府服務",
+        "service_vendor_id": 30,
+        "cms_type": "06",
+        "enabled": True,
+        "keywords": ["外送", "美食", "外帶", "便當", "飲料", "點餐", "delivery"],
+        "schema": {
+            "fields": [
+                {
+                    "id": "address",
+                    "label": "外送地址",
+                    "type": "address",
+                    "required": True,
+                    "question": "請提供外送地址（含樓層備註）。",
+                },
+                {
+                    "id": "store_id",
+                    "label": "選擇店家",
+                    "type": "select",
+                    "required": True,
+                    "question": "請選擇想要外送的店家。",
+                },
+                {
+                    "id": "goods",
+                    "label": "餐點品項",
+                    "type": "cart",
+                    "required": True,
+                    "question": "請選擇要訂購的餐點與數量。",
+                },
+                {
+                    "id": "contact_name",
+                    "label": "收件人姓名",
+                    "type": "text",
+                    "required": True,
+                    "question": "請填寫收件人姓名。",
+                },
+            ],
+        },
+    },
 ]
 
 SELECT_LABELS = {

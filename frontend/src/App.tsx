@@ -7,6 +7,7 @@ import { MyServicesPage } from "./pages/MyServicesPage";
 import { NewRequestPage } from "./pages/NewRequestPage";
 import { RequestDetailPage } from "./pages/RequestDetailPage";
 import { ReservationFlowPage } from "./pages/ReservationFlowPage";
+import { DeliveryFlowPage } from "./pages/DeliveryFlowPage";
 import { ServiceFormPage } from "./pages/ServiceFormPage";
 
 function Protected({ children }: { children: JSX.Element }) {
@@ -24,6 +25,10 @@ export default function App() {
       <Route
         path="/services/restaurant_reservation"
         element={<Protected><ReservationFlowPage /></Protected>}
+      />
+      <Route
+        path="/services/food_delivery"
+        element={<Protected><DeliveryFlowPage /></Protected>}
       />
       <Route path="/services/:serviceId" element={<Protected><ServiceFormPage /></Protected>} />
       <Route path="/new" element={<Protected><NewRequestPage /></Protected>} />

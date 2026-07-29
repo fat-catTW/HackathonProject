@@ -68,7 +68,7 @@ export function ReservationFlowPage() {
     <>
       <main className="mx-auto min-h-dvh max-w-md bg-canvas px-5 pb-32 pt-8">
         <header className="flex items-center gap-3 pb-4">
-          <button type="button" onClick={() => navigate("/home")} aria-label="返回" className="text-gray-500">
+          <button type="button" onClick={() => navigate("/home")} aria-label="返回" className="flex h-11 w-11 items-center justify-center text-gray-500">
             <ServiceIcon type="back" size={22} />
           </button>
           <h1 className="text-xl font-black text-slate-900">餐廳訂位</h1>

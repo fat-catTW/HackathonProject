@@ -21,6 +21,24 @@ function buildInitialValues(fields: ServiceField[]) {
   return Object.fromEntries(fields.map((field) => [field.id, ""]));
 }
 
+function numberMin(field: ServiceField) {
+  return field.min ?? 1;
+}
+
+function numberStep(field: ServiceField) {
+  return field.step ?? 1;
+}
+
+/** 過濾數字欄位的輸入，擋掉負號、指數符號與多餘的前導 0。 */
+function sanitizeNumberValue(raw: string, allowDecimal: boolean) {
+  let cleaned = allowDecimal ? raw.replace(/[^\d.]/g, "") : raw.replace(/\D/g, "");
+  if (allowDecimal) {
+    const [head, ...rest] = cleaned.split(".");
+    cleaned = rest.length > 0 ? `${head}.${rest.join("")}` : head;
+  }
+  return cleaned.replace(/^0+(?=\d)/, "");
+}
+
 function groupFields(fields: ServiceField[]) {
   const groups = new Map<string, ServiceField[]>();
   for (const field of fields) {
@@ -69,12 +87,17 @@ export function ServiceFormPage() {
     [schema, values],
   );
 
-  function updateValue(fieldId: string, value: string) {
-    setValues((prev) => ({ ...prev, [fieldId]: value }));
+  function updateValue(field: ServiceField, value: string) {
+    const nextValue =
+      field.type === "number"
+        ? sanitizeNumberValue(value, !Number.isInteger(numberStep(field)))
+        : value;
+
+    setValues((prev) => ({ ...prev, [field.id]: nextValue }));
     setErrors((prev) => {
-      if (!prev[fieldId]) return prev;
+      if (!prev[field.id]) return prev;
       const next = { ...prev };
-      delete next[fieldId];
+      delete next[field.id];
       return next;
     });
   }
@@ -92,8 +115,12 @@ export function ServiceFormPage() {
 
       if (field.type === "number" && rawValue) {
         const parsed = Number(rawValue);
-        if (!Number.isFinite(parsed) || parsed <= 0) {
-          nextErrors[field.id] = `${field.label}需為大於 0 的數字`;
+        const min = numberMin(field);
+        const step = numberStep(field);
+        if (!Number.isFinite(parsed) || parsed < min) {
+          nextErrors[field.id] = `${field.label}需為 ${min} 以上的數字`;
+        } else if (Number.isInteger(step) && !Number.isInteger(parsed)) {
+          nextErrors[field.id] = `${field.label}需為整數`;
         }
       }
     }
@@ -152,7 +179,7 @@ export function ServiceFormPage() {
               {field.type === "select" ? (
                 <select
                   value={value}
-                  onChange={(e) => updateValue(field.id, e.target.value)}
+                  onChange={(e) => updateValue(field, e.target.value)}
                   className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
                 >
                   <option value="">請選擇</option>
@@ -171,9 +198,30 @@ export function ServiceFormPage() {
                         ? "date"
                         : "text"
                   }
-                  min={field.type === "date" ? minDateIso() : undefined}
+                  inputMode={field.type === "number" ? "numeric" : undefined}
+                  min={
+                    field.type === "date"
+                      ? minDateIso()
+                      : field.type === "number"
+                        ? numberMin(field)
+                        : undefined
+                  }
+                  step={field.type === "number" ? numberStep(field) : undefined}
+                  // 數字欄位聚焦時滾動頁面會被瀏覽器解讀成調整數值，送出前捲動就會偷偷改掉輸入。
+                  onWheel={
+                    field.type === "number"
+                      ? (event) => event.currentTarget.blur()
+                      : undefined
+                  }
+                  onKeyDown={
+                    field.type === "number"
+                      ? (event) => {
+                          if (["-", "+", "e", "E"].includes(event.key)) event.preventDefault();
+                        }
+                      : undefined
+                  }
                   value={value}
-                  onChange={(e) => updateValue(field.id, e.target.value)}
+                  onChange={(e) => updateValue(field, e.target.value)}
                   placeholder={
                     field.type === "text" || field.type === "number"
                       ? field.placeholder ?? `請填寫${field.label}`

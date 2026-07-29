@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from ..services.catalog import SERVICES
+from ..services.restaurant_catalog import RESTAURANTS
 
 # ---- 縣市行政區資料（來自命題縣市區域檔） ----
 _REGIONS = json.loads(
@@ -106,6 +107,27 @@ def parse_machine_type(text: str) -> str | None:
         return "FRONT_LOAD"
     if "直立" in text:
         return "TOP_LOAD"
+    return None
+
+
+def parse_restaurant(text: str) -> str | None:
+    """依餐廳全名或分店關鍵字比對，回傳 restaurant_id。"""
+    for restaurant in RESTAURANTS:
+        if restaurant["name"] in text:
+            return restaurant["id"]
+    for restaurant in RESTAURANTS:
+        branch = restaurant["name"].split(" ")[-1] if " " in restaurant["name"] else restaurant["name"]
+        if branch and branch in text:
+            return restaurant["id"]
+    return None
+
+
+def parse_meal_slot(text: str) -> str | None:
+    """訂位餐期：午餐／晚餐（與既有 parse_time_slot 的上午/下午/晚上不同語意，分開一個函式避免混用）。"""
+    if re.search(r"午餐|中午|午飯", text):
+        return "LUNCH"
+    if re.search(r"晚餐|晚上|夜間|晚飯", text):
+        return "DINNER"
     return None
 
 

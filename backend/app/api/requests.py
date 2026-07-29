@@ -91,7 +91,7 @@ def cancel_request(request_id: str, user: CurrentUser = Depends(get_current_user
 
 @router.post("/api/requests/{request_id}/simulate/{next_status}")
 def simulate_status(request_id: str, next_status: str, user: CurrentUser = Depends(get_current_user)):
-    allowed = {"CONFIRMED", "IN_PROGRESS", "COMPLETED"}
+    allowed = {"CONFIRMED", "IN_PROGRESS", "COMPLETED", "VERIFIED"}
     if next_status not in allowed:
         raise HTTPException(
             status_code=400,
@@ -102,5 +102,14 @@ def simulate_status(request_id: str, next_status: str, user: CurrentUser = Depen
         )
     request = _get_or_404(user.sub, request_id)
     request["status"] = next_status
+
+    if "order_items" in request:
+        from ..services.reservation import TEXT_TO_ORDER_STATUS
+
+        order_status = TEXT_TO_ORDER_STATUS.get(next_status)
+        if order_status:
+            request["order_status"] = order_status
+            request.setdefault("status_history", []).append({"status": order_status, "at": None})
+
     STORE.save_request(user.sub, request)
     return {"success": True, "request_id": request_id, "status": next_status}

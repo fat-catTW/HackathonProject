@@ -10,6 +10,7 @@ STATUS_LABELS = {
     "COMPLETED": "已完成",
     "CANCELLED": "已取消",
     "FAILED": "失敗",
+    "VERIFIED": "已核銷",
 }
 
 # 廠商後台把案件分成「待處理的諮詢單」與「已接下的訂單」兩欄；未列出的狀態

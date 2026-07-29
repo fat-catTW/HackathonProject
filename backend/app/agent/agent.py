@@ -6,6 +6,7 @@ from datetime import date
 
 from ..config import get_settings
 from ..services import catalog
+from ..services import delivery, delivery_catalog, reservation
 from ..services.conversation_memory import MEMORY
 from . import llm, nlu, tools
 from .page_help import (
@@ -27,6 +28,7 @@ SERVICE_DISPLAY_NAMES = {
     "washing_machine_cleaning": "洗衣機清洗",
     "air_conditioner_cleaning": "冷氣清洗",
     "home_cleaning": "居家清潔",
+    "food_delivery": "美食外送",
 }
 
 FIELD_DISPLAY_NAMES = {
@@ -38,6 +40,14 @@ FIELD_DISPLAY_NAMES = {
     "phone": "聯絡電話",
     "quantity": "數量",
     "machine_type": "洗衣機類型",
+    "restaurant_id": "餐廳選擇",
+    "reserved_date": "用餐日期",
+    "time_slot": "用餐時段",
+    "people": "用餐人數",
+    "contact_name": "聯絡人姓名",
+    "store_id": "店家",
+    "goods": "餐點",
+    "note": "備註需求",
     "air_conditioner_type": "冷氣機種",
     "antibacterial_film_addon": "是否加購日本抗菌膜",
     "antibacterial_film_quantity": "日本抗菌膜數量",
@@ -52,6 +62,10 @@ SELECT_ALIASES = {
     "EVENING": ("EVENING", "晚上", "夜間"),
     "TOP_LOAD": ("TOP_LOAD", "直立式"),
     "FRONT_LOAD": ("FRONT_LOAD", "滾筒式"),
+    "LUNCH": ("LUNCH", "午餐", "中午"),
+    "DINNER": ("DINNER", "晚餐", "晚飯"),
+    "STANDARD": ("STANDARD", "一般"),
+    "PREMIUM": ("PREMIUM", "高級", "指定"),
     "YES": ("YES", "要", "需要", "加購"),
     "NO": ("NO", "不要", "不需要", "不用"),
     "壁掛式": ("壁掛式", "壁掛", "掛壁"),
@@ -71,6 +85,10 @@ SELECT_DISPLAY_NAMES = {
     "EVENING": "晚上",
     "TOP_LOAD": "直立式",
     "FRONT_LOAD": "滾筒式",
+    "LUNCH": "午餐",
+    "DINNER": "晚餐",
+    "STANDARD": "一般訂位",
+    "PREMIUM": "高級訂位",
     "YES": "需要",
     "NO": "不需要",
 }
@@ -81,6 +99,11 @@ RULE_SERVICE_KEYWORDS = (
     ("air_conditioner_cleaning", ("冷氣", "清洗", "保養", "壁掛式", "室內機")),
     ("home_cleaning", ("清潔", "居家", "打掃", "整理", "到府")),
 )
+
+# goods/store_id 一律透過下方的購物車收集子流程取得，不透過 LLM 猜測
+# （store_id 沒有靜態 options 所以本來就猜不中；goods 是清單型別，讓 LLM
+#  猜測容易產生格式不符的字串，直接排除避免污染 collected_fields）。
+_LLM_EXCLUDED_FIELDS = {"store_id", "goods"}
 
 
 def _is_yes(text: str) -> bool:
@@ -160,8 +183,19 @@ def _build_summary_text(state: dict) -> str:
     fields = state["service_schema"]["fields"]
     lines = ["請確認以下申請內容：", f"服務：{_display_service_name(state['service_id'], state['service_name'])}"]
     for field in fields:
-        if field["id"] in state["collected_fields"]:
-            lines.append(_display_value(field["id"], state["collected_fields"][field["id"]], fields))
+        field_id = field["id"]
+        if field_id not in state["collected_fields"]:
+            continue
+        if field_id == "store_id":
+            store = delivery_catalog.get_store(state["collected_fields"]["store_id"])
+            lines.append(f"店家：{store['name'] if store else state['collected_fields']['store_id']}")
+            continue
+        if field_id == "goods":
+            lines.append("餐點：")
+            for item in state["collected_fields"]["goods"]:
+                lines.append(f"　{item['title']} x{item['quantity']}")
+            continue
+        lines.append(_display_value(field_id, state["collected_fields"][field_id], fields))
     lines.append("")
     lines.append("如果資料正確請直接回覆「確認送出」，如果要修改請直接告訴我要改哪一項。")
     return "\n".join(lines)
@@ -281,6 +315,10 @@ def _looks_like_memory_question(text: str) -> bool:
         "記住",
         "之前",
         "上次",
+        "上一次",
+        "上一個",
+        "最近",
+        "剛剛",
         "我的地址",
         "我的電話",
         "我的資料",
@@ -479,6 +517,21 @@ def _normalize_field_value(field: dict, value, original_text: str):
                 or nlu.parse_machine_type(str(value))
                 or nlu.parse_machine_type(original_text)
             )
+        if field_id == "restaurant_id":
+            # 餐廳代碼（r001~r006）對 LLM 不具語意，容易在合法代碼間猜錯；
+            # 優先信任從原始文字比對餐廳名稱的規則解析（決定性、不會猜錯），
+            # LLM 給的代碼只在規則解析找不到時才採用。
+            return (
+                nlu.parse_restaurant(original_text)
+                or nlu.parse_restaurant(str(value))
+                or _normalize_select(str(value), field.get("options", []))
+            )
+        if field_id == "time_slot":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_meal_slot(str(value))
+                or nlu.parse_meal_slot(original_text)
+            )
         if field_id == "antibacterial_film_addon":
             return (
                 _normalize_select(str(value), field.get("options", []))
@@ -560,6 +613,8 @@ def _extract_fields(actor_id: str, state: dict, text: str, events: list[dict] | 
 
     for field in fields:
         field_id = field["id"]
+        if field_id in _LLM_EXCLUDED_FIELDS:
+            continue
         if field_id not in llm_fields:
             continue
         normalized = _normalize_field_value(field, llm_fields[field_id], text)
@@ -654,6 +709,7 @@ def new_state() -> dict:
         "pending_pref_value": None,
         "pending_pref_question": None,
         "asked_pref_fields": [],
+        "pending_delivery_field": None,
         "request_id": None,
         "status": "COLLECTING_INFORMATION",
         "short_term_memory": [],
@@ -768,6 +824,9 @@ def handle_message(
         else:
             return _reply(state, _model_reply(actor_id, state, "completed", latest_user_message=text))
 
+    if state.get("pending_delivery_field"):
+        return _handle_delivery_pending_reply(actor_id, state, text, events)
+
     if state.get("pending_pref_field"):
         field_id = state["pending_pref_field"]
         question = state.get("pending_pref_question") or ""
@@ -849,6 +908,71 @@ def handle_message(
 
 
 def _continue_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
+    if state.get("service_id") == "food_delivery":
+        return _continue_delivery_collection(actor_id, state, latest_user_message, events)
+    return _continue_generic_collection(actor_id, state, latest_user_message, events)
+
+
+def _menu_text(store: dict) -> str:
+    return "、".join(f"{item['title']}（${item['price']}）" for item in store["menu"])
+
+
+def _continue_delivery_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
+    collected = state["collected_fields"]
+
+    if "store_id" not in collected:
+        state["pending_delivery_field"] = "store"
+        names = "、".join(s["name"] for s in delivery_catalog.list_stores())
+        return _reply(state, f"請問想點哪一間店家？目前提供：{names}。")
+
+    if not collected.get("goods"):
+        state["pending_delivery_field"] = "item"
+        store = delivery_catalog.get_store(collected["store_id"])
+        menu_text = _menu_text(store)
+        return _reply(state, f"這間店的餐點有：{menu_text}。想點哪一項？可以先說一項，要加點我再問。")
+
+    _recompute_missing(state)
+    return _continue_generic_collection(actor_id, state, latest_user_message, events)
+
+
+def _handle_delivery_pending_reply(actor_id: str, state: dict, text: str, events: list[dict] | None) -> dict:
+    pending = state["pending_delivery_field"]
+
+    if pending == "store":
+        store_id = nlu.parse_delivery_store(text)
+        if not store_id:
+            names = "、".join(s["name"] for s in delivery_catalog.list_stores())
+            return _reply(state, f"不好意思，目前沒有找到這間店家，請問想點：{names} 哪一間呢？")
+        state["collected_fields"]["store_id"] = store_id
+        state["pending_delivery_field"] = None
+        return _continue_delivery_collection(actor_id, state, text, events)
+
+    if pending == "item":
+        store = delivery_catalog.get_store(state["collected_fields"]["store_id"])
+        item = nlu.parse_menu_item(text, state["collected_fields"]["store_id"])
+        if not item:
+            menu_text = _menu_text(store)
+            return _reply(state, f"這個品項目前菜單上沒有找到，這間店的餐點有：{menu_text}。要不要換一個？")
+        state["collected_fields"].setdefault("goods", []).append(item)
+        state["pending_delivery_field"] = "more_items"
+        return _reply(state, f"已加入 {item['title']} x{item['quantity']}。還要加點別的嗎？")
+
+    if pending == "more_items":
+        verdict = _judge_reply("還要加點別的嗎？", text)
+        if verdict == "yes":
+            state["pending_delivery_field"] = "item"
+            store = delivery_catalog.get_store(state["collected_fields"]["store_id"])
+            menu_text = _menu_text(store)
+            return _reply(state, f"這間店的餐點有：{menu_text}。想點哪一項？")
+        state["pending_delivery_field"] = None
+        _recompute_missing(state)
+        return _continue_delivery_collection(actor_id, state, text, events)
+
+    state["pending_delivery_field"] = None
+    return _continue_delivery_collection(actor_id, state, text, events)
+
+
+def _continue_generic_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
     prefs = _safe_preferences(actor_id)
     fields = state["service_schema"]["fields"]
     asked = state.setdefault("asked_pref_fields", [])
@@ -941,6 +1065,12 @@ def _submit(
         state["status"] = "COLLECTING_INFORMATION"
         return _continue_collection(actor_id, state, latest_user_message=latest_user_message)
 
+    if state["service_id"] == "restaurant_reservation":
+        return _submit_reservation(actor_id, state, latest_user_message)
+
+    if state["service_id"] == "food_delivery":
+        return _submit_delivery(actor_id, state, latest_user_message)
+
     result = tools.call(
         "submit_service_request",
         {
@@ -983,6 +1113,100 @@ def _submit(
             pass
 
     _update_long_term_memory(actor_id, state)
+    return _reply(
+        state,
+        _model_reply(
+            actor_id,
+            state,
+            "submit_success",
+            latest_user_message=latest_user_message,
+            request_id=result["request_id"],
+        ),
+    )
+
+
+def _submit_reservation(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    collected = state["collected_fields"]
+    payload = {
+        "restaurant_id": collected.get("restaurant_id"),
+        "reserved_date": collected.get("reserved_date"),
+        "time_slot": collected.get("time_slot"),
+        "people": collected.get("people"),
+        "contact_name": collected.get("contact_name"),
+        "phone": collected.get("phone"),
+        "is_premium": collected.get("is_premium") == "PREMIUM",
+    }
+    result = reservation.create_reservation_order(actor_id, payload)
+
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "訂位失敗")
+        return _reply(
+            state,
+            _model_reply(
+                actor_id,
+                state,
+                "submit_error",
+                latest_user_message=latest_user_message,
+                error_message=message,
+            ),
+        )
+
+    state["request_id"] = result["request_id"]
+    state["status"] = result["status"]
+    state["awaiting_confirmation"] = False
+    return _reply(
+        state,
+        _model_reply(
+            actor_id,
+            state,
+            "submit_success",
+            latest_user_message=latest_user_message,
+            request_id=result["request_id"],
+        ),
+    )
+
+
+def _submit_delivery(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    collected = state["collected_fields"]
+    store_id = collected.get("store_id")
+    store = delivery_catalog.get_store(store_id) or {}
+    payload = {
+        "address": {
+            "lat": 25.033,
+            "lng": 121.565,
+            "area": "",
+            "city": "台北市",
+            "street": collected.get("address", ""),
+            "remark": "",
+            "contact_name": collected.get("contact_name", ""),
+        },
+        "goods": collected.get("goods", []),
+        "store_id": store_id,
+        "store_name": store.get("name", ""),
+        "store_address": store.get("address", ""),
+        "note": collected.get("note", ""),
+        "shipping_fee": 60,
+    }
+    result = delivery.create_delivery_order(actor_id, payload)
+
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "外送訂單建立失敗")
+        state["awaiting_confirmation"] = False
+        state["status"] = "COLLECTING_INFORMATION"
+        return _reply(
+            state,
+            _model_reply(
+                actor_id,
+                state,
+                "submit_error",
+                latest_user_message=latest_user_message,
+                error_message=message,
+            ),
+        )
+
+    state["request_id"] = result["request_id"]
+    state["status"] = "SUBMITTED"
+    state["awaiting_confirmation"] = False
     return _reply(
         state,
         _model_reply(

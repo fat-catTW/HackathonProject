@@ -5,6 +5,7 @@ import json
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 from time import monotonic
 
@@ -17,6 +18,23 @@ TZ = timezone(timedelta(hours=8))
 
 def now_iso() -> str:
     return datetime.now(TZ).isoformat(timespec="seconds")
+
+
+def convert_floats_to_decimal(value):
+    """Recursively convert Python float values to Decimal.
+
+    DynamoDB (via boto3) rejects native float values outright ("Float
+    types are not supported. Use Decimal types instead."), so any item
+    written through DynamoDBStore needs this applied first — callers
+    shouldn't have to know about this constraint themselves.
+    """
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, dict):
+        return {key: convert_floats_to_decimal(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [convert_floats_to_decimal(item) for item in value]
+    return value
 
 
 def _vendor_id_of(request: dict) -> int | None:
@@ -44,6 +62,9 @@ class BaseStore:
         raise NotImplementedError
 
     def query_prefix(self, pk: str, sk_prefix: str) -> list[dict]:
+        raise NotImplementedError
+
+    def scan_by_entity_type(self, entity_type: str) -> list[dict]:
         raise NotImplementedError
 
     def next_request_id(self) -> str:
@@ -217,6 +238,10 @@ class MemoryStore(BaseStore):
         with self._lock:
             return [dict(v) for (p, s), v in self._items.items() if p == pk and s.startswith(sk_prefix)]
 
+    def scan_by_entity_type(self, entity_type: str) -> list[dict]:
+        with self._lock:
+            return [dict(v) for v in self._items.values() if v.get("entity_type") == entity_type]
+
     def next_request_id(self) -> str:
         with self._lock:
             self._req_seq += 1
@@ -260,14 +285,14 @@ class DynamoDBStore(BaseStore):
         self._table = get_aws_resource("dynamodb").Table(table_name)
 
     def put_item(self, item: dict) -> None:
-        self._table.put_item(Item=item)
+        self._table.put_item(Item=convert_floats_to_decimal(item))
 
     def put_item_if_absent(self, item: dict) -> bool:
         from botocore.exceptions import ClientError
 
         try:
             self._table.put_item(
-                Item=item,
+                Item=convert_floats_to_decimal(item),
                 ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
             )
             return True
@@ -294,6 +319,21 @@ class DynamoDBStore(BaseStore):
             if start_key:
                 kwargs["ExclusiveStartKey"] = start_key
             response = self._table.query(**kwargs)
+            items.extend(response.get("Items", []))
+            start_key = response.get("LastEvaluatedKey")
+            if not start_key:
+                return items
+
+    def scan_by_entity_type(self, entity_type: str) -> list[dict]:
+        from boto3.dynamodb.conditions import Attr
+
+        items: list[dict] = []
+        start_key = None
+        while True:
+            kwargs = {"FilterExpression": Attr("entity_type").eq(entity_type)}
+            if start_key:
+                kwargs["ExclusiveStartKey"] = start_key
+            response = self._table.scan(**kwargs)
             items.extend(response.get("Items", []))
             start_key = response.get("LastEvaluatedKey")
             if not start_key:
@@ -376,11 +416,23 @@ class ResilientStore(BaseStore):
             self._mark_primary_unavailable()
             return []
 
+    def scan_by_entity_type(self, entity_type: str) -> list[dict]:
+        fallback_items = self._fallback.scan_by_entity_type(entity_type)
+        if fallback_items:
+            return fallback_items
+        if not self._primary_available():
+            return []
+        try:
+            return self._primary.scan_by_entity_type(entity_type)
+        except Exception:
+            self._mark_primary_unavailable()
+            return []
+
 
 def build_store() -> BaseStore:
     settings = get_settings()
     if settings.use_mock:
-        return MemoryStore()
+        return MemoryStore(storage_path=settings.mock_store_path)
     return DynamoDBStore(settings.dynamodb_table_name)
 
 

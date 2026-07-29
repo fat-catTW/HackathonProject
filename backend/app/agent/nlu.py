@@ -10,7 +10,9 @@ import re
 from datetime import date, timedelta
 from pathlib import Path
 
+from ..services import delivery_catalog
 from ..services.catalog import SERVICES
+from ..services.restaurant_catalog import RESTAURANTS
 
 # ---- 縣市行政區資料（來自命題縣市區域檔） ----
 _REGIONS = json.loads(
@@ -168,6 +170,52 @@ def parse_machine_type(text: str) -> str | None:
     return None
 
 
+def parse_restaurant(text: str) -> str | None:
+    """依餐廳全名或分店關鍵字比對，回傳 restaurant_id。"""
+    for restaurant in RESTAURANTS:
+        if restaurant["name"] in text:
+            return restaurant["id"]
+    for restaurant in RESTAURANTS:
+        branch = restaurant["name"].split(" ")[-1] if " " in restaurant["name"] else restaurant["name"]
+        if branch and branch in text:
+            return restaurant["id"]
+    return None
+
+
+def parse_delivery_store(text: str) -> str | None:
+    """依店家名稱比對文字，回傳 store_id。"""
+    for store in delivery_catalog.list_stores():
+        if store["name"] in text:
+            return store["id"]
+    return None
+
+
+def parse_menu_item(text: str, store_id: str) -> dict | None:
+    """依指定店家菜單比對品項名稱，並擷取數量（找不到數量時預設 1 份）。"""
+    store = delivery_catalog.get_store(store_id)
+    if not store:
+        return None
+    for item in store["menu"]:
+        if item["title"] in text:
+            quantity = parse_quantity(text, unit_chars="份個杯碗") or 1
+            return {
+                "id": item["id"],
+                "title": item["title"],
+                "price": item["price"],
+                "quantity": quantity,
+            }
+    return None
+
+
+def parse_meal_slot(text: str) -> str | None:
+    """訂位餐期：午餐／晚餐（與既有 parse_time_slot 的上午/下午/晚上不同語意，分開一個函式避免混用）。"""
+    if re.search(r"午餐|中午|午飯", text):
+        return "LUNCH"
+    if re.search(r"晚餐|晚上|夜間|晚飯", text):
+        return "DINNER"
+    return None
+
+
 def parse_option(text: str, options: list[str]) -> str | None:
     normalized = text.strip()
     for option in options:
@@ -252,6 +300,10 @@ def extract_fields(service_id: str, fields: list[dict], text: str,
             value = parse_service_time(text)
         elif fid == "machine_type":
             value = parse_machine_type(text)
+        elif fid == "restaurant_id":
+            value = parse_restaurant(text)
+        elif fid == "time_slot":
+            value = parse_meal_slot(text)
         elif fid == "repair_item":
             value = parse_option(text, f.get("options", []))
         elif fid == "air_conditioner_type":

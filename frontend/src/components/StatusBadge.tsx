@@ -1,13 +1,16 @@
 import type { RequestStatus } from "../types/request";
 
+const COMPLETED_STYLE = "bg-info-soft text-info";
+
 const STYLES: Record<string, string> = {
   SUBMITTED: "bg-accent-soft text-accent",
   PENDING_PROVIDER: "bg-accent-soft text-accent",
   CONFIRMED: "bg-success-soft text-success",
   IN_PROGRESS: "bg-success-soft text-success",
-  COMPLETED: "bg-info-soft text-info",
+  COMPLETED: COMPLETED_STYLE,
   CANCELLED: "bg-gray-100 text-gray-500",
   FAILED: "bg-red-50 text-danger",
+  VERIFIED: COMPLETED_STYLE,
 };
 
 export function StatusBadge({

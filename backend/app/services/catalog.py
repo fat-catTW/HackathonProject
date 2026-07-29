@@ -1,5 +1,6 @@
 """Local service catalog used by the manual service pages."""
 
+from .delivery_catalog import list_stores
 from .restaurant_catalog import RESTAURANTS
 
 SERVICES: list[dict] = [
@@ -296,7 +297,9 @@ SERVICES: list[dict] = [
                     "label": "選擇店家",
                     "type": "select",
                     "required": True,
-                    "question": "請選擇想要外送的店家。",
+                    "question": "請問想點哪一間店家？目前提供："
+                    + "、".join(s["name"] for s in list_stores())
+                    + "。",
                 },
                 {
                     "id": "goods",
@@ -311,6 +314,13 @@ SERVICES: list[dict] = [
                     "type": "text",
                     "required": True,
                     "question": "請填寫收件人姓名。",
+                },
+                {
+                    "id": "note",
+                    "label": "備註需求",
+                    "type": "text",
+                    "required": True,
+                    "question": "有沒有其他需求呢？例如全糖去冰、不辣等，沒有的話可以直接說「沒有」。",
                 },
             ],
         },

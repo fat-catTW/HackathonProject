@@ -1,6 +1,7 @@
 """Application settings."""
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -19,6 +20,51 @@ def _env_flag(name: str, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+# 內建的示範廠商帳號，對應 services/catalog.py 的 service_vendor_id。
+_BUILTIN_VENDOR_ACCOUNTS: dict = {
+    "vendor1@demo.local": {
+        "vendor_id": 1,
+        "name": "潔家家事服務",
+        "password": "vendor1234",
+    },
+    "vendor11@demo.local": {
+        "vendor_id": 11,
+        "name": "安心水電工程行",
+        "password": "vendor1234",
+    },
+}
+
+
+def _load_vendor_accounts() -> dict:
+    """廠商帳號一律由部署端佈建，不開放自助註冊。
+
+    vendor_id 決定看得到哪些案件，若讓使用者註冊時自行宣告，等同任意讀取其他
+    廠商的訂單。設定 VENDOR_ACCOUNTS（JSON: {email: {vendor_id, name, password}}）
+    即覆蓋內建示範帳號；正式版改由 Cognito 群組 vendor:{id} 帶出。
+    """
+    raw = os.getenv("VENDOR_ACCOUNTS", "").strip()
+    if not raw:
+        return {
+            email: {**account, "builtin_demo": True}
+            for email, account in _BUILTIN_VENDOR_ACCOUNTS.items()
+        }
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    accounts: dict = {}
+    for email, account in (parsed or {}).items():
+        if not isinstance(account, dict) or account.get("vendor_id") is None:
+            continue
+        accounts[email.strip().lower()] = {
+            "vendor_id": int(account["vendor_id"]),
+            "name": account.get("name") or email,
+            "password": account.get("password", ""),
+            "builtin_demo": False,
+        }
+    return accounts
 
 
 @dataclass
@@ -67,6 +113,9 @@ class Settings:
             "demo-token-mei": {"sub": "user-mei", "name": "Mei"},
         }
     )
+
+    # 廠商後台帳號（Milestone 3），email → {vendor_id, name, password, builtin_demo}
+    vendor_accounts: dict = field(default_factory=_load_vendor_accounts)
 
     @property
     def has_explicit_aws_credentials(self) -> bool:

@@ -227,7 +227,15 @@ export function LoginPage() {
         )}
       </div>
 
-      <p className="mt-8 text-center text-sm text-gray-400">
+      <button
+        type="button"
+        onClick={() => navigate("/vendor/login")}
+        className="mt-8 text-sm font-semibold text-gray-500 underline-offset-4 hover:text-brand hover:underline"
+      >
+        我是服務廠商，前往廠商後台 →
+      </button>
+
+      <p className="mt-4 text-center text-sm text-gray-400">
         Hackathon Demo：正式版將接入 Amazon Cognito 登入
       </p>
 

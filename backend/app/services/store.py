@@ -9,6 +9,7 @@ from pathlib import Path
 from time import monotonic
 
 from ..config import get_settings
+from . import catalog
 from .aws import get_aws_resource
 
 TZ = timezone(timedelta(hours=8))
@@ -16,6 +17,14 @@ TZ = timezone(timedelta(hours=8))
 
 def now_iso() -> str:
     return datetime.now(TZ).isoformat(timespec="seconds")
+
+
+def _vendor_id_of(request: dict) -> int | None:
+    """案件所屬廠商；舊資料沒有帶 service_vendor_id 時回頭查服務目錄。"""
+    vendor_id = request.get("service_vendor_id")
+    if vendor_id is not None:
+        return int(vendor_id)
+    return catalog.vendor_id_for_service(request.get("service_id", ""))
 
 
 class BaseStore:
@@ -46,6 +55,7 @@ class BaseStore:
         request["entity_type"] = "SERVICE_REQUEST"
         request["updated_at"] = now_iso()
         self.put_item(request)
+        self._save_vendor_index(actor_id, request)
 
     def get_request(self, actor_id: str, request_id: str) -> dict | None:
         return self.get_item(f"USER#{actor_id}", f"REQUEST#{request_id}")
@@ -53,6 +63,43 @@ class BaseStore:
     def list_requests(self, actor_id: str) -> list[dict]:
         items = self.query_prefix(f"USER#{actor_id}", "REQUEST#")
         return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
+
+    # ---- Vendor view: requests mirrored under a vendor partition key ----
+    def _save_vendor_index(self, actor_id: str, request: dict) -> None:
+        """把案件鏡射一份到 VENDOR# 分區，讓廠商後台能一次查出自家案件。
+
+        單表沒有 GSI，廠商清單只能靠這份副本查詢。save_request 是所有狀態變更的
+        必經之路，因此兩份項目一定同步；索引寫入失敗不影響住戶端的案件本體。
+        """
+        vendor_id = _vendor_id_of(request)
+        if vendor_id is None:
+            return
+        try:
+            self.put_item(
+                {
+                    "PK": f"VENDOR#{vendor_id}",
+                    "SK": f"REQUEST#{request['request_id']}",
+                    "entity_type": "VENDOR_REQUEST_INDEX",
+                    "vendor_id": vendor_id,
+                    "owner_id": actor_id,
+                    "request_id": request["request_id"],
+                    "service_id": request.get("service_id", ""),
+                    "service_name": request.get("service_name", ""),
+                    "status": request.get("status", ""),
+                    "form_data": request.get("form_data", {}),
+                    "created_at": request.get("created_at", ""),
+                    "updated_at": request["updated_at"],
+                }
+            )
+        except Exception:  # noqa: BLE001 - 住戶送單不該因為廠商索引寫入失敗而失敗
+            pass
+
+    def list_vendor_requests(self, vendor_id: int) -> list[dict]:
+        items = self.query_prefix(f"VENDOR#{vendor_id}", "REQUEST#")
+        return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
+
+    def get_vendor_request(self, vendor_id: int, request_id: str) -> dict | None:
+        return self.get_item(f"VENDOR#{vendor_id}", f"REQUEST#{request_id}")
 
     def save_session(self, actor_id: str, session: dict) -> None:
         session["PK"] = f"USER#{actor_id}"

@@ -43,6 +43,7 @@ def create_manual_service_request(
                 "session_id": session_id,
                 "service_id": service["id"],
                 "service_name": service["name"],
+                "service_vendor_id": service.get("service_vendor_id"),
                 "status": "SUBMITTED",
                 "form_data": payload,
                 "created_at": now_iso(),

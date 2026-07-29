@@ -10,10 +10,18 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 class CurrentUser:
-    def __init__(self, sub: str, name: str, access_token: str | None = None) -> None:
+    def __init__(
+        self,
+        sub: str,
+        name: str,
+        access_token: str | None = None,
+        vendor_id: int | None = None,
+    ) -> None:
         self.sub = sub
         self.name = name
         self.access_token = access_token
+        # 非 None 代表這是廠商後台帳號；住戶端 API 一律拒絕，見 get_current_user。
+        self.vendor_id = vendor_id
 
 
 def _demo_user_or_401(token: str) -> CurrentUser:
@@ -29,6 +37,52 @@ def _demo_user_or_401(token: str) -> CurrentUser:
             },
         )
     return CurrentUser(sub=user["sub"], name=user["name"], access_token=token)
+
+
+def get_current_vendor(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> CurrentUser:
+    """廠商後台專用：只接受帶 vendor_id 的 token，住戶 token 一律 403。"""
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "success": False,
+                "error": {"code": "UNAUTHORIZED", "message": "Missing Authorization header."},
+            },
+        )
+
+    from .users import USERS
+
+    token = credentials.credentials
+    vendor = USERS.resolve(token)
+    if vendor is None:
+        # 住戶示範帳號要回 403 而非 401：401 會讓前端把 token 清掉，等於把還在
+        # 使用住戶端的人登出。
+        if token in get_settings().demo_users:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "success": False,
+                    "error": {"code": "VENDOR_FORBIDDEN", "message": "此帳號沒有廠商後台權限。"},
+                },
+            )
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "success": False,
+                "error": {"code": "UNAUTHORIZED", "message": "Invalid or expired token."},
+            },
+        )
+    if vendor.vendor_id is None:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "success": False,
+                "error": {"code": "VENDOR_FORBIDDEN", "message": "此帳號沒有廠商後台權限。"},
+            },
+        )
+    return vendor
 
 
 def get_current_user(
@@ -51,6 +105,19 @@ def get_current_user(
 
     registered = USERS.resolve(token)
     if registered is not None:
+        if registered.vendor_id is not None:
+            # 廠商帳號沒有住戶身分（沒有自己的案件、偏好與對話），誤用只會建立
+            # 掛在 vendor-* 名下的孤兒資料，這裡直接擋掉。
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "success": False,
+                    "error": {
+                        "code": "VENDOR_ACCOUNT_NOT_ALLOWED",
+                        "message": "廠商帳號請使用廠商後台。",
+                    },
+                },
+            )
         return registered
 
     if settings.use_mock:

@@ -28,6 +28,7 @@ def _save_request(actor_id: str, session_id: str | None, service: dict, payload:
                 "session_id": session_id,
                 "service_id": service["id"],
                 "service_name": service["name"],
+                "service_vendor_id": service.get("service_vendor_id"),
                 "status": "SUBMITTED",
                 "form_data": payload,
                 "created_at": now_iso(),

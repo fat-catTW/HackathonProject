@@ -42,7 +42,15 @@ def _fake_extract_fields(*, message, fields, collected_fields, **_kwargs):
         if 2 <= len(stripped) <= 4 and all("一" <= ch <= "鿿" for ch in stripped):
             found["contact_name"] = stripped
 
-    if "note" in field_ids and "note" not in collected_fields:
+    # note is asked last (after address/contact_name), so only capture it once
+    # those are already collected — otherwise this eagerly grabs turn-1 text
+    # (e.g. "我想叫外送") as the note before the cart/address/name are even done.
+    if (
+        "note" in field_ids
+        and "note" not in collected_fields
+        and "address" in collected_fields
+        and "contact_name" in collected_fields
+    ):
         found["note"] = message.strip()
 
     return found
@@ -109,3 +117,67 @@ def test_delivery_chat_flow_reprompts_on_unknown_menu_item():
 
     assert state["pending_delivery_field"] == "item"
     assert state["collected_fields"].get("goods") in (None, [])
+
+
+def test_delivery_chat_flow_creates_order_end_to_end():
+    state = agent.new_state()
+
+    with patch("backend.app.agent.agent._available_services", return_value=[
+        {"id": "food_delivery", "name": "美食外送", "description": "附近店家美食外送到府服務"},
+    ]), patch("backend.app.agent.agent.llm.extract_fields", side_effect=_fake_extract_fields):
+        result = _run_turn(state, "我想叫外送")
+        state = result["state"]
+        result = _run_turn(state, "好味道便當")
+        state = result["state"]
+        result = _run_turn(state, "招牌雞腿便當一個")
+        state = result["state"]
+        result = _run_turn(state, "不用了")
+        state = result["state"]
+        result = _run_turn(state, "台北市大安區忠孝東路四段100號")
+        state = result["state"]
+        result = _run_turn(state, "王小明")
+        state = result["state"]
+        result = _run_turn(state, "不辣")
+        state = result["state"]
+        assert state["awaiting_confirmation"] is True
+
+        result = _run_turn(state, "確認送出")
+        state = result["state"]
+
+    assert state["request_id"] is not None
+    order = delivery.get_delivery_order("user-1", state["request_id"])
+    assert order["order_items"]["store"]["id"] == "store-001"
+    assert order["order_items"]["goods"] == [
+        {"id": "item-001", "title": "招牌雞腿便當", "price": 110, "quantity": 1}
+    ]
+    assert order["order_type"] == "06"
+    assert order["order_status"] == "01"
+
+
+def test_delivery_chat_flow_reports_error_without_crashing_when_cart_empty():
+    state = agent.new_state()
+    state["service_id"] = "food_delivery"
+    state["service_name"] = "美食外送"
+    state["service_schema"] = {"fields": [
+        {"id": "store_id", "type": "select", "required": True},
+        {"id": "goods", "type": "cart", "required": True},
+    ]}
+    # address/contact_name/note are deliberately filled in so the only thing
+    # missing is a non-empty cart — isolates the EMPTY_CART path in
+    # delivery.create_delivery_order() from the generic tool's unrelated
+    # "missing required field" rejection (which would also produce
+    # request_id is None, but for the wrong reason).
+    state["collected_fields"] = {
+        "store_id": "store-001",
+        "goods": [],
+        "address": "台北市大安區忠孝東路四段100號",
+        "contact_name": "王小明",
+        "note": "不辣",
+    }
+    state["missing_fields"] = []
+    state["awaiting_confirmation"] = True
+
+    result = _run_turn(state, "確認送出")
+
+    assert result["state"]["request_id"] is None
+    assert "reply" in result

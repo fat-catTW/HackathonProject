@@ -938,6 +938,9 @@ def _submit(
     if state["service_id"] == "restaurant_reservation":
         return _submit_reservation(actor_id, state, latest_user_message)
 
+    if state["service_id"] == "food_delivery":
+        return _submit_delivery(actor_id, state, latest_user_message)
+
     result = tools.call(
         "submit_service_request",
         {
@@ -1020,6 +1023,57 @@ def _submit_reservation(actor_id: str, state: dict, latest_user_message: str) ->
 
     state["request_id"] = result["request_id"]
     state["status"] = result["status"]
+    state["awaiting_confirmation"] = False
+    return _reply(
+        state,
+        _model_reply(
+            actor_id,
+            state,
+            "submit_success",
+            latest_user_message=latest_user_message,
+            request_id=result["request_id"],
+        ),
+    )
+
+
+def _submit_delivery(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    collected = state["collected_fields"]
+    store_id = collected.get("store_id")
+    store = delivery_catalog.get_store(store_id) or {}
+    payload = {
+        "address": {
+            "lat": 25.033,
+            "lng": 121.565,
+            "area": "",
+            "city": "台北市",
+            "street": collected.get("address", ""),
+            "remark": "",
+            "contact_name": collected.get("contact_name", ""),
+        },
+        "goods": collected.get("goods", []),
+        "store_id": store_id,
+        "store_name": store.get("name", ""),
+        "store_address": store.get("address", ""),
+        "note": collected.get("note", ""),
+        "shipping_fee": 60,
+    }
+    result = delivery.create_delivery_order(actor_id, payload)
+
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "外送訂單建立失敗")
+        return _reply(
+            state,
+            _model_reply(
+                actor_id,
+                state,
+                "submit_error",
+                latest_user_message=latest_user_message,
+                error_message=message,
+            ),
+        )
+
+    state["request_id"] = result["request_id"]
+    state["status"] = "SUBMITTED"
     state["awaiting_confirmation"] = False
     return _reply(
         state,

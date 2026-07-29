@@ -1229,7 +1229,13 @@ git commit -m "feat: add reservation order creation, duplicate guard, and cancel
 
 ---
 
-## Task 6: 重試佇列（完整實作）
+## Task 6: 重試佇列（完整實作）— ⚠️ 已砲掉，不執行
+
+> 使用者決定跳過本任務：demo 所需的狀態推進已由 Task 9 的手動按鈕涵蓋，`reservation.py`（Task 5）內建的 `retry_service.mark_for_retry` 骨架版維持原樣即可，不需要下面的 `process_retry_queue`/`get_retry_count` 完整實作。以下內容保留供未來需要時參考，**不要**照這裡的內容派工。
+
+<details>
+<summary>（已跳過，保留原始內容）</summary>
+
 
 **Files:**
 - Modify: `backend/app/services/retry_service.py`（取代 Task 5 留下的骨架）
@@ -1433,7 +1439,17 @@ git commit -m "feat: implement retry queue processing for failed bookings"
 
 ---
 
-## Task 7: 狀態自動推進（Status Scheduler，純函式）
+</details>
+
+---
+
+## Task 7: 狀態自動推進（Status Scheduler，純函式）— ⚠️ 已砲掉，不執行
+
+> 使用者決定跳過本任務：狀態推進（含 COMPLETED→VERIFIED 核銷那一步）已由 Task 9 的手動按鈕涵蓋，不需要獨立的排程純函式。`backend/app/scheduler/` 這個 package 不用建立。以下內容保留供未來需要時參考，**不要**照這裡的內容派工。
+
+<details>
+<summary>（已跳過，保留原始內容）</summary>
+
 
 **Files:**
 - Create: `backend/app/scheduler/__init__.py`（空檔案）
@@ -1661,6 +1677,10 @@ git commit -m "feat: add pure status-advancement scheduler function"
 
 ---
 
+</details>
+
+---
+
 ## Task 8: REST API 端點
 
 **Files:**
@@ -1668,8 +1688,10 @@ git commit -m "feat: add pure status-advancement scheduler function"
 - Modify: `backend/app/main.py`
 - Test: `backend/tests/test_reservations_api.py`
 
+**注意：Task 6（重試佇列完整實作）與 Task 7（狀態排程器）已依使用者決定砲掉不執行**——demo 所需的狀態推進完全由 Task 9 的手動按鈕機制涵蓋，不需要這兩個模組。本任務因此不建立 `/api/admin/*` 這兩個管理用端點，`reservation.py`（Task 5）內建的 `retry_service.mark_for_retry` 骨架版維持原樣即可，不需要 `process_retry_queue`。
+
 **Interfaces:**
-- Consumes: `reservation.*`（Task 5）、`restaurant_catalog.*`（Task 2）、`retry_service.process_retry_queue`（Task 6）、`status_scheduler.run_status_advancement`（Task 7）、既有 `auth.cognito.CurrentUser`/`get_current_user`
+- Consumes: `reservation.*`（Task 5）、`restaurant_catalog.*`（Task 2）、既有 `auth.cognito.CurrentUser`/`get_current_user`
 - Produces endpoints:
   - `GET /api/restaurants`
   - `GET /api/restaurants/{id}`
@@ -1677,8 +1699,6 @@ git commit -m "feat: add pure status-advancement scheduler function"
   - `GET /api/reservations/{request_id}`
   - `POST /api/reservations/{request_id}/cancel`
   - `POST /api/webhooks/booking-callback`（Requirement 8.6，非同步確認回呼，body 含 `request_id`）
-  - `POST /api/admin/status-scheduler/run`（手動觸發 Task 7）
-  - `POST /api/admin/retry-queue/run`（手動觸發 Task 6）
 
 - [ ] **Step 1: 檢查既有測試如何建立 FastAPI TestClient**（不用寫，先確認 `httpx`/`TestClient` 可用；`requirements.txt` 已有 `httpx>=0.27`，`fastapi.testclient.TestClient` 內建可直接用）
 
@@ -1807,20 +1827,6 @@ def test_booking_callback_updates_pending_order(client):
     detail = client.get(f"/api/reservations/{created['request_id']}", headers=headers).json()
     assert detail["status"] == "CONFIRMED"
     assert detail["vendor_data"]["booking_id"] == "EZ-CB-1"
-
-
-def test_admin_status_scheduler_run_endpoint(client):
-    headers = auth_headers(client)
-    response = client.post("/api/admin/status-scheduler/run", headers=headers)
-    assert response.status_code == 200
-    assert "processed" in response.json()
-
-
-def test_admin_retry_queue_run_endpoint(client):
-    headers = auth_headers(client)
-    response = client.post("/api/admin/retry-queue/run", headers=headers)
-    assert response.status_code == 200
-    assert "processed" in response.json()
 ```
 
 如果 `/api/auth/demo-login` 的實際路徑或 request/response 格式與既有 `backend/app/api/auth.py` 不同，**以 `auth.py` 的實際實作為準修正這個 fixture**（不要盲目照抄，先讀 `backend/app/api/auth.py` 確認端點路徑與回應欄位名稱）。
@@ -1838,8 +1844,7 @@ Expected: FAIL（路由不存在，404 或 import error）
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth.cognito import CurrentUser, get_current_user
-from ..scheduler import status_scheduler
-from ..services import reservation, restaurant_catalog, retry_service
+from ..services import reservation, restaurant_catalog
 
 router = APIRouter()
 
@@ -1910,16 +1915,6 @@ def booking_callback(body: dict):
     order.setdefault("status_history", []).append({"status": order["order_status"], "at": now_iso()})
     STORE.save_request(actor_id, order)
     return {"success": True}
-
-
-@router.post("/api/admin/status-scheduler/run")
-def run_status_scheduler(user: CurrentUser = Depends(get_current_user)):
-    return status_scheduler.run_status_advancement()
-
-
-@router.post("/api/admin/retry-queue/run")
-def run_retry_queue(user: CurrentUser = Depends(get_current_user)):
-    return retry_service.process_retry_queue()
 ```
 
 在 `backend/app/main.py` 加入 import 與註冊（跟在既有 `from .api import auth, chat, requests, services, sessions` 之後）：
@@ -3716,12 +3711,632 @@ git commit -m "test: full regression pass for restaurant reservation feature"
 
 ## Self-Review Notes（撰寫計畫時的自我檢查紀錄）
 
-- **Spec coverage：** Requirement 1（服務註冊）→ Task 11, 19；2（餐廳選擇）→ Task 12, 19；3（日期時段）→ Task 13, 14, 3；4（人數）→ Task 15, 3；5（聯絡資料）→ Task 16, 3；6（確認摘要）→ Task 18；7（訂單建立）→ Task 5；8（第三方串接）→ Task 4, 5；9（異常處理/重試）→ Task 6；10（額滿處理）— **注意**：Mock Adapter 目前不會回傳 `NO_AVAILABILITY`（設計上只回傳 `CONFIRMED`/`ERROR`），Requirement 10 的額滿情境在目前的 Mock 實作下不會被觸發到；若要完整示範這條路徑，需要在 `MockEZTableAdapter`/前端額外處理，這是本計畫刻意縮小的範圍，已於此處標記，供你決定是否要追加一個任務；11（狀態推進）→ Task 7, 9, 20；12（防重複提交）→ Task 5（後端）、Task 18/19（前端 UI 防連點）；13（高級訂位）→ Task 5, 17；14（高齡友善規範）→ Global Constraints + 各元件的 class（44px 觸控、字級、對比色沿用既有 `brand`/`danger` class）。
+- **Spec coverage：** Requirement 1（服務註冊）→ Task 11, 19, 23；2（餐廳選擇）→ Task 12, 19；3（日期時段）→ Task 13, 14, 3；4（人數）→ Task 15, 3；5（聯絡資料）→ Task 16, 3；6（確認摘要）→ Task 18；7（訂單建立）→ Task 5；8（第三方串接）→ Task 4, 5；9（異常處理/重試）→ Task 5 內建骨架（`retry_service.mark_for_retry`），**完整重試迴圈已依使用者決定砲掉，見下方「已知範圍縮小」**；10（額滿處理）— **注意**：Mock Adapter 目前不會回傳 `NO_AVAILABILITY`（設計上只回傳 `CONFIRMED`/`ERROR`），Requirement 10 的額滿情境在目前的 Mock 實作下不會被觸發到，本計畫刻意縮小的範圍；11（狀態推進）→ Task 9, 20（**Task 7 狀態排程器已砲掉**，靠手動按鈕涵蓋）；12（防重複提交）→ Task 5（後端）、Task 18/19（前端 UI 防連點）；13（高級訂位）→ Task 5, 17；14（高齡友善規範）→ Global Constraints + 各元件的 class（44px 觸控、字級、對比色沿用既有 `brand`/`danger` class）。對話式訂位入口（Task 22-25）額外涵蓋 Requirement 1.2 的「對話式訂位流程」字面需求。
 - **Placeholder scan：** Task 10 的 `api/reservations.ts` 刻意留了需要對照既有檔案風格填寫的部分，並非偷懶留白，而是因為那個檔案的正確寫法**依賴**尚未讀取的既有程式碼慣例，已明確標註原因與作法，不是「之後再說」。
-- **Type consistency：** `ReservationPayload`/`ReservationOrder`/`RestaurantInfo`（Task 10）在 Task 12-19 全程重複使用同一組型別名稱與欄位名；`TEXT_TO_ORDER_STATUS`（Task 5）與 Task 7、9 的狀態碼字串保持一致（`"02"/"03"/"04"/"70"/"80"/"90"`）。
+- **Type consistency：** `ReservationPayload`/`ReservationOrder`/`RestaurantInfo`（Task 10）在 Task 12-19 全程重複使用同一組型別名稱與欄位名；`TEXT_TO_ORDER_STATUS`（Task 5）與 Task 9 的狀態碼字串保持一致（`"02"/"03"/"04"/"70"/"80"/"90"`）。
 
 ## 已知範圍縮小（明確告知，非隱藏假設）
 
 1. **Requirement 10（時段額滿）** 未完整實作 Mock 情境（見上方 Self-Review）。
-2. **Requirement 9 的重試排程** 與 **Requirement 11 的狀態排程** 都是可測試的純函式，未接真正的背景執行緒/cron；示範靠既有的手動按鈕與新增的 `/api/admin/*` 端點手動觸發。
+2. **Task 6（重試佇列完整實作）與 Task 7（狀態排程器）已依使用者決定完全砲掉**，不是「寫成純函式但不接排程」的折衷，是整個不做。`reservation.py`（Task 5）內建的 `retry_service.mark_for_retry` 骨架版是最終狀態，不會被 Task 6 取代；訂位狀態的推進（含待確認→已確認→進行中→已完成→已核銷）完全依賴 Task 9 擴充的既有手動 Demo 按鈕機制，這與已存在於程式碼庫的其他服務示範方式一致。
 3. 前端 Property-Based Testing（`fast-check`）未導入，Property 1-4 的等效驗證改用後端 `hypothesis` + 邊界值單元測試涵蓋；Property 10（表單資料保存）改用 Task 19 的一般 RTL 單元測試涵蓋。
+4. **對話式訂位（Task 22-25）不收集 `specific_time`／`preference_note`**，送出時一律使用時段預設時間，詳見附錄開頭說明。
+
+---
+
+# 附錄：對話式訂位（Task 22-25）
+
+執行到 Task 3 中途，需求變更：使用者確認兩種入口都要保留，不衝突——
+
+- **卡片精靈（Task 10-19，不變）**：HomePage 點「餐廳訂位」卡片 → 進入 `ReservationFlowPage`，維持原本設計的餐廳卡片／日期選擇器／人數 +/- 等視覺元件。
+- **對話式（新增）**：使用者在任何頁面的浮動聊天視窗（`ButlerLauncher`／`ButlerPanel`）打字，比照現有「水電修繕」「居家清潔」等 4 個服務同一套「一次一問」文字問答機制，完成餐廳訂位。
+
+這兩條路徑各自獨立、互不影響：卡片精靈直接呼叫 Task 8 的 `/api/reservations/*` REST API（繞過 agent）；對話式則是在既有的 schema-driven 聊天 agent（`backend/app/agent/agent.py`／`catalog.py`／`nlu.py`）裡註冊這個服務。兩者最終都透過 Task 5 的 `reservation.create_reservation_order()` 建立訂單，資料模型完全共用。
+
+**關鍵發現（影響本附錄設計）：** 這個專案的本機開發環境已經設定真的 AWS Bedrock 憑證（`curl http://localhost:8000/health` 回傳 `"bedrock_ready": true`），所以聊天中的欄位擷取主要由 LLM（`backend/app/agent/llm.py` 的 `extract_fields`）driven，`nlu.py` 的規則式解析器只是 LLM 無法使用時的備援／`_normalize_field_value` 的正規化保險絲，不是唯一路徑。這代表新欄位不需要「完美」的規則解析器就能在有 Bedrock 的環境下正常運作，但為了離線備援與既有測試慣例，仍要照 Task 22 補上規則解析器。
+
+**範圍縮小（比照卡片精靈）：** 對話式訂位不收集 `specific_time`（精確到 30 分鐘的時間），只收集 `time_slot`（午餐／晚餐），送出時 `reservation.create_reservation_order` 會自動用時段預設時間（12:00／18:00）。也不收集 `preference_note`。這兩個欄位卡片精靈那邊有完整支援，對話式這邊為了不讓聊天來回問答變得太長，刻意省略——如果之後想補，兩個欄位都已經是 optional，`catalog.py` 的 schema 加欄位即可，不需要動 `reservation.py`。
+
+## Task 22: nlu.py 規則式解析器（餐廳／餐期）
+
+**Files:**
+- Modify: `backend/app/agent/nlu.py`
+- Test: `backend/tests/test_nlu_reservation.py`
+
+**Interfaces:**
+- Produces: `parse_restaurant(text: str) -> str | None`（回傳餐廳 ID，如 `"r001"`）、`parse_meal_slot(text: str) -> str | None`（回傳 `"LUNCH"` 或 `"DINNER"`）
+- Consumes: `backend/app/services/restaurant_catalog.RESTAURANTS`（Task 2，已完成）
+- Consumed by: Task 23（`extract_fields` dispatcher 需要 wire 這兩個新 field id）
+
+- [ ] **Step 1: 寫失敗測試**
+
+```python
+# backend/tests/test_nlu_reservation.py
+from backend.app.agent import nlu
+
+
+def test_parse_restaurant_matches_full_name():
+    assert nlu.parse_restaurant("我想訂22世紀風味館 信義旗艦店") == "r001"
+
+
+def test_parse_restaurant_matches_partial_branch_name():
+    assert nlu.parse_restaurant("板橋文化店有位子嗎") == "r002"
+
+
+def test_parse_restaurant_returns_none_when_no_match():
+    assert nlu.parse_restaurant("我想吃拉麵") is None
+
+
+def test_parse_meal_slot_lunch():
+    assert nlu.parse_meal_slot("中午想訂位") == "LUNCH"
+    assert nlu.parse_meal_slot("我要訂午餐") == "LUNCH"
+
+
+def test_parse_meal_slot_dinner():
+    assert nlu.parse_meal_slot("晚餐時段") == "DINNER"
+    assert nlu.parse_meal_slot("想約晚上吃飯") == "DINNER"
+
+
+def test_parse_meal_slot_returns_none_when_ambiguous():
+    assert nlu.parse_meal_slot("隨便都可以") is None
+```
+
+- [ ] **Step 2: 執行測試確認失敗**
+
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_nlu_reservation.py -v`
+Expected: FAIL，`AttributeError: module '...nlu' has no attribute 'parse_restaurant'`
+
+- [ ] **Step 3: 實作**
+
+在 `backend/app/agent/nlu.py` 檔案頂端的 import 區塊加入（跟在 `from ..services.catalog import SERVICES` 之後）：
+
+```python
+from ..services.restaurant_catalog import RESTAURANTS
+```
+
+在檔案中 `parse_machine_type` 函式之後（`def parse_machine_type...` 那個函式結束後）插入這兩個新函式：
+
+```python
+def parse_restaurant(text: str) -> str | None:
+    """依餐廳全名或分店關鍵字比對，回傳 restaurant_id。"""
+    for restaurant in RESTAURANTS:
+        if restaurant["name"] in text:
+            return restaurant["id"]
+    for restaurant in RESTAURANTS:
+        branch = restaurant["name"].split(" ")[-1] if " " in restaurant["name"] else restaurant["name"]
+        if branch and branch in text:
+            return restaurant["id"]
+    return None
+
+
+def parse_meal_slot(text: str) -> str | None:
+    """訂位餐期：午餐／晚餐（與既有 parse_time_slot 的上午/下午/晚上不同語意，分開一個函式避免混用）。"""
+    if re.search(r"午餐|中午|午飯", text):
+        return "LUNCH"
+    if re.search(r"晚餐|晚上|夜間|晚飯", text):
+        return "DINNER"
+    return None
+```
+
+- [ ] **Step 4: 執行測試確認通過**
+
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_nlu_reservation.py -v`
+Expected: PASS（6 passed）
+
+- [ ] **Step 5: 執行 nlu 全部既有測試確認無回歸**（`nlu.py` 是共用模組，其他 4 個服務都靠它）
+
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests -v -k "nlu or agent_regressions"`
+Expected: 全部 PASS
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add backend/app/agent/nlu.py backend/tests/test_nlu_reservation.py
+git commit -m "feat: add restaurant and meal-slot rule-based parsers"
+```
+
+---
+
+## Task 23: catalog.py 註冊服務 + agent.py 顯示名稱/別名對照
+
+**Files:**
+- Modify: `backend/app/services/catalog.py`
+- Modify: `backend/app/agent/agent.py`
+- Test: `backend/tests/test_catalog_reservation.py`
+
+**Interfaces:**
+- Consumes: `restaurant_catalog.RESTAURANTS`（Task 2）
+- Produces: `catalog.SERVICES` 新增一筆 `id="restaurant_reservation"` 的服務定義（7 個欄位：`restaurant_id`, `reserved_date`, `time_slot`, `people`, `contact_name`, `phone`, `is_premium`）
+- Consumed by: Task 24（`_submit` 需要判斷 `state["service_id"] == "restaurant_reservation"`）、既有的 `_detect_service`/`_available_services`（不用改，會自動吃到新服務）
+
+- [ ] **Step 1: 寫失敗測試**
+
+```python
+# backend/tests/test_catalog_reservation.py
+from backend.app.services import catalog
+
+
+def test_restaurant_reservation_registered_in_service_list():
+    services = catalog.list_services()
+    ids = [s["id"] for s in services]
+    assert "restaurant_reservation" in ids
+
+
+def test_restaurant_reservation_schema_has_required_fields():
+    schema = catalog.get_service_schema("restaurant_reservation")
+    field_ids = [f["id"] for f in schema["fields"]]
+    assert field_ids == [
+        "restaurant_id",
+        "reserved_date",
+        "time_slot",
+        "people",
+        "contact_name",
+        "phone",
+        "is_premium",
+    ]
+
+
+def test_restaurant_reservation_restaurant_field_lists_all_six_ids_as_options():
+    schema = catalog.get_service_schema("restaurant_reservation")
+    restaurant_field = next(f for f in schema["fields"] if f["id"] == "restaurant_id")
+    assert set(restaurant_field["options"]) == {"r001", "r002", "r003", "r004", "r005", "r006"}
+
+
+def test_restaurant_reservation_keywords_trigger_detection():
+    service_id, _ = __import__("backend.app.agent.nlu", fromlist=["detect_service"]).detect_service("我想訂餐廳吃飯")
+    assert service_id == "restaurant_reservation"
+```
+
+- [ ] **Step 2: 執行測試確認失敗**
+
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_catalog_reservation.py -v`
+Expected: FAIL（`restaurant_reservation` 不在服務清單中）
+
+- [ ] **Step 3: 實作**
+
+在 `backend/app/services/catalog.py` 檔案頂端加入 import（跟在既有內容之前）：
+
+```python
+from .restaurant_catalog import RESTAURANTS
+```
+
+在 `SERVICES` 這個 list 的**最後一個服務（`home_cleaning`）後面**、list 結尾的 `]` 之前，加入新的一筆（用逗號分隔）：
+
+```python
+    {
+        "id": "restaurant_reservation",
+        "name": "餐廳訂位",
+        "description": "22世紀風味館 精選餐廳訂位服務",
+        "service_vendor_id": 22,
+        "cms_type": "02",
+        "enabled": True,
+        "keywords": ["餐廳", "訂位", "訂餐廳", "吃飯", "用餐", "22世紀", "風味館"],
+        "schema": {
+            "fields": [
+                {
+                    "id": "restaurant_id",
+                    "label": "餐廳選擇",
+                    "type": "select",
+                    "required": True,
+                    "options": [r["id"] for r in RESTAURANTS],
+                    "question": "請問想訂哪一間餐廳？目前提供："
+                    + "、".join(r["name"] for r in RESTAURANTS)
+                    + "。",
+                },
+                {
+                    "id": "reserved_date",
+                    "label": "用餐日期",
+                    "type": "date",
+                    "required": True,
+                    "question": "請問希望哪一天用餐？（限今天起 60 天內）",
+                },
+                {
+                    "id": "time_slot",
+                    "label": "用餐時段",
+                    "type": "select",
+                    "required": True,
+                    "options": ["LUNCH", "DINNER"],
+                    "question": "請問想約午餐還是晚餐？",
+                },
+                {
+                    "id": "people",
+                    "label": "用餐人數",
+                    "type": "number",
+                    "required": True,
+                    "question": "請問幾位用餐？（1 至 20 人）",
+                },
+                {
+                    "id": "contact_name",
+                    "label": "聯絡人姓名",
+                    "type": "text",
+                    "required": True,
+                    "question": "請問訂位人的姓名？",
+                },
+                {
+                    "id": "phone",
+                    "label": "聯絡電話",
+                    "type": "text",
+                    "required": True,
+                    "question": "請提供聯絡手機號碼。",
+                },
+                {
+                    "id": "is_premium",
+                    "label": "訂位類型",
+                    "type": "select",
+                    "required": True,
+                    "options": ["STANDARD", "PREMIUM"],
+                    "question": "請問需要指定餐廳或高級訂位服務嗎？高級訂位將由專人為您安排指定餐廳或特殊座位需求。",
+                },
+            ],
+        },
+    },
+```
+
+在 `backend/app/agent/agent.py`，把 `SELECT_ALIASES` 字典（原本只有 `MORNING`/`AFTERNOON`/`EVENING`/`TOP_LOAD`/`FRONT_LOAD` 五筆）擴充成：
+
+```python
+SELECT_ALIASES = {
+    "MORNING": ("MORNING", "上午", "早上"),
+    "AFTERNOON": ("AFTERNOON", "下午"),
+    "EVENING": ("EVENING", "晚上", "夜間"),
+    "TOP_LOAD": ("TOP_LOAD", "直立式"),
+    "FRONT_LOAD": ("FRONT_LOAD", "滾筒式"),
+    "LUNCH": ("LUNCH", "午餐", "中午"),
+    "DINNER": ("DINNER", "晚餐", "晚飯"),
+    "STANDARD": ("STANDARD", "一般"),
+    "PREMIUM": ("PREMIUM", "高級", "指定"),
+}
+```
+
+把 `SELECT_DISPLAY_NAMES` 字典（原本五筆）擴充成：
+
+```python
+SELECT_DISPLAY_NAMES = {
+    "MORNING": "上午",
+    "AFTERNOON": "下午",
+    "EVENING": "晚上",
+    "TOP_LOAD": "直立式",
+    "FRONT_LOAD": "滾筒式",
+    "LUNCH": "午餐",
+    "DINNER": "晚餐",
+    "STANDARD": "一般訂位",
+    "PREMIUM": "高級訂位",
+}
+```
+
+把 `FIELD_DISPLAY_NAMES` 字典加入新欄位（原本七筆，追加以下四行）：
+
+```python
+    "restaurant_id": "餐廳選擇",
+    "reserved_date": "用餐日期",
+    "time_slot": "用餐時段",
+    "people": "用餐人數",
+    "contact_name": "聯絡人姓名",
+```
+
+（`phone` 已經存在於字典中，不要重複加。）
+
+`restaurant_id` 這個 select 欄位的選項是 `r001`~`r006` 這種代碼，使用者聊天時通常會打餐廳「名稱」而不是代碼，光靠 `SELECT_ALIASES` 沒辦法涵蓋（因為那個字典的 key 要對應 `options` 裡的代碼，但別名要填餐廳全名，6 間餐廳名稱都不同，硬塞進 `SELECT_ALIASES` 會很長也不好維護）。所以在 `backend/app/agent/agent.py` 的 `_normalize_field_value` 函式裡，找到這一段（`type == "select"` 分支內）：
+
+```python
+    if field["type"] == "select":
+        if field_id == "preferred_time_slot":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_time_slot(str(value))
+                or nlu.parse_time_slot(original_text)
+            )
+        if field_id == "machine_type":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_machine_type(str(value))
+                or nlu.parse_machine_type(original_text)
+            )
+        return _normalize_select(str(value), field.get("options", []))
+```
+
+改成（新增兩個 `if` 分支，比照既有 `preferred_time_slot`／`machine_type` 的寫法）：
+
+```python
+    if field["type"] == "select":
+        if field_id == "preferred_time_slot":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_time_slot(str(value))
+                or nlu.parse_time_slot(original_text)
+            )
+        if field_id == "machine_type":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_machine_type(str(value))
+                or nlu.parse_machine_type(original_text)
+            )
+        if field_id == "restaurant_id":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_restaurant(str(value))
+                or nlu.parse_restaurant(original_text)
+            )
+        if field_id == "time_slot":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_meal_slot(str(value))
+                or nlu.parse_meal_slot(original_text)
+            )
+        return _normalize_select(str(value), field.get("options", []))
+```
+
+最後，在 `nlu.py` 的 `extract_fields` dispatcher（`for f in fields:` 迴圈裡的 `if/elif` 鏈）新增兩個分支，跟在 `elif fid == "machine_type":` 那段之後：
+
+```python
+        elif fid == "restaurant_id":
+            value = parse_restaurant(text)
+        elif fid == "time_slot":
+            value = parse_meal_slot(text)
+```
+
+- [ ] **Step 4: 執行測試確認通過**
+
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_catalog_reservation.py -v`
+Expected: PASS（4 passed）
+
+- [ ] **Step 5: 執行既有 agent/nlu 相關測試確認無回歸**（這一步改了 4 個服務共用的 `agent.py`/`nlu.py`，風險較高，務必跑全套）
+
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests -v`
+Expected: 全部 PASS，特別留意 `test_agent_regressions.py` 與 Task 22 的 `test_nlu_reservation.py` 都要過
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add backend/app/services/catalog.py backend/app/agent/agent.py backend/tests/test_catalog_reservation.py
+git commit -m "feat: register restaurant reservation service in chat catalog"
+```
+
+---
+
+## Task 24: agent.py `_submit` 分流到 reservation.create_reservation_order
+
+**Files:**
+- Modify: `backend/app/agent/agent.py`
+- Test: `backend/tests/test_agent_reservation_submit.py`
+
+**Interfaces:**
+- Consumes: `reservation.create_reservation_order`（Task 5，已完成）
+- 這是風險最高的一個任務：`_submit()` 是水電修繕／洗衣機清洗／冷氣清洗／居家清潔這 4 個既有服務共用的送出函式，必須用「提早 return 的獨立分支」處理，完全不動到原本給那 4 個服務走的程式碼路徑。
+
+- [ ] **Step 1: 寫失敗測試**（直接呼叫 `handle_message` 走完整個對話，驗證端到端行為，而不是只測 `_submit` 內部細節，因為這是共用函式，端到端測試才能真正保證沒有動到既有服務）
+
+```python
+# backend/tests/test_agent_reservation_submit.py
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from backend.app.agent import agent
+from backend.app.services import reservation, store as store_module
+
+
+@pytest.fixture(autouse=True)
+def isolated_store(monkeypatch):
+    with tempfile.TemporaryDirectory() as tmp:
+        test_store = store_module.MemoryStore(storage_path=Path(tmp) / "store.json")
+        monkeypatch.setattr(store_module, "STORE", test_store)
+        monkeypatch.setattr(reservation, "STORE", test_store)
+        yield test_store
+
+
+def _run_turn(state, message, actor_id="user-1", session_id="sess-1"):
+    return agent.handle_message(actor_id, session_id, state, message)
+
+
+def test_reservation_chat_flow_creates_confirmed_order_end_to_end():
+    state = agent.new_state()
+
+    with patch("backend.app.agent.agent._available_services", return_value=[
+        {"id": "restaurant_reservation", "name": "餐廳訂位", "description": "22世紀風味館 精選餐廳訂位服務"},
+    ]):
+        result = _run_turn(state, "我想訂22世紀風味館 信義旗艦店吃午餐")
+        state = result["state"]
+        assert state["service_id"] == "restaurant_reservation"
+
+        result = _run_turn(state, "8月1日")
+        state = result["state"]
+        result = _run_turn(state, "4位")
+        state = result["state"]
+        result = _run_turn(state, "王大明")
+        state = result["state"]
+        result = _run_turn(state, "0912345678")
+        state = result["state"]
+        result = _run_turn(state, "一般訂位就好")
+        state = result["state"]
+        assert state["awaiting_confirmation"] is True
+
+        result = _run_turn(state, "確認送出")
+        state = result["state"]
+
+    assert state["request_id"] is not None
+    order = reservation.get_reservation_order("user-1", state["request_id"])
+    assert order["order_items"]["restaurant_id"] == "r001"
+    assert order["order_items"]["people"] == 4
+    assert order["status"] in ("CONFIRMED", "PENDING_PROVIDER")
+
+
+def test_reservation_chat_flow_reports_error_without_crashing_when_order_invalid():
+    state = agent.new_state()
+    state["service_id"] = "restaurant_reservation"
+    state["service_name"] = "餐廳訂位"
+    state["service_schema"] = {"fields": [
+        {"id": "restaurant_id", "type": "select", "options": ["r001"], "required": True},
+    ]}
+    state["collected_fields"] = {"restaurant_id": "does-not-exist"}
+    state["missing_fields"] = []
+    state["awaiting_confirmation"] = True
+
+    result = _run_turn(state, "確認送出")
+
+    assert result["state"]["request_id"] is None
+    assert "reply" in result
+
+
+def test_existing_service_submit_flow_still_works_unaffected():
+    """Regression guard: a non-reservation service must still go through the
+    generic tools.call('submit_service_request', ...) path untouched."""
+    from backend.app.agent import tools as agent_tools
+
+    called_with = {}
+
+    def fake_tool_call(name, params, auth_token=None):
+        called_with["name"] = name
+        called_with["params"] = params
+        return {"success": True, "request_id": "REQ-FAKE-1", "status": "SUBMITTED"}
+
+    state = agent.new_state()
+    state["service_id"] = "home_cleaning"
+    state["service_name"] = "居家清潔"
+    state["service_schema"] = {"fields": [{"id": "hours", "type": "number", "required": True}]}
+    state["collected_fields"] = {"hours": 3}
+    state["missing_fields"] = []
+    state["awaiting_confirmation"] = True
+
+    with patch.object(agent_tools, "call", side_effect=fake_tool_call):
+        result = agent._submit("user-1", "sess-1", state, latest_user_message="確認送出")
+
+    assert called_with["name"] == "submit_service_request"
+    assert result["state"]["request_id"] == "REQ-FAKE-1"
+```
+
+- [ ] **Step 2: 執行測試確認失敗**
+
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_agent_reservation_submit.py -v`
+Expected: FAIL（訂位不會走到 `reservation.create_reservation_order`，`request_id` 為 None 或走錯路徑報錯）
+
+- [ ] **Step 3: 實作**
+
+在 `backend/app/agent/agent.py` 檔案頂端 import 區塊加入（跟在 `from ..services import catalog` 之後）：
+
+```python
+from ..services import reservation
+```
+
+找到 `_submit` 函式的開頭（`def _submit(...)` 到 `_recompute_missing(state)` 那幾行），在 `_recompute_missing(state)` 之後、原本 `if state.get("missing_fields"):` 判斷之後、**呼叫 `tools.call("submit_service_request", ...)` 之前**，插入一個提早 return 的分支：
+
+```python
+def _submit(
+    actor_id: str,
+    session_id: str,
+    state: dict,
+    latest_user_message: str = "",
+    auth_token: str | None = None,
+) -> dict:
+    _recompute_missing(state)
+    if state.get("missing_fields"):
+        state["awaiting_confirmation"] = False
+        state["status"] = "COLLECTING_INFORMATION"
+        return _continue_collection(actor_id, state, latest_user_message=latest_user_message)
+
+    if state["service_id"] == "restaurant_reservation":
+        return _submit_reservation(actor_id, state, latest_user_message)
+
+    result = tools.call(
+        "submit_service_request",
+        {
+            "service_id": state["service_id"],
+            "session_id": session_id,
+            "actor_id": actor_id,
+            "payload": dict(state["collected_fields"]),
+        },
+        auth_token=auth_token,
+    )
+    # ... 原本函式其餘內容完全不變，從這裡繼續往下 ...
+```
+
+（只在函式開頭插入 3 行 `if` 判斷，`tools.call(...)` 以下到函式結尾的所有既有程式碼一個字都不要動。）
+
+在 `_submit` 函式的**後面**（同一個檔案，函式定義之外，緊接在 `_submit` 結尾之後）新增一個新函式：
+
+```python
+def _submit_reservation(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    collected = state["collected_fields"]
+    payload = {
+        "restaurant_id": collected.get("restaurant_id"),
+        "reserved_date": collected.get("reserved_date"),
+        "time_slot": collected.get("time_slot"),
+        "people": collected.get("people"),
+        "contact_name": collected.get("contact_name"),
+        "phone": collected.get("phone"),
+        "is_premium": collected.get("is_premium") == "PREMIUM",
+    }
+    result = reservation.create_reservation_order(actor_id, payload)
+
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "訂位失敗")
+        return _reply(
+            state,
+            _model_reply(
+                actor_id,
+                state,
+                "submit_error",
+                latest_user_message=latest_user_message,
+                error_message=message,
+            ),
+        )
+
+    state["request_id"] = result["request_id"]
+    state["status"] = result["status"]
+    state["awaiting_confirmation"] = False
+    return _reply(
+        state,
+        _model_reply(
+            actor_id,
+            state,
+            "submit_success",
+            latest_user_message=latest_user_message,
+            request_id=result["request_id"],
+        ),
+    )
+```
+
+- [ ] **Step 4: 執行測試確認通過**
+
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_agent_reservation_submit.py -v`
+Expected: PASS（3 passed）
+
+- [ ] **Step 5: 執行全部後端測試確認無回歸**（這是本附錄風險最高的一步，`_submit` 是共用函式，務必全套跑過）
+
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests -v`
+Expected: 全部 PASS
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add backend/app/agent/agent.py backend/tests/test_agent_reservation_submit.py
+git commit -m "feat: route restaurant reservation submissions through reservation service"
+```
+
+---
+
+## Task 25: 對話式訂位全專案回歸驗證 + 手動測試
+
+**Files:** 無新檔案，純驗證。
+
+- [ ] **Step 1: 全套後端測試**
+
+Run: `backend/.venv/Scripts/python.exe -m pytest backend/tests -v`
+Expected: 全部 PASS
+
+- [ ] **Step 2: 手動驗證（兩條路徑都要測）**
+
+1. 啟動後端（`cd backend && .venv/Scripts/python.exe -m uvicorn app.main:app --reload`）與前端（`cd frontend && npm run dev`）。
+2. **卡片路徑**：登入後點 HomePage「餐廳訂位」卡片，走完 Task 19 的精靈流程，確認送出成功。
+3. **對話路徑**：登入後點右下角浮動聊天按鈕，直接打字「我想訂22世紀風味館 信義旗艦店 8月1日 午餐 4位」（可以一次講完，也可以分開一句句講，AI 會一次問一項缺的資料），確認 AI 能一路問完人數／聯絡人／電話／是否高級訂位，最後顯示確認摘要文字、輸入「確認送出」後成功建立案件。
+4. 在「我的服務」清單確認這筆對話式建立的訂位案件也正常顯示、案件明細頁能看到完整對話紀錄與正確欄位。
+5. 額外測一次既有服務（例如「居家清潔」）走一次完整對話流程，確認完全沒有受到這次修改影響。
+
+- [ ] **Step 3: Commit（若手動驗證發現需要修正）**
+
+```bash
+git add -A
+git commit -m "test: full regression pass for conversational reservation flow"
+```

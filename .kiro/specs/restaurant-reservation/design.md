@@ -1118,3 +1118,4 @@ settings.register_profile(
 // vitest 配置 (vitest.config.ts)
 // fast-check 預設 num_runs: 100
 ```
+

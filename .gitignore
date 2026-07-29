@@ -13,3 +13,4 @@ dist/
 *.log
 backend/.local-store.json
 backend/.local-users.json
+.superpowers/

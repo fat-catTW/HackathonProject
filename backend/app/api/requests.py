@@ -3,22 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth.cognito import CurrentUser, get_current_user
 from ..services.conversation_memory import MEMORY
+from ..services.statuses import STATUS_LABELS
 from ..services.store import STORE
 
 router = APIRouter()
-
-STATUS_LABELS = {
-    "DRAFT": "草稿",
-    "AWAITING_USER_CONFIRMATION": "等待使用者確認",
-    "SUBMITTED": "等待廠商確認",
-    "PENDING_PROVIDER": "等待廠商確認",
-    "CONFIRMED": "已確認",
-    "IN_PROGRESS": "服務進行中",
-    "COMPLETED": "已完成",
-    "CANCELLED": "已取消",
-    "FAILED": "失敗",
-    "VERIFIED": "已核銷",
-}
 
 
 def _get_or_404(actor_id: str, request_id: str) -> dict:

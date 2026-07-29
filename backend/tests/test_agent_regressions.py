@@ -1,4 +1,5 @@
-from backend.app.agent.agent import _normalize_field_value
+from backend.app.agent import agent as agent_module
+from backend.app.agent.agent import _extract_fields, _normalize_field_value
 from backend.app.agent.page_catalog import search_pages
 from backend.app.agent.page_help import answer_page_question, looks_like_page_question
 
@@ -33,3 +34,58 @@ def test_page_help_formats_service_application_steps():
     assert reply is not None
     assert "服務首頁" in reply
     assert "冷氣清潔表單" in reply
+
+
+def test_page_help_supports_voice_filling_on_home_page():
+    reply = answer_page_question(
+        "我想要用這邊的語音來填打",
+        current_page_id="home",
+    )
+    assert reply is not None
+    assert "支援" in reply
+    assert "語音" in reply
+    assert "不支援" not in reply
+
+
+def test_page_help_supports_switching_service_form_to_voice_filling():
+    reply = answer_page_question(
+        "我想要用語音來填",
+        current_page_id="service_form_air_conditioner_cleaning",
+    )
+    assert reply is not None
+    assert "冷氣清潔表單" in reply
+    assert "語音" in reply
+    assert "不支援" not in reply
+
+
+def test_extract_fields_allows_updating_existing_value(monkeypatch):
+    state = {
+        "service_id": "home_cleaning",
+        "service_name": "居家清潔",
+        "service_schema": {
+            "fields": [
+                {
+                    "id": "preferred_time_slot",
+                    "label": "服務時間",
+                    "type": "time",
+                    "required": True,
+                    "minValue": "08:30",
+                    "maxValue": "18:00",
+                    "step": 300,
+                }
+            ]
+        },
+        "collected_fields": {"preferred_time_slot": "14:00"},
+        "missing_fields": [],
+        "status": "COLLECTING_INFORMATION",
+        "request_id": None,
+    }
+
+    monkeypatch.setattr(
+        agent_module.llm,
+        "extract_fields",
+        lambda **kwargs: {"preferred_time_slot": "15:00"},
+    )
+
+    found = _extract_fields("user-1", state, "服務時間改成 15:00", events=[])
+    assert found == {"preferred_time_slot": "15:00"}

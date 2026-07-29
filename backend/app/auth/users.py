@@ -63,6 +63,7 @@ class _CachedToken(NamedTuple):
     cached_until: float  # epoch 秒；同時不會超過 token 本身的到期時間
     sub: str
     name: str
+    vendor_id: int | None  # 非 None 代表廠商後台帳號（app.auth.vendors）
 
 
 def _hash_password(password: str, salt: bytes, rounds: int = _PBKDF2_ROUNDS) -> bytes:
@@ -176,7 +177,12 @@ class UserStore:
         with self._lock:
             cached = self._token_cache.get(token)
             if cached and cached.cached_until > now:
-                return CurrentUser(sub=cached.sub, name=cached.name, access_token=token)
+                return CurrentUser(
+                    sub=cached.sub,
+                    name=cached.name,
+                    access_token=token,
+                    vendor_id=cached.vendor_id,
+                )
             if cached:
                 self._token_cache.pop(token, None)
 
@@ -196,11 +202,13 @@ class UserStore:
         if not sub:
             return None
         name = item.get("name") or ""
-        if not name:
+        vendor_id = item.get("vendor_id")
+        vendor_id = int(vendor_id) if vendor_id is not None else None
+        if not name and vendor_id is None:
             profile = self._store.get_user_profile(sub) or {}
             name = profile.get("name", "")
-        self._cache_token(token, sub, name, expires_at)
-        return CurrentUser(sub=sub, name=name, access_token=token)
+        self._cache_token(token, sub, name, expires_at, vendor_id)
+        return CurrentUser(sub=sub, name=name, access_token=token, vendor_id=vendor_id)
 
     def logout(self, token: str) -> None:
         with self._lock:
@@ -210,29 +218,40 @@ class UserStore:
         except Exception:  # noqa: BLE001 - 登出失敗不應讓請求整個失敗
             pass
 
-    def _issue_token(self, sub: str, name: str) -> str:
+    def issue_token(self, sub: str, name: str, vendor_id: int | None = None) -> str:
+        """發出 token；廠商後台（app.auth.vendors）共用同一套 TTL 與快取機制。"""
         token = secrets.token_urlsafe(32)
         expires_at = int(time.time() + _TOKEN_TTL_SECONDS)
+        session = {
+            "sub": sub,
+            "name": name,
+            "issued_at": now_iso(),
+            "ttl": expires_at,  # DynamoDB TTL 屬性，同時是本模組的到期判斷依據
+        }
+        if vendor_id is not None:
+            session["vendor_id"] = vendor_id
         with _storage_errors():
-            self._store.save_auth_token(
-                token,
-                {
-                    "sub": sub,
-                    "name": name,
-                    "issued_at": now_iso(),
-                    "ttl": expires_at,  # DynamoDB TTL 屬性，同時是本模組的到期判斷依據
-                },
-            )
-        self._cache_token(token, sub, name, expires_at)
+            self._store.save_auth_token(token, session)
+        self._cache_token(token, sub, name, expires_at, vendor_id)
         return token
 
-    def _cache_token(self, token: str, sub: str, name: str, expires_at: float) -> None:
+    def _issue_token(self, sub: str, name: str) -> str:
+        return self.issue_token(sub, name)
+
+    def _cache_token(
+        self,
+        token: str,
+        sub: str,
+        name: str,
+        expires_at: float,
+        vendor_id: int | None = None,
+    ) -> None:
         now = time.time()
         cached_until = min(now + _TOKEN_CACHE_SECONDS, expires_at)
         with self._lock:
             if len(self._token_cache) >= _TOKEN_CACHE_MAX_ENTRIES:
                 self._sweep_cache_locked(now)
-            self._token_cache[token] = _CachedToken(cached_until, sub, name)
+            self._token_cache[token] = _CachedToken(cached_until, sub, name, vendor_id)
 
     def _sweep_cache_locked(self, now: float) -> None:
         """清掉過期項目；仍然滿了就整個丟掉（快取遺失只是多打一次 DynamoDB）。"""

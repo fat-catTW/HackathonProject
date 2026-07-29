@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
+import { useVendorAuth } from "./hooks/useVendorAuth";
 import { HomePage } from "./pages/HomePage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -9,10 +10,18 @@ import { RequestDetailPage } from "./pages/RequestDetailPage";
 import { ReservationFlowPage } from "./pages/ReservationFlowPage";
 import { DeliveryFlowPage } from "./pages/DeliveryFlowPage";
 import { ServiceFormPage } from "./pages/ServiceFormPage";
+import { VendorLoginPage } from "./pages/VendorLoginPage";
+import { VendorRequestDetailPage } from "./pages/VendorRequestDetailPage";
+import { VendorRequestsPage } from "./pages/VendorRequestsPage";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { isLoggedIn } = useAuth();
   return isLoggedIn ? children : <Navigate to="/login" replace />;
+}
+
+function VendorProtected({ children }: { children: JSX.Element }) {
+  const { isLoggedIn } = useVendorAuth();
+  return isLoggedIn ? children : <Navigate to="/vendor/login" replace />;
 }
 
 export default function App() {
@@ -35,6 +44,16 @@ export default function App() {
       <Route
         path="/requests/:requestId"
         element={<Protected><RequestDetailPage /></Protected>}
+      />
+      <Route path="/vendor" element={<Navigate to="/vendor/requests" replace />} />
+      <Route path="/vendor/login" element={<VendorLoginPage />} />
+      <Route
+        path="/vendor/requests"
+        element={<VendorProtected><VendorRequestsPage /></VendorProtected>}
+      />
+      <Route
+        path="/vendor/requests/:requestId"
+        element={<VendorProtected><VendorRequestDetailPage /></VendorProtected>}
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

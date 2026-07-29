@@ -111,7 +111,7 @@ def _validate_payload(payload: dict) -> dict | None:
     return None
 
 
-def calculate_order_amounts(goods: list, shipping_fee: float = 0) -> dict:
+def calculate_order_amounts(goods: list, shipping_fee: int = 0) -> dict:
     """Calculate order totals."""
     original_amount = sum(item.get("price", 0) * item.get("quantity", 1) for item in goods)
     return {
@@ -135,8 +135,9 @@ def create_delivery_order(actor_id: str, payload: dict) -> dict:
     note = payload.get("note", "")
     store_url = payload.get("store_url", "")
 
-    # 計算金額
-    shipping_fee = float(payload.get("shipping_fee", 60))
+    # 計算金額（一律用 int，DynamoDB 不支援 Python float，見
+    # test_delivery_service.py 的迴歸測試）
+    shipping_fee = int(payload.get("shipping_fee", 60))
     amounts = calculate_order_amounts(goods, shipping_fee)
 
     order_items = {

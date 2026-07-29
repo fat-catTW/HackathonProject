@@ -4,10 +4,12 @@ import { Mascot } from "../components/Mascot";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { ThemeMenu } from "../components/ThemeMenu";
 import { SERVICES } from "../data/services";
+import { useAccessibilityMode } from "../hooks/useAccessibilityMode";
 import { useAuth } from "../hooks/useAuth";
 
 export function HomePage() {
   const { name, logout } = useAuth();
+  const { enabled: a11yEnabled } = useAccessibilityMode();
   const navigate = useNavigate();
 
   return (
@@ -48,6 +50,16 @@ export function HomePage() {
             AI 管家協助整理需求。
           </p>
         </section>
+
+        {a11yEnabled && (
+          <a
+            href="tel:0800000000"
+            className="mt-8 flex items-center justify-center gap-3 rounded-2xl bg-brand py-6 text-xl font-black text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            <ServiceIcon type="phone" size={28} />
+            撥打客服專線 0800-000-000
+          </a>
+        )}
 
         <section className="mt-8">
           <div className="mb-4 flex items-center justify-between">

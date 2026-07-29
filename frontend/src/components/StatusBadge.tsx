@@ -1,4 +1,4 @@
-import type { RequestStatus } from "../types/request";
+﻿import type { RequestStatus } from "../types/request";
 
 const STYLES: Record<string, string> = {
   SUBMITTED: "bg-accent-soft text-accent",
@@ -8,6 +8,7 @@ const STYLES: Record<string, string> = {
   COMPLETED: "bg-info-soft text-info",
   CANCELLED: "bg-gray-100 text-gray-500",
   FAILED: "bg-red-50 text-danger",
+  VERIFIED: "bg-info-soft text-info",
 };
 
 export function StatusBadge({
@@ -27,3 +28,4 @@ export function StatusBadge({
     </span>
   );
 }
+

@@ -243,6 +243,14 @@ export const SERVICES: ServiceDefinition[] = [
       },
     ],
   },
+  {
+    service_id: "restaurant_reservation",
+    title: "餐廳訂位",
+    subtitle: "22世紀風味館 精選餐廳訂位服務",
+    description: "為您預約精選餐廳座位，享受美食無煩惱。",
+    icon: "restaurant",
+    fields: [],
+  },
 ];
 
 export function getServiceDefinition(serviceId: string) {

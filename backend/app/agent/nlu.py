@@ -10,7 +10,9 @@ import re
 from datetime import date, timedelta
 from pathlib import Path
 
+from ..services import delivery_catalog
 from ..services.catalog import SERVICES
+from ..services.restaurant_catalog import RESTAURANTS
 
 # ---- 縣市行政區資料（來自命題縣市區域檔） ----
 _REGIONS = json.loads(
@@ -22,6 +24,22 @@ _COUNTY_ALT = {n.replace("台", "臺"): n for n in COUNTY_NAMES if "台" in n}
 
 _CN_NUM = {"一": 1, "兩": 2, "二": 2, "三": 3, "四": 4, "五": 5,
            "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+
+_CN_MINUTE = {
+    "零": 0,
+    "五": 5,
+    "十分": 10,
+    "十": 10,
+    "十五": 15,
+    "二十": 20,
+    "二十五": 25,
+    "三十": 30,
+    "三十五": 35,
+    "四十": 40,
+    "四十五": 45,
+    "五十": 50,
+    "五十五": 55,
+}
 
 
 def parse_quantity(text: str, unit_chars: str = "台臺部間") -> int | None:
@@ -101,11 +119,116 @@ def parse_time_slot(text: str) -> str | None:
     return None
 
 
+def parse_service_time(text: str) -> str | None:
+    m = re.search(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", text)
+    if m:
+        return f"{int(m.group(1)):02d}:{int(m.group(2)):02d}"
+
+    m = re.search(r"(上午|早上|中午|下午|晚上|傍晚|晚間|夜間)?\s*([0-9]{1,2}|[一二三四五六七八九十兩]+)\s*點(?:\s*([0-9]{1,2}|半|[一二三四五六七八九十兩零]+)\s*分?)?", text)
+    if not m:
+        return None
+
+    period = m.group(1) or ""
+    hour_token = m.group(2)
+    minute_token = m.group(3)
+
+    hour = int(hour_token) if hour_token.isdigit() else _CN_NUM.get(hour_token)
+    if hour is None:
+        return None
+
+    minute = 0
+    if minute_token:
+        if minute_token == "半":
+            minute = 30
+        elif minute_token.isdigit():
+            minute = int(minute_token)
+        else:
+            minute = _CN_MINUTE.get(minute_token, 0)
+
+    if minute > 59:
+        return None
+
+    if period in ("下午", "晚上", "傍晚", "晚間", "夜間") and hour < 12:
+        hour += 12
+    elif period == "中午":
+        if hour < 11:
+            hour += 12
+    elif period in ("上午", "早上") and hour == 12:
+        hour = 0
+
+    if hour > 23:
+        return None
+
+    return f"{hour:02d}:{minute:02d}"
+
+
 def parse_machine_type(text: str) -> str | None:
     if "滾筒" in text:
         return "FRONT_LOAD"
     if "直立" in text:
         return "TOP_LOAD"
+    return None
+
+
+def parse_restaurant(text: str) -> str | None:
+    """依餐廳全名或分店關鍵字比對，回傳 restaurant_id。"""
+    for restaurant in RESTAURANTS:
+        if restaurant["name"] in text:
+            return restaurant["id"]
+    for restaurant in RESTAURANTS:
+        branch = restaurant["name"].split(" ")[-1] if " " in restaurant["name"] else restaurant["name"]
+        if branch and branch in text:
+            return restaurant["id"]
+    return None
+
+
+def parse_delivery_store(text: str) -> str | None:
+    """依店家名稱比對文字，回傳 store_id。"""
+    for store in delivery_catalog.list_stores():
+        if store["name"] in text:
+            return store["id"]
+    return None
+
+
+def parse_menu_item(text: str, store_id: str) -> dict | None:
+    """依指定店家菜單比對品項名稱，並擷取數量（找不到數量時預設 1 份）。"""
+    store = delivery_catalog.get_store(store_id)
+    if not store:
+        return None
+    for item in store["menu"]:
+        if item["title"] in text:
+            quantity = parse_quantity(text, unit_chars="份個杯碗") or 1
+            return {
+                "id": item["id"],
+                "title": item["title"],
+                "price": item["price"],
+                "quantity": quantity,
+            }
+    return None
+
+
+def parse_meal_slot(text: str) -> str | None:
+    """訂位餐期：午餐／晚餐（與既有 parse_time_slot 的上午/下午/晚上不同語意，分開一個函式避免混用）。"""
+    if re.search(r"午餐|中午|午飯", text):
+        return "LUNCH"
+    if re.search(r"晚餐|晚上|夜間|晚飯", text):
+        return "DINNER"
+    return None
+
+
+def parse_option(text: str, options: list[str]) -> str | None:
+    normalized = text.strip()
+    for option in options:
+        if option == normalized or option in normalized or normalized in option:
+            return option
+    return None
+
+
+def parse_yes_no_option(text: str) -> str | None:
+    if re.search(r"不要|不用|不需要|先不要", text):
+        return "NO"
+    if re.search(r"要|需要|加購|加買|好", text):
+        return "YES"
     return None
 
 
@@ -167,14 +290,28 @@ def extract_fields(service_id: str, fields: list[dict], text: str,
         value = None
         if fid == "quantity":
             value = parse_quantity(text)
+        elif fid == "antibacterial_film_quantity":
+            value = parse_quantity(text, unit_chars="個片張") or parse_number(text)
         elif fid == "hours":
             value = parse_hours(text)
         elif fid == "preferred_date":
             value = parse_date(text)
         elif fid == "preferred_time_slot":
-            value = parse_time_slot(text)
+            value = parse_service_time(text)
         elif fid == "machine_type":
             value = parse_machine_type(text)
+        elif fid == "restaurant_id":
+            value = parse_restaurant(text)
+        elif fid == "time_slot":
+            value = parse_meal_slot(text)
+        elif fid == "repair_item":
+            value = parse_option(text, f.get("options", []))
+        elif fid == "air_conditioner_type":
+            value = parse_option(text, f.get("options", []))
+        elif fid == "cleaning_service_option":
+            value = parse_option(text, f.get("options", []))
+        elif fid == "antibacterial_film_addon":
+            value = parse_yes_no_option(text)
         elif fid == "phone":
             value = parse_phone(text)
         elif fid == "address":

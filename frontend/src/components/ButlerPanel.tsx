@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createSession, sendMessage } from "../api/chat";
 import type { ChatEvent } from "../types/request";
-import { buildFieldRows } from "../utils/fieldLabels";
+import { buildFieldRows, type CollectedFieldValue } from "../utils/fieldLabels";
 import { ChatMessage } from "./ChatMessage";
 import { FieldPanel } from "./FieldPanel";
 import { ServiceIcon } from "./ServiceIcon";
@@ -34,7 +34,7 @@ export function ButlerPanel({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [serviceName, setServiceName] = useState<string | null>(null);
-  const [collected, setCollected] = useState<Record<string, string | number>>({});
+  const [collected, setCollected] = useState<Record<string, CollectedFieldValue>>({});
   const [missing, setMissing] = useState<string[]>([]);
   const [status, setStatus] = useState<string>("COLLECTING_INFORMATION");
   const [toastText, setToastText] = useState<string | null>(null);

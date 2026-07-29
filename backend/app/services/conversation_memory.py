@@ -98,7 +98,7 @@ class LocalConversationMemory(BaseConversationMemory):
         if prefs.get("last_phone"):
             lines.append(f"常用電話: {prefs['last_phone']}")
         if prefs.get("preferred_time_slot"):
-            lines.append(f"偏好時段: {prefs['preferred_time_slot']}")
+            lines.append(f"偏好時間: {prefs['preferred_time_slot']}")
         if memory.get("last_service_name"):
             lines.append(f"最近服務: {memory['last_service_name']}")
         if memory.get("last_request_summary"):
@@ -226,7 +226,7 @@ class AgentCoreConversationMemory(BaseConversationMemory):
         if prefs.get("last_phone"):
             lines.append(f"最近電話: {prefs['last_phone']}")
         if prefs.get("preferred_time_slot"):
-            lines.append(f"偏好時段: {prefs['preferred_time_slot']}")
+            lines.append(f"偏好時間: {prefs['preferred_time_slot']}")
         if memory.get("last_service_name"):
             lines.append(f"最近服務: {memory['last_service_name']}")
         if memory.get("last_request_summary"):

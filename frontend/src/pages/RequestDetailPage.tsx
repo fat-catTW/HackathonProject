@@ -9,7 +9,7 @@ import { ServiceIcon } from "../components/ServiceIcon";
 import { StatusBadge } from "../components/StatusBadge";
 import { Toast } from "../components/Toast";
 import type { RequestDetail } from "../types/request";
-import { fieldLabel, fieldValueLabel } from "../utils/fieldLabels";
+import { fieldLabel, formatFieldValue } from "../utils/fieldLabels";
 import { serviceIconType } from "../utils/serviceIcons";
 
 export function RequestDetailPage() {
@@ -85,6 +85,10 @@ export function RequestDetailPage() {
     CONFIRMED: { to: "IN_PROGRESS", label: "Demo：模擬服務進行中" },
     IN_PROGRESS: { to: "COMPLETED", label: "Demo：模擬服務已完成" },
   };
+  const isReservation = detail.service_id === "restaurant_reservation";
+  if (isReservation && detail.status === "COMPLETED") {
+    nextDemo.COMPLETED = { to: "VERIFIED", label: "Demo：模擬已核銷" };
+  }
   const demo = nextDemo[detail.status];
 
   return (
@@ -115,7 +119,7 @@ export function RequestDetailPage() {
             {Object.entries(detail.form_data).map(([key, value]) => (
               <div key={key} className="flex justify-between gap-3 border-b border-gray-100 py-3.5 last:border-b-0">
                 <span className="text-gray-500">{fieldLabel(key)}</span>
-                <span className="text-right font-bold">{fieldValueLabel(value)}</span>
+                <span className="text-right font-bold">{formatFieldValue(value)}</span>
               </div>
             ))}
             <div className="border-t border-dashed border-gray-200 py-3.5 text-sm text-gray-400">

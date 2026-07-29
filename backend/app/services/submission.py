@@ -5,9 +5,33 @@ from . import catalog
 from .store import STORE, now_iso
 
 
+def _field_is_visible(field: dict, payload: dict) -> bool:
+    visible_when = field.get("visibleWhen")
+    if not isinstance(visible_when, dict):
+        return True
+    parent_field_id = visible_when.get("fieldId")
+    expected_value = visible_when.get("value")
+    if not isinstance(parent_field_id, str):
+        return True
+    return payload.get(parent_field_id) == expected_value
+
+
 def _missing_required_fields(fields: list[dict], payload: dict) -> list[str]:
-    required = [field["id"] for field in fields if field.get("required")]
+    required = [
+        field["id"]
+        for field in fields
+        if field.get("required") and _field_is_visible(field, payload)
+    ]
     return [field_id for field_id in required if payload.get(field_id) in (None, "")]
+
+
+def _missing_required_fields_message(fields: list[dict], missing: list[str]) -> str:
+    field_labels = {
+        field["id"]: field.get("label", field["id"])
+        for field in fields
+    }
+    labels = [field_labels.get(field_id, field_id) for field_id in missing]
+    return f"缺少必填欄位：{'、'.join(labels)}。"
 
 
 def create_manual_service_request(
@@ -29,7 +53,7 @@ def create_manual_service_request(
             "success": False,
             "error": {
                 "code": "INVALID_FORM_DATA",
-                "message": "Missing required fields.",
+                "message": _missing_required_fields_message(service["schema"]["fields"], missing),
                 "missing_fields": missing,
             },
         }

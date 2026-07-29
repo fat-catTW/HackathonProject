@@ -1,5 +1,8 @@
 """Local service catalog used by the manual service pages."""
 
+from .delivery_catalog import list_stores
+from .restaurant_catalog import RESTAURANTS
+
 SERVICES: list[dict] = [
     {
         "id": "plumbing_repair",
@@ -12,26 +15,60 @@ SERVICES: list[dict] = [
         "schema": {
             "fields": [
                 {
+                    "id": "repair_item",
+                    "label": "叫修工項",
+                    "type": "select",
+                    "required": True,
+                    "options": [
+                        "水管",
+                        "水龍頭",
+                        "馬桶",
+                        "電燈",
+                        "洗手台",
+                        "流理臺",
+                        "浴廁設備",
+                        "插座",
+                        "配電箱",
+                        "電熱水器",
+                        "馬達",
+                        "水塔",
+                        "防水工程",
+                        "門窗/紗窗",
+                        "泥作工程(地磚)",
+                        "採光罩",
+                    ],
+                    "question": "請問這次主要的叫修工項是什麼？",
+                },
+                {
                     "id": "issue_description",
                     "label": "問題描述",
-                    "type": "text",
+                    "type": "textarea",
                     "required": True,
                     "question": "請描述目前遇到的狀況，例如漏水位置或設備故障情形。",
                 },
                 {
+                    "id": "issue_photo",
+                    "label": "現場照片",
+                    "type": "file",
+                    "required": False,
+                    "question": "若方便的話，也可以上傳現場照片讓師傅更快了解狀況。",
+                },
+                {
                     "id": "preferred_date",
-                    "label": "希望日期",
+                    "label": "服務日期",
                     "type": "date",
                     "required": True,
                     "question": "請問希望安排哪一天服務？",
                 },
                 {
                     "id": "preferred_time_slot",
-                    "label": "希望時段",
-                    "type": "select",
+                    "label": "服務時間",
+                    "type": "time",
                     "required": True,
-                    "options": ["MORNING", "AFTERNOON", "EVENING"],
-                    "question": "請問希望安排上午、下午還是晚上？",
+                    "minValue": "08:30",
+                    "maxValue": "18:00",
+                    "step": 300,
+                    "question": "請問希望安排什麼時間服務？",
                 },
                 {
                     "id": "address",
@@ -46,6 +83,13 @@ SERVICES: list[dict] = [
                     "type": "text",
                     "required": True,
                     "question": "請提供可聯絡的手機號碼。",
+                },
+                {
+                    "id": "notes",
+                    "label": "備註",
+                    "type": "textarea",
+                    "required": False,
+                    "question": "如果有其他補充，也可以留下備註。",
                 },
             ]
         },
@@ -84,11 +128,13 @@ SERVICES: list[dict] = [
                 },
                 {
                     "id": "preferred_time_slot",
-                    "label": "希望時段",
-                    "type": "select",
+                    "label": "希望時間",
+                    "type": "time",
                     "required": True,
-                    "options": ["MORNING", "AFTERNOON", "EVENING"],
-                    "question": "請問希望安排上午、下午還是晚上？",
+                    "minValue": "08:30",
+                    "maxValue": "18:00",
+                    "step": 300,
+                    "question": "請問希望安排什麼時間清洗？",
                 },
                 {
                     "id": "address",
@@ -103,6 +149,13 @@ SERVICES: list[dict] = [
                     "type": "text",
                     "required": True,
                     "question": "請提供可聯絡的手機號碼。",
+                },
+                {
+                    "id": "notes",
+                    "label": "備註",
+                    "type": "textarea",
+                    "required": False,
+                    "question": "如果有其他補充，也可以留下備註。",
                 },
             ]
         },
@@ -125,19 +178,45 @@ SERVICES: list[dict] = [
                     "question": "請問需要清洗幾台冷氣？",
                 },
                 {
+                    "id": "air_conditioner_type",
+                    "label": "冷氣機種",
+                    "type": "select",
+                    "required": True,
+                    "options": ["壁掛式", "天花板嵌入式", "四方吹業務型"],
+                    "question": "請問要清洗的冷氣機種是哪一種？",
+                },
+                {
+                    "id": "antibacterial_film_addon",
+                    "label": "是否加購日本抗菌膜",
+                    "type": "select",
+                    "required": True,
+                    "options": ["YES", "NO"],
+                    "question": "請問是否需要加購日本抗菌膜？",
+                },
+                {
+                    "id": "antibacterial_film_quantity",
+                    "label": "日本抗菌膜數量",
+                    "type": "number",
+                    "required": False,
+                    "visibleWhen": {"fieldId": "antibacterial_film_addon", "value": "YES"},
+                    "question": "如果需要加購，請問要加購幾個日本抗菌膜？",
+                },
+                {
                     "id": "preferred_date",
-                    "label": "希望日期",
+                    "label": "服務日期",
                     "type": "date",
                     "required": True,
                     "question": "請問希望安排哪一天服務？",
                 },
                 {
                     "id": "preferred_time_slot",
-                    "label": "希望時段",
-                    "type": "select",
+                    "label": "服務時間",
+                    "type": "time",
                     "required": True,
-                    "options": ["MORNING", "AFTERNOON", "EVENING"],
-                    "question": "請問希望安排上午、下午還是晚上？",
+                    "minValue": "08:30",
+                    "maxValue": "18:00",
+                    "step": 300,
+                    "question": "請問希望安排什麼時間服務？",
                 },
                 {
                     "id": "address",
@@ -152,6 +231,13 @@ SERVICES: list[dict] = [
                     "type": "text",
                     "required": True,
                     "question": "請提供可聯絡的手機號碼。",
+                },
+                {
+                    "id": "notes",
+                    "label": "備註",
+                    "type": "textarea",
+                    "required": False,
+                    "question": "如果有其他補充，也可以留下備註。",
                 },
             ]
         },
@@ -167,11 +253,19 @@ SERVICES: list[dict] = [
         "schema": {
             "fields": [
                 {
-                    "id": "hours",
-                    "label": "服務時數",
-                    "type": "number",
+                    "id": "cleaning_service_option",
+                    "label": "服務選項",
+                    "type": "select",
                     "required": True,
-                    "question": "請問預計需要幾小時的清潔服務？",
+                    "options": [
+                        "地板清潔",
+                        "石材地板研磨 晶化 拋光",
+                        "地毯清潔",
+                        "玻璃清潔",
+                        "天花板除塵",
+                        "廁所清潔",
+                    ],
+                    "question": "請問這次需要哪一種居家清潔服務？",
                 },
                 {
                     "id": "preferred_date",
@@ -182,11 +276,13 @@ SERVICES: list[dict] = [
                 },
                 {
                     "id": "preferred_time_slot",
-                    "label": "希望時段",
-                    "type": "select",
+                    "label": "服務時間",
+                    "type": "time",
                     "required": True,
-                    "options": ["MORNING", "AFTERNOON", "EVENING"],
-                    "question": "請問希望安排上午、下午還是晚上？",
+                    "minValue": "08:30",
+                    "maxValue": "18:00",
+                    "step": 300,
+                    "question": "請問希望安排什麼時間到府服務？",
                 },
                 {
                     "id": "address",
@@ -202,7 +298,131 @@ SERVICES: list[dict] = [
                     "required": True,
                     "question": "請提供可聯絡的手機號碼。",
                 },
+                {
+                    "id": "notes",
+                    "label": "備註",
+                    "type": "textarea",
+                    "required": False,
+                    "question": "如果有其他補充，也可以留下備註。",
+                },
             ]
+        },
+    },
+    {
+        "id": "restaurant_reservation",
+        "name": "餐廳訂位",
+        "description": "22世紀風味館 精選餐廳訂位服務",
+        "service_vendor_id": 22,
+        "cms_type": "02",
+        "enabled": True,
+        "keywords": ["餐廳", "訂位", "訂餐廳", "吃飯", "用餐", "22世紀", "風味館"],
+        "schema": {
+            "fields": [
+                {
+                    "id": "restaurant_id",
+                    "label": "餐廳選擇",
+                    "type": "select",
+                    "required": True,
+                    "options": [r["id"] for r in RESTAURANTS],
+                    "question": "請問想訂哪一間餐廳？目前提供："
+                    + "、".join(r["name"] for r in RESTAURANTS)
+                    + "。",
+                },
+                {
+                    "id": "reserved_date",
+                    "label": "用餐日期",
+                    "type": "date",
+                    "required": True,
+                    "question": "請問希望哪一天用餐？（限今天起 60 天內）",
+                },
+                {
+                    "id": "time_slot",
+                    "label": "用餐時段",
+                    "type": "select",
+                    "required": True,
+                    "options": ["LUNCH", "DINNER"],
+                    "question": "請問想約午餐還是晚餐？",
+                },
+                {
+                    "id": "people",
+                    "label": "用餐人數",
+                    "type": "number",
+                    "required": True,
+                    "question": "請問幾位用餐？（1 至 20 人）",
+                },
+                {
+                    "id": "contact_name",
+                    "label": "聯絡人姓名",
+                    "type": "text",
+                    "required": True,
+                    "question": "請問訂位人的姓名？",
+                },
+                {
+                    "id": "phone",
+                    "label": "聯絡電話",
+                    "type": "text",
+                    "required": True,
+                    "question": "請提供聯絡手機號碼。",
+                },
+                {
+                    "id": "is_premium",
+                    "label": "訂位類型",
+                    "type": "select",
+                    "required": True,
+                    "options": ["STANDARD", "PREMIUM"],
+                    "question": "請問需要指定餐廳或高級訂位服務嗎？高級訂位將由專人為您安排指定餐廳或特殊座位需求。",
+                },
+            ],
+        },
+    },
+    {
+        "id": "food_delivery",
+        "name": "美食外送",
+        "description": "附近店家美食外送到府服務",
+        "service_vendor_id": 30,
+        "cms_type": "06",
+        "enabled": True,
+        "keywords": ["外送", "美食", "外帶", "便當", "飲料", "點餐", "delivery"],
+        "schema": {
+            "fields": [
+                {
+                    "id": "address",
+                    "label": "外送地址",
+                    "type": "address",
+                    "required": True,
+                    "question": "請提供外送地址（含樓層備註）。",
+                },
+                {
+                    "id": "store_id",
+                    "label": "選擇店家",
+                    "type": "select",
+                    "required": True,
+                    "question": "請問想點哪一間店家？目前提供："
+                    + "、".join(s["name"] for s in list_stores())
+                    + "。",
+                },
+                {
+                    "id": "goods",
+                    "label": "餐點品項",
+                    "type": "cart",
+                    "required": True,
+                    "question": "請選擇要訂購的餐點與數量。",
+                },
+                {
+                    "id": "contact_name",
+                    "label": "收件人姓名",
+                    "type": "text",
+                    "required": True,
+                    "question": "請填寫收件人姓名。",
+                },
+                {
+                    "id": "note",
+                    "label": "備註需求",
+                    "type": "text",
+                    "required": True,
+                    "question": "有沒有其他需求呢？例如全糖去冰、不辣等，沒有的話可以直接說「沒有」。",
+                },
+            ],
         },
     },
 ]
@@ -213,6 +433,8 @@ SELECT_LABELS = {
     "EVENING": "晚上",
     "TOP_LOAD": "直立式",
     "FRONT_LOAD": "滾筒式",
+    "YES": "需要",
+    "NO": "不需要",
 }
 
 

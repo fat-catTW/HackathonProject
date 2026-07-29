@@ -1,8 +1,8 @@
 import { ServiceIcon } from "./ServiceIcon";
-import { buildFieldRows, fieldLabel } from "../utils/fieldLabels";
+import { buildFieldRows, fieldLabel, type CollectedFieldValue } from "../utils/fieldLabels";
 
 interface Props {
-  collected: Record<string, string | number>;
+  collected: Record<string, CollectedFieldValue>;
   missing: string[];
 }
 

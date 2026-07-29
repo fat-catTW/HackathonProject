@@ -2,7 +2,7 @@ export type ServiceIconType =
   | "aircon" | "plumbing" | "appliance" | "cleaning" | "pest" | "moving" | "restaurant"
   | "mic" | "send" | "check" | "chevronRight" | "chevronDown" | "close"
   | "back" | "phone" | "location" | "calendar" | "clock" | "chat"
-  | "info" | "warning" | "logo";
+  | "info" | "warning" | "logo" | "zoom";
 
 interface Props {
   type: ServiceIconType;
@@ -122,6 +122,11 @@ const PATHS: Record<ServiceIconType, JSX.Element> = {
   logo: (
     <>
       <circle cx="12" cy="12" r="9.3" /><path d="M7.7 12.4 L10.6 15.4 L16.4 9" />
+    </>
+  ),
+  zoom: (
+    <>
+      <circle cx="10" cy="10" r="6.5" /><line x1="14.8" y1="14.8" x2="20" y2="20" />
     </>
   ),
 };

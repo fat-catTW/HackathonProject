@@ -15,3 +15,4 @@ backend/.local-store.json
 backend/.local-users.json
 .superpowers/
 .impeccable/
+.worktrees/

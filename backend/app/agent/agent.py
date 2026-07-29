@@ -35,6 +35,11 @@ FIELD_DISPLAY_NAMES = {
     "quantity": "數量",
     "hours": "服務時數",
     "machine_type": "洗衣機類型",
+    "restaurant_id": "餐廳選擇",
+    "reserved_date": "用餐日期",
+    "time_slot": "用餐時段",
+    "people": "用餐人數",
+    "contact_name": "聯絡人姓名",
 }
 
 SELECT_ALIASES = {
@@ -43,6 +48,10 @@ SELECT_ALIASES = {
     "EVENING": ("EVENING", "晚上", "夜間"),
     "TOP_LOAD": ("TOP_LOAD", "直立式"),
     "FRONT_LOAD": ("FRONT_LOAD", "滾筒式"),
+    "LUNCH": ("LUNCH", "午餐", "中午"),
+    "DINNER": ("DINNER", "晚餐", "晚飯"),
+    "STANDARD": ("STANDARD", "一般"),
+    "PREMIUM": ("PREMIUM", "高級", "指定"),
 }
 
 SELECT_DISPLAY_NAMES = {
@@ -51,6 +60,10 @@ SELECT_DISPLAY_NAMES = {
     "EVENING": "晚上",
     "TOP_LOAD": "直立式",
     "FRONT_LOAD": "滾筒式",
+    "LUNCH": "午餐",
+    "DINNER": "晚餐",
+    "STANDARD": "一般訂位",
+    "PREMIUM": "高級訂位",
 }
 
 RULE_SERVICE_KEYWORDS = (
@@ -386,6 +399,18 @@ def _normalize_field_value(field: dict, value, original_text: str):
                 _normalize_select(str(value), field.get("options", []))
                 or nlu.parse_machine_type(str(value))
                 or nlu.parse_machine_type(original_text)
+            )
+        if field_id == "restaurant_id":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_restaurant(str(value))
+                or nlu.parse_restaurant(original_text)
+            )
+        if field_id == "time_slot":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_meal_slot(str(value))
+                or nlu.parse_meal_slot(original_text)
             )
         return _normalize_select(str(value), field.get("options", []))
 

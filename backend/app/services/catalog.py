@@ -1,5 +1,7 @@
 """Local service catalog used by the manual service pages."""
 
+from .restaurant_catalog import RESTAURANTS
+
 SERVICES: list[dict] = [
     {
         "id": "plumbing_repair",
@@ -203,6 +205,73 @@ SERVICES: list[dict] = [
                     "question": "請提供可聯絡的手機號碼。",
                 },
             ]
+        },
+    },
+    {
+        "id": "restaurant_reservation",
+        "name": "餐廳訂位",
+        "description": "22世紀風味館 精選餐廳訂位服務",
+        "service_vendor_id": 22,
+        "cms_type": "02",
+        "enabled": True,
+        "keywords": ["餐廳", "訂位", "訂餐廳", "吃飯", "用餐", "22世紀", "風味館"],
+        "schema": {
+            "fields": [
+                {
+                    "id": "restaurant_id",
+                    "label": "餐廳選擇",
+                    "type": "select",
+                    "required": True,
+                    "options": [r["id"] for r in RESTAURANTS],
+                    "question": "請問想訂哪一間餐廳？目前提供："
+                    + "、".join(r["name"] for r in RESTAURANTS)
+                    + "。",
+                },
+                {
+                    "id": "reserved_date",
+                    "label": "用餐日期",
+                    "type": "date",
+                    "required": True,
+                    "question": "請問希望哪一天用餐？（限今天起 60 天內）",
+                },
+                {
+                    "id": "time_slot",
+                    "label": "用餐時段",
+                    "type": "select",
+                    "required": True,
+                    "options": ["LUNCH", "DINNER"],
+                    "question": "請問想約午餐還是晚餐？",
+                },
+                {
+                    "id": "people",
+                    "label": "用餐人數",
+                    "type": "number",
+                    "required": True,
+                    "question": "請問幾位用餐？（1 至 20 人）",
+                },
+                {
+                    "id": "contact_name",
+                    "label": "聯絡人姓名",
+                    "type": "text",
+                    "required": True,
+                    "question": "請問訂位人的姓名？",
+                },
+                {
+                    "id": "phone",
+                    "label": "聯絡電話",
+                    "type": "text",
+                    "required": True,
+                    "question": "請提供聯絡手機號碼。",
+                },
+                {
+                    "id": "is_premium",
+                    "label": "訂位類型",
+                    "type": "select",
+                    "required": True,
+                    "options": ["STANDARD", "PREMIUM"],
+                    "question": "請問需要指定餐廳或高級訂位服務嗎？高級訂位將由專人為您安排指定餐廳或特殊座位需求。",
+                },
+            ],
         },
     },
 ]

@@ -197,6 +197,10 @@ def extract_fields(service_id: str, fields: list[dict], text: str,
             value = parse_time_slot(text)
         elif fid == "machine_type":
             value = parse_machine_type(text)
+        elif fid == "restaurant_id":
+            value = parse_restaurant(text)
+        elif fid == "time_slot":
+            value = parse_meal_slot(text)
         elif fid == "phone":
             value = parse_phone(text)
         elif fid == "address":

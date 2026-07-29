@@ -30,6 +30,9 @@ class BaseStore:
     def query_prefix(self, pk: str, sk_prefix: str) -> list[dict]:
         raise NotImplementedError
 
+    def scan_by_entity_type(self, entity_type: str) -> list[dict]:
+        raise NotImplementedError
+
     def next_request_id(self) -> str:
         return f"REQ-{datetime.now(TZ):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
 
@@ -114,6 +117,10 @@ class MemoryStore(BaseStore):
         with self._lock:
             return [dict(v) for (p, s), v in self._items.items() if p == pk and s.startswith(sk_prefix)]
 
+    def scan_by_entity_type(self, entity_type: str) -> list[dict]:
+        with self._lock:
+            return [dict(v) for v in self._items.values() if v.get("entity_type") == entity_type]
+
     def next_request_id(self) -> str:
         with self._lock:
             self._req_seq += 1
@@ -179,6 +186,21 @@ class DynamoDBStore(BaseStore):
             if not start_key:
                 return items
 
+    def scan_by_entity_type(self, entity_type: str) -> list[dict]:
+        from boto3.dynamodb.conditions import Attr
+
+        items: list[dict] = []
+        start_key = None
+        while True:
+            kwargs = {"FilterExpression": Attr("entity_type").eq(entity_type)}
+            if start_key:
+                kwargs["ExclusiveStartKey"] = start_key
+            response = self._table.scan(**kwargs)
+            items.extend(response.get("Items", []))
+            start_key = response.get("LastEvaluatedKey")
+            if not start_key:
+                return items
+
 
 class ResilientStore(BaseStore):
     """Keep local demo flows working when DynamoDB is temporarily unavailable."""
@@ -230,6 +252,19 @@ class ResilientStore(BaseStore):
             return []
         try:
             return self._primary.query_prefix(pk, sk_prefix)
+        except Exception:
+            self._mark_primary_unavailable()
+            return []
+
+    def scan_by_entity_type(self, entity_type: str) -> list[dict]:
+        try:
+            return self._fallback.scan_by_entity_type(entity_type)
+        except Exception:
+            pass
+        if not self._primary_available():
+            return []
+        try:
+            return self._primary.scan_by_entity_type(entity_type)
         except Exception:
             self._mark_primary_unavailable()
             return []

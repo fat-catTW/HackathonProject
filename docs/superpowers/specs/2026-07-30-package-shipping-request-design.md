@@ -48,6 +48,19 @@ Schema 欄位（依對話順序）：
 
 > 「型別5（縣市/行政區選單）」的落地方式：不新增獨立的 cascading select 型別元件，改成沿用專案裡已經在跑的 `address` 型別（`food_delivery` 的 `address` 欄位就是這樣做，靠 `nlu.parse_address` 解析＋驗證縣市/行政區），一次多一個地址欄位即可達到同樣的驗證效果，不需要新的前後端元件。
 
+### 1a. 卡片操作（`frontend/src/data/services.ts` + `ServiceFormPage.tsx`）
+
+專案目前有兩份手動維護、彼此獨立的服務 schema：後端 `catalog.py`（AI 管家對話與 `submit_service_request` 走這份）與前端 `frontend/src/data/services.ts`（首頁卡片 `HomePage.tsx` → `/services/:serviceId` → `ServiceFormPage.tsx` 手動表單走這份，`HomePage.tsx` 直接 `SERVICES.map(...)` 渲染卡片，新增一筆資料就會自動出現，不用改頁面程式碼）。水電/清潔/冷氣/洗衣機兩份 schema 都有填，卡片可以直接手動填表單；餐廳訂位/美食外送因為走專屬精靈頁，這份前端 schema 裡 `fields` 是空陣列。
+
+`package_shipping` 跟水電/清潔同一類（純 schema 驅動、非專屬精靈頁），因此**兩邊 schema 都要填**，卡片操作才會出現完整表單：
+
+- `frontend/src/data/services.ts` 新增一筆 `service_id: "package_shipping"` 的 `ServiceDefinition`，欄位定義對應第 1 節的表格，`hint`/`placeholder`/`sectionTitle`/`inputIcon` 比照其他既有服務的寫法。
+- 地址欄位（`sender_address`/`receiver_address`）在這份前端 schema 用 `type: "text"`（跟現有其他服務的地址欄位一致——`ServiceFormPage.tsx` 沒有針對 `"address"` 型別的專屬渲染分支，縣市/行政區驗證只發生在後端 AI 對話路徑的 `nlu.parse_address`，卡片手動表單本來就沒有這層前端驗證，維持現況一致即可）。
+- `visibleWhen` 分岔（到府收件/店到店）`ServiceFormPage.tsx` 已經原生支援（`isFieldVisible()`，現有 `antibacterial_film_quantity` 就是這樣用的），不需要改頁面邏輯。
+- 是否要比照冷氣/洗衣機/居家清潔在 `ServiceFormPage.tsx` 加一段「目前估價」試算區塊（`airconEstimate`/`washerEstimate`/`homeCleaningEstimate` 那種前端即時試算 `useMemo`），對應第 4 節 `estimate_shipping_fee` 的邏輯搬一份到前端——這屬於實作階段的細節，寫計畫時再決定是否值得複製一份試算邏輯到前端，或先只在送出成功後由後端回傳的訊息顯示。
+
+**卡片送出必須改走 `shipping.create_shipping_order()`，不能沿用通用送出端點原樣行為。** 卡片表單送出會打 `POST /api/services/{service_id}/requests`（`backend/app/api/services.py` 的 `create_service_request()`），目前一律呼叫 `submission.create_manual_service_request()`——這支函式只檢查必填欄位，不會跑運費試算、違禁品攔截、材積/重量上限、外島擋下，寫入的狀態也固定是 `SUBMITTED` 而非 `AWAITING_QUOTE`。需要在 `create_service_request()` 裡加一個分支：`service_id == "package_shipping"` 時改呼叫 `shipping.create_shipping_order(actor_id=user.sub, payload=payload)`，回傳格式維持跟其他分支一致（`request_id`/`status`/`message`，`message` 可以帶運費區間文字）。這樣不論從 AI 管家對話還是卡片表單送出，最終都收斂到同一支 `shipping.create_shipping_order()`，業務規則不會有兩份。
+
 ### 2. 修正通用收集引擎的兩個既有缺口（`backend/app/agent/agent.py`）
 
 這兩點是分岔表單能「一次一問」運作的前提，屬於既有邏輯的缺陷修正，不是本功能專屬的特例邏輯：
@@ -94,7 +107,7 @@ Schema 欄位（依對話順序）：
 
 ## 資料流一致性
 
-不論之後是否有其他入口，目前唯一的建立路徑是 `_submit_package_shipping()` → `shipping.create_shipping_order()`，寫入同一個 `STORE`，`service_id="package_shipping"`／`service_vendor_id=2`／`order_type="20"` 等欄位固定不變。廠商後台既有的「依 `service_vendor_id` 篩案件」與「案件明細顯示 `form_data`」機制不需修改即可支援這個新服務，因為它們是通用邏輯，不是寫死特定服務的欄位。
+這個服務有兩個建立入口——AI 管家對話（`_submit_package_shipping()`）與首頁卡片手動表單（`create_service_request()` 的 `package_shipping` 分支）——兩者都收斂呼叫同一支 `shipping.create_shipping_order()`，寫入同一個 `STORE`，`service_id="package_shipping"`／`service_vendor_id=2`／`order_type="20"` 等欄位固定不變，運費試算、違禁品檢查、材積/重量/外島限制對兩個入口一視同仁。廠商後台既有的「依 `service_vendor_id` 篩案件」與「案件明細顯示 `form_data`」機制不需修改即可支援這個新服務，因為它們是通用邏輯，不是寫死特定服務的欄位。
 
 ## 測試範圍
 
@@ -102,6 +115,7 @@ Schema 欄位（依對話順序）：
 
 - `backend/tests/test_catalog_shipping.py`：`package_shipping` schema 欄位完整性、`visibleWhen` 設定正確。
 - `backend/tests/test_shipping_service.py`：`estimate_shipping_fee` 各級距（到府三段、店到店常溫/大包裹）、`contains_prohibited_keywords` 命中與不命中案例、`_validate_payload` 重量/材積/申報價值超限、外島地址擋下、`create_shipping_order` 成功案例（含 `order_status`/`status` 正確寫入）。
+- `backend/tests/test_services_api.py`（若尚無此檔則新增）：`POST /api/services/package_shipping/requests` 走 `shipping.create_shipping_order()` 分支，命中材積/違禁品限制時回傳對應錯誤碼，確認卡片入口跟對話入口套用同一套業務規則。
 - `backend/tests/test_agent_shipping_submit.py`：比照 `test_agent_delivery_submit.py`/`test_agent_reservation_submit.py`，涵蓋完整對話流程（到府收件與店到店各跑一次分岔）、違禁品關鍵字觸發確認子流程、`_recompute_missing` 在分岔情境下不會多問另一分支的欄位（這是回歸測試，順便驗證第 2 節的既有缺陷修正沒有破壞其他服務）。
 
 前端不特別加測試（現況通用 `FieldPanel`／對話 UI 本身也沒有針對個別服務的測試檔），改動完成後會實際啟動前後端手動跑一次到府收件與店到店兩種完整對話下單流程。

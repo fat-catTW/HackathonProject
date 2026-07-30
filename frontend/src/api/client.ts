@@ -56,6 +56,8 @@ export class ApiError extends Error {
     public details?: {
       missingFields?: string[];
     },
+    /** 錯誤本體其餘欄位；409 衝突會帶回案件現況，畫面可直接更新。 */
+    public data: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -79,6 +81,7 @@ async function request<T>(
     let code = "INTERNAL_ERROR";
     let message = `HTTP ${res.status}`;
     let missingFields: string[] | undefined;
+    let data: Record<string, unknown> = {};
     try {
       const body = await res.json();
       const err = body?.detail?.error ?? body?.error;
@@ -86,12 +89,13 @@ async function request<T>(
         code = err.code ?? code;
         message = err.message ?? message;
         missingFields = Array.isArray(err.missing_fields) ? err.missing_fields : undefined;
+        data = err;
       }
     } catch {
       /* 保留預設錯誤 */
     }
     if (res.status === 401) onUnauthorized();
-    throw new ApiError(code, message, { missingFields });
+    throw new ApiError(code, message, { missingFields }, data);
   }
   return res.json() as Promise<T>;
 }

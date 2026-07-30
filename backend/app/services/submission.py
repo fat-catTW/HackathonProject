@@ -59,19 +59,24 @@ def create_manual_service_request(
         }
 
     request_id = STORE.next_request_id()
+    request = {
+        "request_id": request_id,
+        "session_id": session_id,
+        "service_id": service["id"],
+        "service_name": service["name"],
+        "service_vendor_id": service.get("service_vendor_id"),
+        "status": "SUBMITTED",
+        "form_data": payload,
+        "created_at": now_iso(),
+    }
+    for extra_key in ("pms_form_type", "request_category"):
+        if extra_key in service:
+            request[extra_key] = service[extra_key]
+
     try:
         STORE.save_request(
             actor_id,
-            {
-                "request_id": request_id,
-                "session_id": session_id,
-                "service_id": service["id"],
-                "service_name": service["name"],
-                "service_vendor_id": service.get("service_vendor_id"),
-                "status": "SUBMITTED",
-                "form_data": payload,
-                "created_at": now_iso(),
-            },
+            request,
         )
     except Exception as exc:
         return {

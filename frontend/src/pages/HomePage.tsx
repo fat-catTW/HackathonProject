@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { ButlerLauncher } from "../components/ButlerLauncher";
 import { Mascot } from "../components/Mascot";
 import { OnboardingModal } from "../components/OnboardingModal";
 import { ServiceIcon } from "../components/ServiceIcon";
+import { ButlerLauncher } from "../components/ButlerLauncher";
 import { ThemeMenu } from "../components/ThemeMenu";
 import { SERVICES } from "../data/services";
 import { useAccessibilityMode } from "../hooks/useAccessibilityMode";
@@ -14,6 +14,7 @@ export function HomePage() {
   const { enabled: a11yEnabled } = useAccessibilityMode();
   const { shouldShow: showOnboarding, complete: completeOnboarding } = useOnboarding();
   const navigate = useNavigate();
+  const entryServices = SERVICES.filter((service) => !service.hidden);
 
   return (
     <>
@@ -62,7 +63,7 @@ export function HomePage() {
             <span className="text-sm font-medium text-slate-500">展示中</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {SERVICES.map((service, index) => (
+            {entryServices.map((service, index) => (
               <button
                 key={service.service_id}
                 type="button"

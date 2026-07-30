@@ -22,6 +22,7 @@ export interface ServiceField {
   };
   sectionTitle?: string;
   inputIcon?: ServiceIconType;
+  hidden?: boolean;
 }
 
 export interface ServiceSchema {
@@ -34,4 +35,5 @@ export interface ServiceSchema {
 export interface ServiceDefinition extends ServiceSchema {
   subtitle: string;
   icon: ServiceIconType;
+  hidden?: boolean;
 }

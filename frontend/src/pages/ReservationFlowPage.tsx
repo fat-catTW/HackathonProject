@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ButlerLauncher } from "../components/ButlerLauncher";
 import { PeopleCounter } from "../components/PeopleCounter";
 import { PremiumToggle } from "../components/PremiumToggle";
 import { ReservationContactForm } from "../components/ReservationContactForm";
@@ -8,6 +7,7 @@ import { ReservationDatePicker } from "../components/ReservationDatePicker";
 import { ReservationSummaryCard } from "../components/ReservationSummaryCard";
 import { RestaurantCardList } from "../components/RestaurantCardList";
 import { ServiceIcon } from "../components/ServiceIcon";
+import { ButlerLauncher } from "../components/ButlerLauncher";
 import { TimeSlotSelector } from "../components/TimeSlotSelector";
 import { Toast } from "../components/Toast";
 import { listRestaurants, submitReservation } from "../api/reservations";

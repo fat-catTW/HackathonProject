@@ -953,6 +953,20 @@ def handle_message(
             state["missing_fields"] = []
             return _reply(state, reply)
 
+        if service_id == "shop_purchase":
+            # shop_purchase is a dedicated multi-step flow (store -> product/spec
+            # -> cart -> checkout/points) built for the ShopFlowPage UI, not
+            # conversational field collection — redirect instead of collecting fields.
+            state["service_id"] = None
+            state["service_name"] = None
+            state["service_schema"] = None
+            state["collected_fields"] = {}
+            state["missing_fields"] = []
+            return _reply(
+                state,
+                "商城購物需要挑選店家、規格和購物車，這部分請到「商城購物」頁面操作會更方便，我幫你導過去囉！",
+            )
+
     found = _extract_fields(actor_id, state, text, events)
     if state.get("service_id") == "package_shipping" and "item_description" in found:
         matched = shipping.contains_prohibited_keywords(found["item_description"])

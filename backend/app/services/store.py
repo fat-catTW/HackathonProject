@@ -183,6 +183,28 @@ class BaseStore:
     def delete_auth_token(self, token: str) -> None:
         self.delete_item(f"AUTH#TOKEN#{token}", "SESSION")
 
+    # ---- Onboarding: first-run guide completion flag (M13) ----
+    def get_onboarding_status(self, actor_id: str) -> dict:
+        item = self.get_item(f"USER#{actor_id}", "ONBOARDING")
+        if not item:
+            return {"completed": False, "version": 0}
+        return {
+            "completed": bool(item.get("completed", False)),
+            "version": int(item.get("version") or 0),
+        }
+
+    def save_onboarding_status(self, actor_id: str, completed: bool, version: int) -> None:
+        self.put_item(
+            {
+                "PK": f"USER#{actor_id}",
+                "SK": "ONBOARDING",
+                "entity_type": "ONBOARDING_STATUS",
+                "completed": completed,
+                "version": version,
+                "updated_at": now_iso(),
+            }
+        )
+
     def get_long_term_memory(self, actor_id: str) -> dict:
         item = self.get_item(f"USER#{actor_id}", "LONG_TERM_MEMORY")
         return item.get("data", {}) if item else {}

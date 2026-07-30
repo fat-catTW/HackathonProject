@@ -403,6 +403,14 @@ export const SERVICES: ServiceDefinition[] = [
     fields: [],
   },
   {
+    service_id: "shop_purchase",
+    title: "商城購物",
+    subtitle: "多店家商城，點數折抵",
+    description: "挑選喜歡的店家與商品，用點數折抵，實體商品或兌換券都能買。",
+    icon: "shop",
+    fields: [],
+  },
+  {
     service_id: "package_shipping",
     title: "包裹寄送",
     subtitle: "統一速達（黑貓宅急便）到府收件或 7-11 店到店",

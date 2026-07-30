@@ -6,7 +6,7 @@ from datetime import date
 
 from ..config import get_settings
 from ..services import catalog
-from ..services import delivery, delivery_catalog, reservation
+from ..services import delivery, delivery_catalog, reservation, shipping
 from ..services.conversation_memory import MEMORY
 from . import llm, nlu, tools
 from .page_help import (
@@ -732,6 +732,7 @@ def new_state() -> dict:
         "pending_pref_question": None,
         "asked_pref_fields": [],
         "pending_delivery_field": None,
+        "pending_prohibited_item": None,
         "request_id": None,
         "status": "COLLECTING_INFORMATION",
         "short_term_memory": [],
@@ -849,6 +850,9 @@ def handle_message(
     if state.get("pending_delivery_field"):
         return _handle_delivery_pending_reply(actor_id, state, text, events)
 
+    if state.get("pending_prohibited_item"):
+        return _handle_prohibited_item_reply(actor_id, state, text, events)
+
     if state.get("pending_pref_field"):
         field_id = state["pending_pref_field"]
         question = state.get("pending_pref_question") or ""
@@ -924,6 +928,18 @@ def handle_message(
         _recompute_missing(state)
 
     found = _extract_fields(actor_id, state, text, events)
+    if state.get("service_id") == "package_shipping" and "item_description" in found:
+        matched = shipping.contains_prohibited_keywords(found["item_description"])
+        if matched:
+            state["pending_prohibited_item"] = found.pop("item_description")
+            state["collected_fields"].update(found)
+            _recompute_missing(state)
+            categories = "、".join(matched)
+            return _reply(
+                state,
+                f"你提到的內容物可能屬於「{categories}」類別，這類物品寄送有限制。"
+                "請問已詳讀寄送規範，確認可以寄送嗎？如果不確定，也可以直接重新描述內容物。",
+            )
     state["collected_fields"].update(found)
     _recompute_missing(state)
     return _continue_collection(actor_id, state, latest_user_message=text, events=events)
@@ -992,6 +1008,17 @@ def _handle_delivery_pending_reply(actor_id: str, state: dict, text: str, events
 
     state["pending_delivery_field"] = None
     return _continue_delivery_collection(actor_id, state, text, events)
+
+
+def _handle_prohibited_item_reply(actor_id: str, state: dict, text: str, events: list[dict] | None) -> dict:
+    pending_text = state["pending_prohibited_item"]
+    verdict = _judge_reply("已詳讀寄送規範，確認可以寄送嗎？", text)
+    state["pending_prohibited_item"] = None
+    if verdict == "yes":
+        state["collected_fields"]["item_description"] = pending_text
+        _recompute_missing(state)
+        return _continue_collection(actor_id, state, latest_user_message=text, events=events)
+    return _reply(state, "好的，請重新描述包裹內容物，我們可以再確認一次是否能寄送。")
 
 
 def _continue_generic_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
@@ -1092,6 +1119,9 @@ def _submit(
 
     if state["service_id"] == "food_delivery":
         return _submit_delivery(actor_id, state, latest_user_message)
+
+    if state["service_id"] == "package_shipping":
+        return _submit_package_shipping(actor_id, state, latest_user_message)
 
     result = tools.call(
         "submit_service_request",
@@ -1239,6 +1269,43 @@ def _submit_delivery(actor_id: str, state: dict, latest_user_message: str) -> di
             request_id=result["request_id"],
         ),
     )
+
+
+def _submit_package_shipping(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    payload = dict(state["collected_fields"])
+    result = shipping.create_shipping_order(actor_id, payload)
+
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "包裹寄送建立失敗")
+        state["awaiting_confirmation"] = False
+        state["status"] = "COLLECTING_INFORMATION"
+        return _reply(
+            state,
+            _model_reply(
+                actor_id,
+                state,
+                "submit_error",
+                latest_user_message=latest_user_message,
+                error_message=message,
+            ),
+        )
+
+    state["request_id"] = result["request_id"]
+    state["status"] = result["status"]
+    state["awaiting_confirmation"] = False
+
+    reply = _model_reply(
+        actor_id,
+        state,
+        "submit_success",
+        latest_user_message=latest_user_message,
+        request_id=result["request_id"],
+    )
+    fee_min = result.get("estimated_fee_min")
+    fee_max = result.get("estimated_fee_max")
+    if fee_min is not None:
+        reply = f"{reply}\n依重量與材積試算，預估運費約 NT${fee_min}–{fee_max}，正式報價將由客服於 30 分鐘內回覆確認。"
+    return _reply(state, reply)
 
 
 def _reply(state: dict, reply: str) -> dict:

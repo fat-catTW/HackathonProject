@@ -80,7 +80,7 @@ export const SERVICES: ServiceDefinition[] = [
       {
         id: "address",
         label: "服務地址",
-        type: "text",
+        type: "address",
         required: true,
         hint: "請填寫完整地址，方便服務人員前往。",
         placeholder: "例如：嘉義縣民雄鄉大學路一段 168 號",
@@ -161,7 +161,7 @@ export const SERVICES: ServiceDefinition[] = [
       {
         id: "address",
         label: "服務地址",
-        type: "text",
+        type: "address",
         required: true,
         hint: "請填寫完整地址，方便服務人員前往。",
         placeholder: "例如：嘉義縣民雄鄉大學路一段 168 號",
@@ -270,7 +270,7 @@ export const SERVICES: ServiceDefinition[] = [
       {
         id: "address",
         label: "服務地址",
-        type: "text",
+        type: "address",
         required: true,
         hint: "請填寫完整地址，方便服務人員前往。",
         placeholder: "例如：嘉義縣民雄鄉大學路一段 168 號",
@@ -348,7 +348,7 @@ export const SERVICES: ServiceDefinition[] = [
       {
         id: "address",
         label: "服務地址",
-        type: "text",
+        type: "address",
         required: true,
         hint: "請填寫完整地址，方便服務人員前往。",
         placeholder: "例如：嘉義縣民雄鄉大學路一段 168 號",

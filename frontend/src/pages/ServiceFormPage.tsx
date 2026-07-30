@@ -6,10 +6,14 @@ import { ButlerLauncher } from "../components/ButlerLauncher";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { Toast } from "../components/Toast";
 import { getServiceDefinition } from "../data/services";
+import { counties, getDistrictsByCountyName } from "../data/twRegions";
 import type { ServiceField } from "../types/service";
 import { fieldLabel, fieldValueLabel } from "../utils/fieldLabels";
 
 type FormValues = Record<string, string>;
+const ADDRESS_COUNTY_SUFFIX = "__county";
+const ADDRESS_DISTRICT_SUFFIX = "__district";
+const ADDRESS_DETAIL_SUFFIX = "__detail";
 
 const AIRCON_BASE_PRICE = 2800;
 const ANTIBACTERIAL_FILM_PRICE = 500;
@@ -103,7 +107,16 @@ function preventWheelValueChange(event: React.WheelEvent<HTMLInputElement>) {
 }
 
 function buildInitialValues(fields: ServiceField[]) {
-  return Object.fromEntries(fields.map((field) => [field.id, ""]));
+  const entries: Array<[string, string]> = [];
+  for (const field of fields) {
+    entries.push([field.id, ""]);
+    if (field.type === "address") {
+      entries.push([`${field.id}${ADDRESS_COUNTY_SUFFIX}`, ""]);
+      entries.push([`${field.id}${ADDRESS_DISTRICT_SUFFIX}`, ""]);
+      entries.push([`${field.id}${ADDRESS_DETAIL_SUFFIX}`, ""]);
+    }
+  }
+  return Object.fromEntries(entries);
 }
 
 function numberMin(field: ServiceField) {
@@ -136,6 +149,26 @@ function groupFields(fields: ServiceField[]) {
     title,
     fields: groupFields,
   }));
+}
+
+function addressCountyKey(fieldId: string) {
+  return `${fieldId}${ADDRESS_COUNTY_SUFFIX}`;
+}
+
+function addressDistrictKey(fieldId: string) {
+  return `${fieldId}${ADDRESS_DISTRICT_SUFFIX}`;
+}
+
+function addressDetailKey(fieldId: string) {
+  return `${fieldId}${ADDRESS_DETAIL_SUFFIX}`;
+}
+
+function buildStructuredAddress(county: string, district: string, detail: string) {
+  const trimmedCounty = county.trim();
+  const trimmedDistrict = district.trim();
+  const trimmedDetail = detail.trim();
+  if (!trimmedCounty || !trimmedDistrict || !trimmedDetail) return "";
+  return `${trimmedCounty}${trimmedDistrict}${trimmedDetail}`;
 }
 
 export function ServiceFormPage() {
@@ -269,6 +302,18 @@ export function ServiceFormPage() {
           next[field.id] = "";
           changed = true;
         }
+        if (!visibleFieldIds.has(field.id) && field.type === "address") {
+          for (const key of [
+            addressCountyKey(field.id),
+            addressDistrictKey(field.id),
+            addressDetailKey(field.id),
+          ]) {
+            if (next[key]) {
+              next[key] = "";
+              changed = true;
+            }
+          }
+        }
       }
       return changed ? next : prev;
     });
@@ -302,6 +347,27 @@ export function ServiceFormPage() {
     });
   }
 
+  function updateAddressValue(fieldId: string, nextAddressParts: Partial<Record<"county" | "district" | "detail", string>>) {
+    setValues((prev) => {
+      const county = nextAddressParts.county ?? prev[addressCountyKey(fieldId)] ?? "";
+      const district = nextAddressParts.district ?? prev[addressDistrictKey(fieldId)] ?? "";
+      const detail = nextAddressParts.detail ?? prev[addressDetailKey(fieldId)] ?? "";
+      return {
+        ...prev,
+        [addressCountyKey(fieldId)]: county,
+        [addressDistrictKey(fieldId)]: district,
+        [addressDetailKey(fieldId)]: detail,
+        [fieldId]: buildStructuredAddress(county, district, detail),
+      };
+    });
+    setErrors((prev) => {
+      if (!prev[fieldId]) return prev;
+      const next = { ...prev };
+      delete next[fieldId];
+      return next;
+    });
+  }
+
   async function handleFileChange(fieldId: string, file: File | null) {
     if (!file) {
       updateValue(fieldId, "");
@@ -322,6 +388,15 @@ export function ServiceFormPage() {
     const nextErrors: Record<string, string> = {};
     for (const field of visibleFields) {
       const rawValue = (values[field.id] ?? "").trim();
+      if (field.type === "address") {
+        const county = (values[addressCountyKey(field.id)] ?? "").trim();
+        const district = (values[addressDistrictKey(field.id)] ?? "").trim();
+        const detail = (values[addressDetailKey(field.id)] ?? "").trim();
+        if (field.required && (!county || !district || !detail)) {
+          nextErrors[field.id] = `請完整填寫${field.label}`;
+        }
+        continue;
+      }
       if (field.required && !rawValue) {
         nextErrors[field.id] = `請填寫${field.label}`;
         continue;
@@ -384,6 +459,10 @@ export function ServiceFormPage() {
   function renderField(field: ServiceField) {
     const value = values[field.id] ?? "";
     const error = errors[field.id];
+    const countyValue = values[addressCountyKey(field.id)] ?? "";
+    const districtValue = values[addressDistrictKey(field.id)] ?? "";
+    const detailValue = values[addressDetailKey(field.id)] ?? "";
+    const districtOptions = field.type === "address" ? getDistrictsByCountyName(countyValue) : [];
 
     return (
       <label
@@ -406,8 +485,51 @@ export function ServiceFormPage() {
             {field.hint && <p className="mt-1 text-sm leading-6 text-slate-500">{field.hint}</p>}
 
             <div className="mt-3">
-              {field.type === "select" ? (
+              {field.type === "address" ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <select
+                      aria-label={`${field.label}縣市`}
+                      value={countyValue}
+                      onChange={(e) =>
+                        updateAddressValue(field.id, { county: e.target.value, district: "" })
+                      }
+                      className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
+                    >
+                      <option value="">請選擇縣市</option>
+                      {counties.map((county) => (
+                        <option key={county.code} value={county.name}>
+                          {county.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label={`${field.label}鄉鎮市區`}
+                      value={districtValue}
+                      disabled={!countyValue}
+                      onChange={(e) => updateAddressValue(field.id, { district: e.target.value })}
+                      className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <option value="">{countyValue ? "請選擇鄉鎮市區" : "請先選擇縣市"}</option>
+                      {districtOptions.map((district) => (
+                        <option key={district} value={district}>
+                          {district}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <input
+                    type="text"
+                    aria-label={`${field.label}詳細地址`}
+                    value={detailValue}
+                    onChange={(e) => updateAddressValue(field.id, { detail: e.target.value })}
+                    placeholder="例如：大學路一段 168 號 1 樓"
+                    className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
+                  />
+                </div>
+              ) : field.type === "select" ? (
                 <select
+                  aria-label={field.label}
                   value={value}
                   onChange={(e) => updateValue(field.id, e.target.value)}
                   className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
@@ -421,6 +543,7 @@ export function ServiceFormPage() {
                 </select>
               ) : field.type === "time" ? (
                 <select
+                  aria-label={field.label}
                   value={value}
                   onChange={(e) => updateValue(field.id, e.target.value)}
                   className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
@@ -436,6 +559,7 @@ export function ServiceFormPage() {
                 <div className="space-y-3">
                   <input
                     type="file"
+                    aria-label={field.label}
                     accept={field.accept}
                     onChange={(e) => void handleFileChange(field.id, e.target.files?.[0] ?? null)}
                     className="block w-full rounded-2xl border-2 border-white bg-white px-4 py-3 text-sm text-slate-600 file:mr-4 file:rounded-full file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:font-bold file:text-brand"
@@ -458,6 +582,7 @@ export function ServiceFormPage() {
                 </div>
               ) : field.type === "textarea" ? (
                 <textarea
+                  aria-label={field.label}
                   value={value}
                   onChange={(e) => updateValue(field.id, e.target.value)}
                   rows={field.rows ?? 4}
@@ -473,6 +598,7 @@ export function ServiceFormPage() {
                         ? "date"
                         : "text"
                   }
+                  aria-label={field.label}
                   inputMode={field.type === "number" ? "numeric" : undefined}
                   min={
                     field.type === "date"

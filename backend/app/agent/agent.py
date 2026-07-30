@@ -190,6 +190,8 @@ def _build_summary_text(state: dict) -> str:
         field_id = field["id"]
         if field_id not in state["collected_fields"]:
             continue
+        if not _field_is_visible(field, state["collected_fields"]):
+            continue
         if field_id == "store_id":
             store = delivery_catalog.get_store(state["collected_fields"]["store_id"])
             lines.append(f"店家：{store['name'] if store else state['collected_fields']['store_id']}")
@@ -733,6 +735,7 @@ def new_state() -> dict:
         "asked_pref_fields": [],
         "pending_delivery_field": None,
         "pending_prohibited_item": None,
+        "prohibited_item_acknowledged": False,
         "request_id": None,
         "status": "COLLECTING_INFORMATION",
         "short_term_memory": [],
@@ -1016,6 +1019,7 @@ def _handle_prohibited_item_reply(actor_id: str, state: dict, text: str, events:
     state["pending_prohibited_item"] = None
     if verdict == "yes":
         state["collected_fields"]["item_description"] = pending_text
+        state["prohibited_item_acknowledged"] = True
         _recompute_missing(state)
         return _continue_collection(actor_id, state, latest_user_message=text, events=events)
     return _reply(state, "好的，請重新描述包裹內容物，我們可以再確認一次是否能寄送。")
@@ -1272,7 +1276,14 @@ def _submit_delivery(actor_id: str, state: dict, latest_user_message: str) -> di
 
 
 def _submit_package_shipping(actor_id: str, state: dict, latest_user_message: str) -> dict:
-    payload = dict(state["collected_fields"])
+    fields = state["service_schema"]["fields"]
+    collected = state["collected_fields"]
+    payload = {
+        field["id"]: collected[field["id"]]
+        for field in fields
+        if field["id"] in collected and _field_is_visible(field, collected)
+    }
+    payload["prohibited_item_ack"] = bool(state.get("prohibited_item_acknowledged"))
     result = shipping.create_shipping_order(actor_id, payload)
 
     if not result.get("success"):

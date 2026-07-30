@@ -10,12 +10,15 @@ from shared_lambda.catalog import (
     field_is_visible,
     get_delivery_store,
     get_restaurant,
+    get_shop_sku,
     load_service,
     next_request_id,
     now_iso,
     query_requests_by_actor,
     validate_required_fields,
 )
+import re
+import secrets
 
 TZ = timezone(timedelta(hours=8))
 
@@ -433,6 +436,172 @@ def _submit_restaurant_reservation(
     }
 
 
+_PHONE_RE = re.compile(r"^09\d{8}\Z")
+POINTS_TO_NT_RATE = 1
+PHYSICAL_SHIPPING_FEE = 60
+
+
+def _submit_shop_order(actor_id: str, session_id: str, payload: dict) -> dict:
+    cart = payload.get("cart")
+    if not isinstance(cart, list) or not cart:
+        return _error("EMPTY_CART", "購物車不能是空的")
+
+    resolved: list[tuple[dict, dict, int]] = []  # (product, sku, quantity)
+    for line in cart:
+        if not isinstance(line, dict) or not line.get("sku_id"):
+            return _error("INVALID_ITEM", "購物車項目缺少 sku_id")
+        quantity = line.get("quantity")
+        if not isinstance(quantity, int) or quantity <= 0:
+            return _error("INVALID_ITEM", f"品項 {line.get('sku_id')} 的數量必須是正整數")
+        found = get_shop_sku(line["sku_id"])
+        if not found:
+            return _error("SKU_NOT_FOUND", f"找不到商品規格 {line['sku_id']}")
+        product, sku = found
+        resolved.append((product, sku, quantity))
+
+    contact_name = payload.get("contact_name")
+    if not contact_name or not str(contact_name).strip():
+        return _error("INVALID_CONTACT", "請填寫聯絡人姓名")
+
+    phone = payload.get("phone")
+    if not phone or not _PHONE_RE.match(str(phone)):
+        return _error("INVALID_PHONE", "請填寫正確的手機號碼（09 開頭 10 碼）")
+
+    used_points = payload.get("used_points", 0)
+    if not isinstance(used_points, int) or used_points < 0:
+        return _error("INVALID_POINTS", "折抵點數必須是不小於 0 的整數")
+
+    has_physical = any(product["product_type"] == "PHYSICAL" for product, _sku, _qty in resolved)
+    if has_physical and not payload.get("address"):
+        return _error("MISSING_ADDRESS", "購物車內含實體商品，請填寫收件地址")
+
+    original_amount = sum(sku["unit_price"] * qty for _p, sku, qty in resolved)
+    shipping_fee = PHYSICAL_SHIPPING_FEE if has_physical else 0
+    payable_before_points = original_amount + shipping_fee
+    points_discount = min(max(used_points, 0), payable_before_points) * POINTS_TO_NT_RATE
+    points_discount = min(points_discount, payable_before_points)
+    total_amount = payable_before_points - points_discount
+    points_earned = sum(sku["unit_points"] * qty for _p, sku, qty in resolved)
+
+    from botocore.exceptions import ClientError
+
+    table = dynamodb_table()
+
+    points_deducted = 0
+    if points_discount > 0:
+        points_to_deduct = points_discount // POINTS_TO_NT_RATE
+        try:
+            table.update_item(
+                Key={"PK": f"USER#{actor_id}", "SK": "POINTS"},
+                UpdateExpression="SET balance = balance - :amt, updated_at = :now",
+                ConditionExpression="balance >= :amt",
+                ExpressionAttributeValues={":amt": points_to_deduct, ":now": now_iso()},
+            )
+            points_deducted = points_to_deduct
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return _error("INSUFFICIENT_POINTS", "點數餘額不足")
+            raise
+
+    decremented: list[tuple[str, int]] = []
+    for _product, sku, qty in resolved:
+        try:
+            table.update_item(
+                Key={"PK": f"SHOP_SKU#{sku['sku_id']}", "SK": "STOCK"},
+                UpdateExpression="SET quantity = quantity - :qty, updated_at = :now",
+                ConditionExpression="quantity >= :qty",
+                ExpressionAttributeValues={":qty": qty, ":now": now_iso()},
+            )
+            decremented.append((sku["sku_id"], qty))
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+            for sku_id, quantity in decremented:
+                table.update_item(
+                    Key={"PK": f"SHOP_SKU#{sku_id}", "SK": "STOCK"},
+                    UpdateExpression="SET quantity = quantity + :qty, updated_at = :now",
+                    ExpressionAttributeValues={":qty": quantity, ":now": now_iso()},
+                )
+            if points_deducted:
+                table.update_item(
+                    Key={"PK": f"USER#{actor_id}", "SK": "POINTS"},
+                    UpdateExpression="SET balance = balance + :amt, updated_at = :now",
+                    ExpressionAttributeValues={":amt": points_deducted, ":now": now_iso()},
+                )
+            return _error("OUT_OF_STOCK", f"商品規格「{sku['sku_id']}」庫存不足")
+
+    table.update_item(
+        Key={"PK": f"USER#{actor_id}", "SK": "POINTS"},
+        UpdateExpression="SET balance = if_not_exists(balance, :zero) + :amt, updated_at = :now",
+        ExpressionAttributeValues={":zero": 0, ":amt": points_earned, ":now": now_iso()},
+    )
+
+    redemption_codes: dict[str, list[str]] = {}
+    for product, sku, qty in resolved:
+        if product["product_type"] == "SERIAL_CODE":
+            redemption_codes[sku["sku_id"]] = [secrets.token_hex(4).upper() for _ in range(qty)]
+
+    request_id = next_request_id()
+    order_status = "COMPLETED" if not has_physical else "SUBMITTED"
+    order_type = "07" if not has_physical else "10"
+    item = {
+        "PK": f"USER#{actor_id}",
+        "SK": f"REQUEST#{request_id}",
+        "entity_type": "SERVICE_REQUEST",
+        "request_id": request_id,
+        "service_id": "shop_purchase",
+        "service_name": "商城購物",
+        "order_type": order_type,
+        "status": order_status,
+        "form_data": {
+            "cart": cart,
+            "contact_name": contact_name,
+            "phone": phone,
+            "address": payload.get("address"),
+            "used_points": used_points,
+        },
+        "original_amount": original_amount,
+        "shipping_fee_amount": shipping_fee,
+        "points_discount": points_discount,
+        "total_amount": total_amount,
+        "points_earned": points_earned,
+        "redemption_codes": redemption_codes,
+        "status_history": [{"status": order_status, "at": now_iso()}],
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    try:
+        _put_request_item(item)
+    except Exception:
+        for sku_id, quantity in decremented:
+            table.update_item(
+                Key={"PK": f"SHOP_SKU#{sku_id}", "SK": "STOCK"},
+                UpdateExpression="SET quantity = quantity + :qty, updated_at = :now",
+                ExpressionAttributeValues={":qty": quantity, ":now": now_iso()},
+            )
+        table.update_item(
+            Key={"PK": f"USER#{actor_id}", "SK": "POINTS"},
+            UpdateExpression="SET balance = balance - :amt, updated_at = :now",
+            ExpressionAttributeValues={":amt": points_earned, ":now": now_iso()},
+        )
+        if points_deducted:
+            table.update_item(
+                Key={"PK": f"USER#{actor_id}", "SK": "POINTS"},
+                UpdateExpression="SET balance = balance + :amt, updated_at = :now",
+                ExpressionAttributeValues={":amt": points_deducted, ":now": now_iso()},
+            )
+        return _error("ORDER_SAVE_FAILED", "訂單建立失敗，請稍後再試")
+
+    return {
+        "success": True,
+        "request_id": request_id,
+        "status": order_status,
+        "total_amount": total_amount,
+        "points_earned": points_earned,
+        "redemption_codes": redemption_codes,
+    }
+
+
 def _submit_generic(actor_id: str, session_id: str, service: dict, payload: dict) -> dict:
     missing_fields = validate_required_fields(service["schema"]["fields"], payload)
     if missing_fields:
@@ -498,6 +667,8 @@ def lambda_handler(event, context):
             return _submit_food_delivery(actor_id, session_id, payload)
         if service["id"] == "restaurant_reservation":
             return _submit_restaurant_reservation(actor_id, session_id, payload)
+        if service["id"] == "shop_purchase":
+            return _submit_shop_order(actor_id, session_id, payload)
         return _submit_generic(actor_id, session_id, service, payload)
     except Exception as exc:
         return _error(

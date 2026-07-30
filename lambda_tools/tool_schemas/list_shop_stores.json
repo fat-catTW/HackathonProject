@@ -1,0 +1,29 @@
+[
+  {
+    "name": "list_shop_stores",
+    "description": "List all stores available in the shop purchase feature (multi-store shopping mall).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": { "type": "boolean" },
+        "stores": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "category": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["success"]
+    }
+  }
+]

@@ -9,6 +9,7 @@ import { NewRequestPage } from "./pages/NewRequestPage";
 import { RequestDetailPage } from "./pages/RequestDetailPage";
 import { ReservationFlowPage } from "./pages/ReservationFlowPage";
 import { DeliveryFlowPage } from "./pages/DeliveryFlowPage";
+import { ShopFlowPage } from "./pages/ShopFlowPage";
 import { HealthRecommendationPage } from "./pages/HealthRecommendationPage";
 import { ServiceFormPage } from "./pages/ServiceFormPage";
 import { VendorLoginPage } from "./pages/VendorLoginPage";
@@ -43,6 +44,10 @@ export default function App() {
       <Route
         path="/services/health_product_recommendation"
         element={<Protected><HealthRecommendationPage /></Protected>}
+      />
+      <Route
+        path="/services/shop_purchase"
+        element={<Protected><ShopFlowPage /></Protected>}
       />
       <Route path="/services/:serviceId" element={<Protected><ServiceFormPage /></Protected>} />
       <Route path="/new" element={<Protected><NewRequestPage /></Protected>} />

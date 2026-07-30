@@ -337,6 +337,26 @@ SERVICES: list[dict] = [
         },
     },
     {
+        "id": "shop_purchase",
+        "name": "商城購物",
+        "description": "多店家商城購物，可用點數折抵",
+        "service_vendor_id": None,
+        "cms_type": None,
+        "enabled": True,
+        "keywords": ["商城", "購物", "買東西", "逛街", "點數", "兌換", "shop", "mall"],
+        "schema": {
+            "fields": [
+                {
+                    "id": "note",
+                    "label": "購物需求",
+                    "type": "text",
+                    "required": True,
+                    "question": "想買點什麼呢？",
+                },
+            ],
+        },
+    },
+    {
         "id": "restaurant_reservation",
         "name": "餐廳訂位",
         "description": "22世紀風味館 精選餐廳訂位服務",

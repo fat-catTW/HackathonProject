@@ -1,0 +1,19 @@
+[
+  {
+    "name": "get_user_points",
+    "description": "Get the caller's current shop points balance.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": { "type": "boolean" },
+        "balance": { "type": "integer" }
+      },
+      "required": ["success"]
+    }
+  }
+]

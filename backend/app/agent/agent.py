@@ -775,9 +775,20 @@ def _looks_like_new_service_request(text: str) -> bool:
     return any(hint in text for hint in hints)
 
 
-def _page_help_reply(text: str, current_page_id: str | None, auth_token: str | None) -> str | None:
+_PAGE_ID_REDIRECT_ROUTES = {
+    "service_form_shop_purchase": "/services/shop_purchase",
+}
+
+
+def _page_help_reply(
+    text: str, current_page_id: str | None, auth_token: str | None
+) -> tuple[str | None, str | None]:
+    """回覆頁面問答，並在問到「有專屬導頁路由」的頁面（目前只有商城購物）時
+    一併回傳 redirect_path，讓聊天面板直接帶使用者過去，而不是只用文字說明。
+    其他服務走一般表單填寫流程，沒有對應的專屬路由，所以維持原本純問答行為。
+    """
     if is_voice_filling_question(text):
-        return answer_page_question(text, current_page_id=current_page_id)
+        return answer_page_question(text, current_page_id=current_page_id), None
 
     tool_request = build_page_tool_request(text, current_page_id=current_page_id)
     tool_payload: dict | None = None
@@ -788,6 +799,17 @@ def _page_help_reply(text: str, current_page_id: str | None, auth_token: str | N
         if result.get("success"):
             tool_payload = result
 
+    resolved_page_id: str | None = None
+    if isinstance(tool_payload, dict):
+        page = tool_payload.get("page")
+        if isinstance(page, dict):
+            resolved_page_id = page.get("page_id")
+        else:
+            matches = tool_payload.get("matches")
+            if isinstance(matches, list) and matches and isinstance(matches[0], dict):
+                resolved_page_id = matches[0].get("page_id")
+    redirect_path = _PAGE_ID_REDIRECT_ROUTES.get(resolved_page_id or "")
+
     if tool_payload and llm.is_available():
         llm_reply = llm.compose_page_help_reply(
             latest_user_message=text,
@@ -795,9 +817,9 @@ def _page_help_reply(text: str, current_page_id: str | None, auth_token: str | N
             tool_payload=tool_payload,
         )
         if llm_reply:
-            return llm_reply
+            return llm_reply, redirect_path
 
-    return answer_page_question(text, current_page_id=current_page_id, tool_payload=tool_payload)
+    return answer_page_question(text, current_page_id=current_page_id, tool_payload=tool_payload), redirect_path
 
 
 def _invalid_number_field_message(state: dict, latest_user_message: str) -> str | None:
@@ -825,12 +847,13 @@ def handle_message(
 ) -> dict:
     text = message.strip()
 
-    page_reply = _page_help_reply(text, current_page_id=current_page_id, auth_token=auth_token) if looks_like_page_question(
-        text,
-        current_page_id=current_page_id,
-    ) else None
+    page_reply, page_redirect_path = (
+        _page_help_reply(text, current_page_id=current_page_id, auth_token=auth_token)
+        if looks_like_page_question(text, current_page_id=current_page_id)
+        else (None, None)
+    )
     if page_reply:
-        return _reply(state, page_reply)
+        return _reply(state, page_reply, redirect_path=page_redirect_path)
 
     if state.get("request_id"):
         services = _available_services(auth_token)
@@ -952,6 +975,21 @@ def handle_message(
             state["collected_fields"] = {}
             state["missing_fields"] = []
             return _reply(state, reply)
+
+        if service_id == "shop_purchase":
+            # shop_purchase is a dedicated multi-step flow (store -> product/spec
+            # -> cart -> checkout/points) built for the ShopFlowPage UI, not
+            # conversational field collection — redirect instead of collecting fields.
+            state["service_id"] = None
+            state["service_name"] = None
+            state["service_schema"] = None
+            state["collected_fields"] = {}
+            state["missing_fields"] = []
+            return _reply(
+                state,
+                "商城購物需要挑選店家、規格和購物車，這部分請到「商城購物」頁面操作會更方便，我幫你導過去囉！",
+                redirect_path="/services/shop_purchase",
+            )
 
     found = _extract_fields(actor_id, state, text, events)
     if state.get("service_id") == "package_shipping" and "item_description" in found:
@@ -1394,5 +1432,5 @@ def _submit_package_shipping(actor_id: str, state: dict, latest_user_message: st
     return _reply(state, reply)
 
 
-def _reply(state: dict, reply: str) -> dict:
-    return {"reply": reply, "state": state}
+def _reply(state: dict, reply: str, redirect_path: str | None = None) -> dict:
+    return {"reply": reply, "state": state, "redirect_path": redirect_path}

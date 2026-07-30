@@ -24,3 +24,4 @@ class ChatResponse(BaseModel):
     active_field: str | None = None
     request_id: str | None = None
     status: str = "COLLECTING_INFORMATION"
+    redirect_path: str | None = None

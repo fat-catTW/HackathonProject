@@ -67,6 +67,10 @@ class BaseStore:
     def scan_by_entity_type(self, entity_type: str) -> list[dict]:
         raise NotImplementedError
 
+    def decrement_sku_stock(self, sku_id: str, quantity: int) -> bool:
+        """Atomically decrement stock; return False (no write) if insufficient."""
+        raise NotImplementedError
+
     def next_request_id(self) -> str:
         return f"REQ-{datetime.now(TZ):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
 
@@ -144,6 +148,58 @@ class BaseStore:
                 "SK": "PREFERENCES",
                 "entity_type": "PREFERENCES",
                 "data": merged,
+                "updated_at": now_iso(),
+            }
+        )
+
+    def get_sku_stock(self, sku_id: str) -> int:
+        item = self.get_item(f"SHOP_SKU#{sku_id}", "STOCK")
+        return int(item["quantity"]) if item else 0
+
+    def restock_sku(self, sku_id: str, quantity: int) -> None:
+        # Non-atomic read-modify-write, same shape as get_preferences/save_preferences.
+        # Acceptable here per the shop-purchase design doc's known limitations: restock
+        # only happens on order cancellation, a low-frequency path, not the hot add-to-cart path.
+        current = self.get_sku_stock(sku_id)
+        self.put_item(
+            {
+                "PK": f"SHOP_SKU#{sku_id}",
+                "SK": "STOCK",
+                "entity_type": "SHOP_SKU_STOCK",
+                "quantity": current + quantity,
+                "updated_at": now_iso(),
+            }
+        )
+
+    def get_user_points(self, actor_id: str) -> int:
+        item = self.get_item(f"USER#{actor_id}", "POINTS")
+        return int(item["balance"]) if item else 0
+
+    def deduct_user_points(self, actor_id: str, amount: int) -> bool:
+        if amount <= 0:
+            return False
+        balance = self.get_user_points(actor_id)
+        if balance < amount:
+            return False
+        self.put_item(
+            {
+                "PK": f"USER#{actor_id}",
+                "SK": "POINTS",
+                "entity_type": "POINTS",
+                "balance": balance - amount,
+                "updated_at": now_iso(),
+            }
+        )
+        return True
+
+    def refund_user_points(self, actor_id: str, amount: int) -> None:
+        balance = self.get_user_points(actor_id)
+        self.put_item(
+            {
+                "PK": f"USER#{actor_id}",
+                "SK": "POINTS",
+                "entity_type": "POINTS",
+                "balance": balance + amount,
                 "updated_at": now_iso(),
             }
         )
@@ -258,6 +314,23 @@ class MemoryStore(BaseStore):
             if self._items.pop((pk, sk), None) is not None:
                 self._flush()
 
+    def decrement_sku_stock(self, sku_id: str, quantity: int) -> bool:
+        key = (f"SHOP_SKU#{sku_id}", "STOCK")
+        with self._lock:
+            item = self._items.get(key)
+            current = int(item["quantity"]) if item else 0
+            if current < quantity:
+                return False
+            self._items[key] = {
+                "PK": f"SHOP_SKU#{sku_id}",
+                "SK": "STOCK",
+                "entity_type": "SHOP_SKU_STOCK",
+                "quantity": current - quantity,
+                "updated_at": now_iso(),
+            }
+            self._flush()
+            return True
+
     def query_prefix(self, pk: str, sk_prefix: str) -> list[dict]:
         with self._lock:
             return [dict(v) for (p, s), v in self._items.items() if p == pk and s.startswith(sk_prefix)]
@@ -318,6 +391,22 @@ class DynamoDBStore(BaseStore):
             self._table.put_item(
                 Item=convert_floats_to_decimal(item),
                 ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
+            )
+            return True
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise
+
+    def decrement_sku_stock(self, sku_id: str, quantity: int) -> bool:
+        from botocore.exceptions import ClientError
+
+        try:
+            self._table.update_item(
+                Key={"PK": f"SHOP_SKU#{sku_id}", "SK": "STOCK"},
+                UpdateExpression="SET quantity = quantity - :qty, updated_at = :now",
+                ConditionExpression="quantity >= :qty",
+                ExpressionAttributeValues={":qty": quantity, ":now": now_iso()},
             )
             return True
         except ClientError as exc:

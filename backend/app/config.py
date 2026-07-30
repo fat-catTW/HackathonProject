@@ -108,6 +108,9 @@ class Settings:
         "RECOMMEND_PRODUCTS_BY_HEALTH_NEED_LAMBDA_NAME", ""
     )
     get_product_nutrition_lambda_name: str = os.getenv("GET_PRODUCT_NUTRITION_LAMBDA_NAME", "")
+    list_shop_stores_lambda_name: str = os.getenv("LIST_SHOP_STORES_LAMBDA_NAME", "")
+    get_shop_products_lambda_name: str = os.getenv("GET_SHOP_PRODUCTS_LAMBDA_NAME", "")
+    get_user_points_lambda_name: str = os.getenv("GET_USER_POINTS_LAMBDA_NAME", "")
 
     # AgentCore integration.
     agentcore_runtime_arn: str = os.getenv("AGENTCORE_RUNTIME_ARN", "")
@@ -127,6 +130,9 @@ class Settings:
     mcp_get_product_nutrition_tool_name: str = os.getenv(
         "MCP_GET_PRODUCT_NUTRITION_TOOL_NAME", "get_product_nutrition"
     )
+    mcp_list_shop_stores_tool_name: str = os.getenv("MCP_LIST_SHOP_STORES_TOOL_NAME", "list_shop_stores")
+    mcp_get_shop_products_tool_name: str = os.getenv("MCP_GET_SHOP_PRODUCTS_TOOL_NAME", "get_shop_products")
+    mcp_get_user_points_tool_name: str = os.getenv("MCP_GET_USER_POINTS_TOOL_NAME", "get_user_points")
 
     demo_users: dict = field(
         default_factory=lambda: {

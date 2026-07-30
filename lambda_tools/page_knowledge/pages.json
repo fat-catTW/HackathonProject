@@ -91,6 +91,7 @@
       "service_form_food_delivery",
       "service_form_package_shipping",
       "service_form_health_product_recommendation",
+      "service_form_shop_purchase",
       "my_services",
       "assistant"
     ],
@@ -512,6 +513,44 @@
       "健康推薦頁面",
       "營養推薦表單",
       "health product recommendation form"
+    ]
+  },
+  {
+    "page_id": "service_form_shop_purchase",
+    "route": "/services/shop_purchase",
+    "title": "商城購物",
+    "summary": "用來挑選店家、商品規格、加入購物車、用點數折抵並完成商城購物下單。",
+    "features": [
+      "選擇店家",
+      "選擇商品規格（如顏色、尺寸）",
+      "加入購物車",
+      "用點數折抵金額",
+      "查看兌換碼或實體商品配送進度"
+    ],
+    "available_actions": [
+      "選店家",
+      "選商品規格",
+      "加入購物車",
+      "填寫收件資訊",
+      "使用點數折抵",
+      "送出訂單"
+    ],
+    "next_steps": [
+      "先選店家與商品",
+      "再到購物車確認並結帳"
+    ],
+    "related_pages": [
+      "home",
+      "assistant",
+      "request_detail"
+    ],
+    "keywords": [
+      "商城購物",
+      "商城",
+      "購物車",
+      "shop purchase",
+      "點數折抵",
+      "兌換券"
     ]
   },
   {

@@ -63,7 +63,15 @@
               },
               "type": {
                 "type": "string",
-                "enum": ["text", "textarea", "number", "date", "time", "select", "file"]
+                "enum": [
+                  "text",
+                  "textarea",
+                  "number",
+                  "date",
+                  "time",
+                  "select",
+                  "file"
+                ]
               },
               "required": {
                 "type": "boolean"
@@ -194,7 +202,9 @@
           "description": "User's health/diet need described in natural language, for example \"我在減脂但想吃點甜食\"."
         }
       },
-      "required": ["query"]
+      "required": [
+        "query"
+      ]
     },
     "outputSchema": {
       "type": "object",
@@ -212,7 +222,9 @@
           "type": "boolean"
         }
       },
-      "required": ["success"]
+      "required": [
+        "success"
+      ]
     }
   },
   {
@@ -226,7 +238,9 @@
           "description": "Product id, for example P001."
         }
       },
-      "required": ["product_id"]
+      "required": [
+        "product_id"
+      ]
     },
     "outputSchema": {
       "type": "object",
@@ -241,7 +255,9 @@
           "type": "string"
         }
       },
-      "required": ["success"]
+      "required": [
+        "success"
+      ]
     }
   },
   {
@@ -281,6 +297,120 @@
         },
         "message": {
           "type": "string"
+        }
+      },
+      "required": [
+        "success"
+      ]
+    }
+  },
+  {
+    "name": "list_shop_stores",
+    "description": "List all stores available in the shop purchase feature (multi-store shopping mall).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "stores": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "success"
+      ]
+    }
+  },
+  {
+    "name": "get_shop_products",
+    "description": "List shop products, optionally filtered by store_id. Each product includes its specs (e.g. color/size) and SKUs (price, points earned per unit).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "store_id": {
+          "type": "string",
+          "description": "Optional store id to filter products by. Omit to list all products across all stores."
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "products": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "store_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "product_type": {
+                "type": "string"
+              },
+              "specs": {
+                "type": "array"
+              },
+              "skus": {
+                "type": "array"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "success"
+      ]
+    }
+  },
+  {
+    "name": "get_user_points",
+    "description": "Get the caller's current shop points balance.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "balance": {
+          "type": "integer"
         }
       },
       "required": [

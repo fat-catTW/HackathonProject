@@ -4,6 +4,7 @@ STATUS_LABELS = {
     "DRAFT": "草稿",
     "AWAITING_USER_CONFIRMATION": "等待使用者確認",
     "SUBMITTED": "等待廠商確認",
+    "AWAITING_QUOTE": "待廠商報價",
     "PENDING_PROVIDER": "等待廠商確認",
     "CONFIRMED": "已確認",
     "IN_PROGRESS": "服務進行中",
@@ -15,7 +16,7 @@ STATUS_LABELS = {
 
 # 廠商後台把案件分成「待處理的諮詢單」與「已接下的訂單」兩欄；未列出的狀態
 # （草稿、等待使用者確認）住戶還沒送出，廠商看不到。
-VENDOR_PENDING_STATUSES = ("SUBMITTED", "PENDING_PROVIDER")
+VENDOR_PENDING_STATUSES = ("SUBMITTED", "PENDING_PROVIDER", "AWAITING_QUOTE")
 VENDOR_ORDER_STATUSES = ("CONFIRMED", "IN_PROGRESS", "COMPLETED")
 
 

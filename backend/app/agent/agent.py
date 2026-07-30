@@ -77,6 +77,8 @@ SELECT_ALIASES = {
     "玻璃清潔": ("玻璃清潔",),
     "天花板除塵": ("天花板除塵", "除塵"),
     "廁所清潔": ("廁所清潔", "浴室清潔"),
+    "HOME_PICKUP": ("HOME_PICKUP", "到府收件", "到府", "宅配到府"),
+    "STORE_TO_STORE": ("STORE_TO_STORE", "店到店", "超商", "7-11", "7-ELEVEN"),
 }
 
 SELECT_DISPLAY_NAMES = {
@@ -91,6 +93,8 @@ SELECT_DISPLAY_NAMES = {
     "PREMIUM": "高級訂位",
     "YES": "需要",
     "NO": "不需要",
+    "HOME_PICKUP": "到府收件",
+    "STORE_TO_STORE": "7-11 店到店",
 }
 
 RULE_SERVICE_KEYWORDS = (
@@ -523,6 +527,12 @@ def _normalize_field_value(field: dict, value, original_text: str):
         return None
 
     if field["type"] == "select":
+        if field_id == "pickup_method":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_pickup_method(str(value))
+                or nlu.parse_pickup_method(original_text)
+            )
         if field_id == "machine_type":
             return (
                 _normalize_select(str(value), field.get("options", []))

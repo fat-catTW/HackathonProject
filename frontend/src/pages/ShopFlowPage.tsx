@@ -82,13 +82,18 @@ export function ShopFlowPage() {
     ) ?? (activeProduct.specs.length === 0 ? activeProduct.skus[0] : null);
   }, [activeProduct, selectedSpecs]);
 
+  const [pendingQuantity, setPendingQuantity] = useState(1);
+
   function addToCart() {
     if (!activeProduct || !matchedSku) return;
     const attributesLabel = Object.values(matchedSku.attributes).join(" / ");
+    const quantityToAdd = pendingQuantity;
     setCart((prev) => {
       const existing = prev.find((line) => line.sku_id === matchedSku.sku_id);
       if (existing) {
-        return prev.map((line) => (line.sku_id === matchedSku.sku_id ? { ...line, quantity: line.quantity + 1 } : line));
+        return prev.map((line) =>
+          line.sku_id === matchedSku.sku_id ? { ...line, quantity: line.quantity + quantityToAdd } : line,
+        );
       }
       return [
         ...prev,
@@ -97,16 +102,25 @@ export function ShopFlowPage() {
           productName: activeProduct.name,
           attributesLabel,
           unitPrice: matchedSku.unit_price,
-          quantity: 1,
+          quantity: quantityToAdd,
           productType: activeProduct.product_type,
         },
       ];
     });
-    setToastText(`已加入購物車：${activeProduct.name}`);
+    setToastText(`已加入購物車：${activeProduct.name} x${quantityToAdd}`);
+    setPendingQuantity(1);
   }
 
   function removeFromCart(skuId: string) {
     setCart((prev) => prev.filter((line) => line.sku_id !== skuId));
+  }
+
+  function updateCartQuantity(skuId: string, quantity: number) {
+    setCart((prev) =>
+      quantity <= 0
+        ? prev.filter((line) => line.sku_id !== skuId)
+        : prev.map((line) => (line.sku_id === skuId ? { ...line, quantity } : line)),
+    );
   }
 
   const cartTotal = cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
@@ -211,6 +225,7 @@ export function ShopFlowPage() {
                   onClick={() => {
                     setActiveProduct(product);
                     setSelectedSpecs({});
+                    setPendingQuantity(1);
                   }}
                   className={`rounded-2xl border-2 p-4 text-left transition ${
                     activeProduct?.id === product.id
@@ -252,13 +267,33 @@ export function ShopFlowPage() {
                     </div>
                   </div>
                 ))}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-slate-600">數量</span>
+                  <button
+                    type="button"
+                    onClick={() => setPendingQuantity((q) => Math.max(1, q - 1))}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
+                    aria-label="減少數量"
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center text-base font-bold">{pendingQuantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPendingQuantity((q) => q + 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"
+                    aria-label="增加數量"
+                  >
+                    +
+                  </button>
+                </div>
                 <button
                   type="button"
                   disabled={!matchedSku}
                   onClick={addToCart}
                   className="min-h-[44px] rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
                 >
-                  加入購物車{matchedSku ? `（NT$${matchedSku.unit_price}）` : ""}
+                  加入購物車{matchedSku ? `（NT$${matchedSku.unit_price * pendingQuantity}）` : ""}
                 </button>
               </div>
             )}
@@ -293,18 +328,39 @@ export function ShopFlowPage() {
                   key={line.sku_id}
                   className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
                 >
-                  <span className="text-sm text-slate-600">
-                    {line.productName}（{line.attributesLabel || "單一規格"}）x{line.quantity} — NT$
-                    {line.unitPrice * line.quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeFromCart(line.sku_id)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
-                    aria-label="移除"
-                  >
-                    −
-                  </button>
+                  <div>
+                    <p className="text-sm text-slate-600">
+                      {line.productName}（{line.attributesLabel || "單一規格"}）
+                    </p>
+                    <p className="text-sm text-slate-500">NT${line.unitPrice * line.quantity}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateCartQuantity(line.sku_id, line.quantity - 1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
+                      aria-label="減少數量"
+                    >
+                      −
+                    </button>
+                    <span className="w-6 text-center text-base font-bold">{line.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateCartQuantity(line.sku_id, line.quantity + 1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"
+                      aria-label="增加數量"
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeFromCart(line.sku_id)}
+                      className="ml-1 text-xs text-slate-400 underline"
+                      aria-label="移除"
+                    >
+                      移除
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

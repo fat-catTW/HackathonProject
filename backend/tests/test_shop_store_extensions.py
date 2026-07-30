@@ -53,3 +53,32 @@ def test_decrement_sku_stock_is_atomic_under_concurrent_calls(memory_store):
     assert results.count(True) == 3
     assert results.count(False) == 2
     assert memory_store.get_sku_stock("sku_a") == 1
+
+
+def test_get_user_points_defaults_to_zero(memory_store):
+    assert memory_store.get_user_points("user-a") == 0
+
+
+def test_deduct_user_points_succeeds_and_updates_balance(memory_store):
+    memory_store.refund_user_points("user-a", 100)  # seed balance via refund
+    assert memory_store.deduct_user_points("user-a", 30) is True
+    assert memory_store.get_user_points("user-a") == 70
+
+
+def test_deduct_user_points_fails_when_insufficient(memory_store):
+    memory_store.refund_user_points("user-a", 10)
+    assert memory_store.deduct_user_points("user-a", 30) is False
+    assert memory_store.get_user_points("user-a") == 10
+
+
+def test_deduct_user_points_rejects_non_positive_amount(memory_store):
+    memory_store.refund_user_points("user-a", 10)
+    assert memory_store.deduct_user_points("user-a", 0) is False
+    assert memory_store.deduct_user_points("user-a", -5) is False
+    assert memory_store.get_user_points("user-a") == 10
+
+
+def test_refund_user_points_accumulates(memory_store):
+    memory_store.refund_user_points("user-a", 20)
+    memory_store.refund_user_points("user-a", 5)
+    assert memory_store.get_user_points("user-a") == 25

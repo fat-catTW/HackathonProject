@@ -171,6 +171,39 @@ class BaseStore:
             }
         )
 
+    def get_user_points(self, actor_id: str) -> int:
+        item = self.get_item(f"USER#{actor_id}", "POINTS")
+        return int(item["balance"]) if item else 0
+
+    def deduct_user_points(self, actor_id: str, amount: int) -> bool:
+        if amount <= 0:
+            return False
+        balance = self.get_user_points(actor_id)
+        if balance < amount:
+            return False
+        self.put_item(
+            {
+                "PK": f"USER#{actor_id}",
+                "SK": "POINTS",
+                "entity_type": "POINTS",
+                "balance": balance - amount,
+                "updated_at": now_iso(),
+            }
+        )
+        return True
+
+    def refund_user_points(self, actor_id: str, amount: int) -> None:
+        balance = self.get_user_points(actor_id)
+        self.put_item(
+            {
+                "PK": f"USER#{actor_id}",
+                "SK": "POINTS",
+                "entity_type": "POINTS",
+                "balance": balance + amount,
+                "updated_at": now_iso(),
+            }
+        )
+
     # ---- Auth: credentials, profiles, and issued tokens ----
     def save_credential_if_absent(self, email: str, credential: dict) -> bool:
         """Claim an email address; False means it was already registered."""

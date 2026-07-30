@@ -152,7 +152,7 @@ def get_vendor_request(request_id: str, vendor: CurrentUser = Depends(get_curren
     if not item or item.get("status") not in _VISIBLE_STATUSES:
         raise _fail(404, "REQUEST_NOT_FOUND", "找不到對應的案件。")
     form_data = item.get("form_data") or {}
-    return {
+    response = {
         "request_id": item["request_id"],
         "service_id": item.get("service_id", ""),
         "service_name": item.get("service_name", ""),
@@ -163,3 +163,7 @@ def get_vendor_request(request_id: str, vendor: CurrentUser = Depends(get_curren
         "created_at": item.get("created_at", ""),
         "updated_at": item.get("updated_at", ""),
     }
+    if item.get("estimated_fee_min") is not None:
+        response["estimated_fee_min"] = item.get("estimated_fee_min")
+        response["estimated_fee_max"] = item.get("estimated_fee_max")
+    return response

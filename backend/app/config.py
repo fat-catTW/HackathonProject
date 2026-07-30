@@ -37,6 +37,11 @@ _BUILTIN_VENDOR_ACCOUNTS: dict = {
         "name": "安心水電工程行",
         "password": "vendor1234",
     },
+    "vendor2@demo.local": {
+        "vendor_id": 2,
+        "name": "統一速達（黑貓宅急便）",
+        "password": "vendor1234",
+    },
 }
 
 

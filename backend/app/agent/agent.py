@@ -6,7 +6,7 @@ from datetime import date
 
 from ..config import get_settings
 from ..services import catalog
-from ..services import delivery, delivery_catalog, reservation
+from ..services import delivery, delivery_catalog, reservation, shipping
 from ..services.conversation_memory import MEMORY
 from . import llm, nlu, tools
 from .page_help import (
@@ -77,6 +77,8 @@ SELECT_ALIASES = {
     "玻璃清潔": ("玻璃清潔",),
     "天花板除塵": ("天花板除塵", "除塵"),
     "廁所清潔": ("廁所清潔", "浴室清潔"),
+    "HOME_PICKUP": ("HOME_PICKUP", "到府收件", "到府", "宅配到府"),
+    "STORE_TO_STORE": ("STORE_TO_STORE", "店到店", "超商", "7-11", "7-ELEVEN"),
 }
 
 SELECT_DISPLAY_NAMES = {
@@ -91,6 +93,8 @@ SELECT_DISPLAY_NAMES = {
     "PREMIUM": "高級訂位",
     "YES": "需要",
     "NO": "不需要",
+    "HOME_PICKUP": "到府收件",
+    "STORE_TO_STORE": "7-11 店到店",
 }
 
 RULE_SERVICE_KEYWORDS = (
@@ -186,6 +190,8 @@ def _build_summary_text(state: dict) -> str:
         field_id = field["id"]
         if field_id not in state["collected_fields"]:
             continue
+        if state["service_id"] == "package_shipping" and not _field_is_visible(field, state["collected_fields"]):
+            continue
         if field_id == "store_id":
             store = delivery_catalog.get_store(state["collected_fields"]["store_id"])
             lines.append(f"店家：{store['name'] if store else state['collected_fields']['store_id']}")
@@ -240,12 +246,24 @@ def _build_field_question(field: dict) -> str:
     return field.get("question") or f"請提供{field.get('label') or field['id']}。"
 
 
+def _field_is_visible(field: dict, collected: dict) -> bool:
+    visible_when = field.get("visibleWhen")
+    if not isinstance(visible_when, dict):
+        return True
+    parent_field_id = visible_when.get("fieldId")
+    expected_value = visible_when.get("value")
+    if not isinstance(parent_field_id, str):
+        return True
+    return collected.get(parent_field_id) == expected_value
+
+
 def _recompute_missing(state: dict) -> None:
     fields = state["service_schema"]["fields"]
+    collected = state["collected_fields"]
     state["missing_fields"] = [
         field["id"]
         for field in fields
-        if field.get("required") and field["id"] not in state["collected_fields"]
+        if field.get("required") and field["id"] not in collected and _field_is_visible(field, collected)
     ]
 
 
@@ -511,6 +529,12 @@ def _normalize_field_value(field: dict, value, original_text: str):
         return None
 
     if field["type"] == "select":
+        if field_id == "pickup_method":
+            return (
+                _normalize_select(str(value), field.get("options", []))
+                or nlu.parse_pickup_method(str(value))
+                or nlu.parse_pickup_method(original_text)
+            )
         if field_id == "machine_type":
             return (
                 _normalize_select(str(value), field.get("options", []))
@@ -549,7 +573,7 @@ def _normalize_field_value(field: dict, value, original_text: str):
     if field_id == "phone":
         return nlu.parse_phone(str(value)) or nlu.parse_phone(original_text)
 
-    if field_id == "address":
+    if field["type"] == "address":
         return nlu.parse_address(str(value)) or nlu.parse_address(original_text) or str(value).strip()
 
     if field["type"] == "file":
@@ -710,6 +734,8 @@ def new_state() -> dict:
         "pending_pref_question": None,
         "asked_pref_fields": [],
         "pending_delivery_field": None,
+        "pending_prohibited_item": None,
+        "prohibited_item_acknowledged": False,
         "request_id": None,
         "status": "COLLECTING_INFORMATION",
         "short_term_memory": [],
@@ -827,6 +853,9 @@ def handle_message(
     if state.get("pending_delivery_field"):
         return _handle_delivery_pending_reply(actor_id, state, text, events)
 
+    if state.get("pending_prohibited_item"):
+        return _handle_prohibited_item_reply(actor_id, state, text, events)
+
     if state.get("pending_pref_field"):
         field_id = state["pending_pref_field"]
         question = state.get("pending_pref_question") or ""
@@ -902,6 +931,18 @@ def handle_message(
         _recompute_missing(state)
 
     found = _extract_fields(actor_id, state, text, events)
+    if state.get("service_id") == "package_shipping" and "item_description" in found:
+        matched = shipping.contains_prohibited_keywords(found["item_description"])
+        if matched:
+            state["pending_prohibited_item"] = found.pop("item_description")
+            state["collected_fields"].update(found)
+            _recompute_missing(state)
+            categories = "、".join(matched)
+            return _reply(
+                state,
+                f"你提到的內容物可能屬於「{categories}」類別，這類物品寄送有限制。"
+                "請問已詳讀寄送規範，確認可以寄送嗎？如果不確定，也可以直接重新描述內容物。",
+            )
     state["collected_fields"].update(found)
     _recompute_missing(state)
     return _continue_collection(actor_id, state, latest_user_message=text, events=events)
@@ -970,6 +1011,18 @@ def _handle_delivery_pending_reply(actor_id: str, state: dict, text: str, events
 
     state["pending_delivery_field"] = None
     return _continue_delivery_collection(actor_id, state, text, events)
+
+
+def _handle_prohibited_item_reply(actor_id: str, state: dict, text: str, events: list[dict] | None) -> dict:
+    pending_text = state["pending_prohibited_item"]
+    verdict = _judge_reply("已詳讀寄送規範，確認可以寄送嗎？", text)
+    state["pending_prohibited_item"] = None
+    if verdict == "yes":
+        state["collected_fields"]["item_description"] = pending_text
+        state["prohibited_item_acknowledged"] = True
+        _recompute_missing(state)
+        return _continue_collection(actor_id, state, latest_user_message=text, events=events)
+    return _reply(state, "好的，請重新描述包裹內容物，我們可以再確認一次是否能寄送。")
 
 
 def _continue_generic_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
@@ -1070,6 +1123,9 @@ def _submit(
 
     if state["service_id"] == "food_delivery":
         return _submit_delivery(actor_id, state, latest_user_message)
+
+    if state["service_id"] == "package_shipping":
+        return _submit_package_shipping(actor_id, state, latest_user_message)
 
     result = tools.call(
         "submit_service_request",
@@ -1217,6 +1273,50 @@ def _submit_delivery(actor_id: str, state: dict, latest_user_message: str) -> di
             request_id=result["request_id"],
         ),
     )
+
+
+def _submit_package_shipping(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    fields = state["service_schema"]["fields"]
+    collected = state["collected_fields"]
+    payload = {
+        field["id"]: collected[field["id"]]
+        for field in fields
+        if field["id"] in collected and _field_is_visible(field, collected)
+    }
+    payload["prohibited_item_ack"] = bool(state.get("prohibited_item_acknowledged"))
+    result = shipping.create_shipping_order(actor_id, payload)
+
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "包裹寄送建立失敗")
+        state["awaiting_confirmation"] = False
+        state["status"] = "COLLECTING_INFORMATION"
+        return _reply(
+            state,
+            _model_reply(
+                actor_id,
+                state,
+                "submit_error",
+                latest_user_message=latest_user_message,
+                error_message=message,
+            ),
+        )
+
+    state["request_id"] = result["request_id"]
+    state["status"] = result["status"]
+    state["awaiting_confirmation"] = False
+
+    reply = _model_reply(
+        actor_id,
+        state,
+        "submit_success",
+        latest_user_message=latest_user_message,
+        request_id=result["request_id"],
+    )
+    fee_min = result.get("estimated_fee_min")
+    fee_max = result.get("estimated_fee_max")
+    if fee_min is not None:
+        reply = f"{reply}\n依重量與材積試算，預估運費約 NT${fee_min}–{fee_max}，正式報價將由客服於 30 分鐘內回覆確認。"
+    return _reply(state, reply)
 
 
 def _reply(state: dict, reply: str) -> dict:

@@ -108,6 +108,8 @@ class BaseStore:
                     "service_name": request.get("service_name", ""),
                     "status": request.get("status", ""),
                     "form_data": request.get("form_data", {}),
+                    "estimated_fee_min": request.get("estimated_fee_min"),
+                    "estimated_fee_max": request.get("estimated_fee_max"),
                     "created_at": request.get("created_at", ""),
                     "updated_at": request["updated_at"],
                 }

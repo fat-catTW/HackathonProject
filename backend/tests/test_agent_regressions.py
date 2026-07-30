@@ -1,5 +1,5 @@
 from backend.app.agent import agent as agent_module
-from backend.app.agent.agent import _extract_fields, _normalize_field_value
+from backend.app.agent.agent import _extract_fields, _normalize_field_value, _recompute_missing
 from backend.app.agent.page_catalog import search_pages
 from backend.app.agent.page_help import answer_page_question, looks_like_page_question
 
@@ -89,3 +89,37 @@ def test_extract_fields_allows_updating_existing_value(monkeypatch):
 
     found = _extract_fields("user-1", state, "服務時間改成 15:00", events=[])
     assert found == {"preferred_time_slot": "15:00"}
+
+
+def test_recompute_missing_skips_fields_hidden_by_visible_when():
+    state = {
+        "service_schema": {
+            "fields": [
+                {"id": "pickup_method", "type": "select", "required": True},
+                {
+                    "id": "sender_store",
+                    "type": "text",
+                    "required": True,
+                    "visibleWhen": {"fieldId": "pickup_method", "value": "STORE_TO_STORE"},
+                },
+                {
+                    "id": "sender_address",
+                    "type": "address",
+                    "required": True,
+                    "visibleWhen": {"fieldId": "pickup_method", "value": "HOME_PICKUP"},
+                },
+            ]
+        },
+        "collected_fields": {"pickup_method": "HOME_PICKUP"},
+    }
+
+    _recompute_missing(state)
+
+    assert state["missing_fields"] == ["sender_address"]
+
+
+def test_normalize_field_value_parses_address_type_by_type_not_field_id():
+    field = {"id": "receiver_address", "type": "address", "required": True}
+    noisy_text = "地址是台北市信義區松仁路100號沒錯"
+    result = _normalize_field_value(field, noisy_text, noisy_text)
+    assert result == "台北市信義區松仁路100號"

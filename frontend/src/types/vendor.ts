@@ -23,6 +23,8 @@ export interface VendorRequestField {
 export interface VendorRequestDetail
   extends Omit<VendorRequestItem, "summary"> {
   fields: VendorRequestField[];
+  estimated_fee_min?: number;
+  estimated_fee_max?: number;
 }
 
 export interface VendorRequestList {

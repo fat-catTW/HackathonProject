@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth.cognito import CurrentUser, get_current_user
-from ..services import catalog
+from ..services import catalog, shipping
 from ..services.submission import create_manual_service_request
 
 router = APIRouter()
@@ -35,16 +35,28 @@ def create_service_request(
     user: CurrentUser = Depends(get_current_user),
 ):
     payload = body.get("payload") or {}
-    result = create_manual_service_request(
-        actor_id=user.sub,
-        service_id=service_id,
-        payload=payload,
-    )
+
+    if service_id == "package_shipping":
+        result = shipping.create_shipping_order(actor_id=user.sub, payload=payload)
+    else:
+        result = create_manual_service_request(
+            actor_id=user.sub,
+            service_id=service_id,
+            payload=payload,
+        )
+
     if not result.get("success", True):
         error = result.get("error", {})
+        client_error_codes = {
+            "INVALID_FORM_DATA",
+            "PACKAGE_TOO_LARGE",
+            "OUT_OF_SERVICE_AREA",
+            "DECLARED_VALUE_TOO_HIGH",
+            "PROHIBITED_ITEM",
+        }
         status_code = (
             400
-            if error.get("code") == "INVALID_FORM_DATA"
+            if error.get("code") in client_error_codes
             else 404
             if error.get("code") == "SERVICE_NOT_FOUND"
             else 503
@@ -55,9 +67,16 @@ def create_service_request(
             error.get("message", "Failed to create service request."),
             missing_fields=error.get("missing_fields", []),
         )
+
+    message = result.get("message", "")
+    if result.get("estimated_fee_min") is not None:
+        message = (
+            f"預估運費約 NT${result['estimated_fee_min']}–{result['estimated_fee_max']}，"
+            "正式報價將由客服於 30 分鐘內回覆確認。"
+        )
     return {
         "success": True,
         "request_id": result.get("request_id"),
         "status": result.get("status"),
-        "message": result.get("message", ""),
+        "message": message,
     }

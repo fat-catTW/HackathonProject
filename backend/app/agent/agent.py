@@ -190,7 +190,7 @@ def _build_summary_text(state: dict) -> str:
         field_id = field["id"]
         if field_id not in state["collected_fields"]:
             continue
-        if not _field_is_visible(field, state["collected_fields"]):
+        if state["service_id"] == "package_shipping" and not _field_is_visible(field, state["collected_fields"]):
             continue
         if field_id == "store_id":
             store = delivery_catalog.get_store(state["collected_fields"]["store_id"])

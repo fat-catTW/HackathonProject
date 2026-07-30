@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ButlerLauncher } from "../components/ButlerLauncher";
+import { ServiceIcon } from "../components/ServiceIcon";
 import { Toast } from "../components/Toast";
 import {
   cancelShopOrder,
@@ -25,6 +27,7 @@ interface CartEntry {
 }
 
 export function ShopFlowPage() {
+  const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
   const step = STEP_ORDER[stepIndex];
 
@@ -159,170 +162,338 @@ export function ShopFlowPage() {
   }
 
   return (
-    <div className="shop-flow-page">
-      {step === "store" && (
-        <section>
-          <h2>選擇店家</h2>
-          {stores.map((store) => (
-            <button
-              key={store.id}
-              onClick={() => {
-                setSelectedStoreId(store.id);
-                goNext();
-              }}
-            >
-              {store.name}（{store.category}）
-            </button>
-          ))}
-        </section>
-      )}
+    <>
+      <main className="mx-auto min-h-dvh max-w-md bg-canvas px-5 pb-32 pt-8">
+        <header className="flex items-center gap-3 pb-4">
+          <button
+            type="button"
+            onClick={() => navigate("/home")}
+            aria-label="返回"
+            className="flex h-11 w-11 items-center justify-center text-gray-500"
+          >
+            <ServiceIcon type="back" size={22} />
+          </button>
+          <h1 className="text-xl font-black text-slate-900">商城購物</h1>
+        </header>
 
-      {step === "product" && (
-        <section>
-          <h2>選擇商品</h2>
-          {products.map((product) => (
-            <div key={product.id}>
+        {/* ====== Step 1: Store Selection ====== */}
+        {step === "store" && (
+          <section className="flex flex-col gap-4">
+            <p className="text-base font-bold leading-relaxed text-slate-900">請選擇店家</p>
+            <div className="flex flex-col gap-3">
+              {stores.map((store) => (
+                <button
+                  key={store.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedStoreId(store.id);
+                    goNext();
+                  }}
+                  className="rounded-2xl border-2 border-slate-200 p-4 text-left transition hover:border-slate-300"
+                >
+                  <p className="text-base font-bold text-slate-900">{store.name}</p>
+                  <p className="text-sm text-slate-500">{store.category}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ====== Step 2: Product Selection ====== */}
+        {step === "product" && (
+          <section className="flex flex-col gap-4">
+            <p className="text-base font-bold leading-relaxed text-slate-900">請選擇商品</p>
+            <div className="flex flex-col gap-3">
+              {products.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveProduct(product);
+                    setSelectedSpecs({});
+                  }}
+                  className={`rounded-2xl border-2 p-4 text-left transition ${
+                    activeProduct?.id === product.id
+                      ? "border-brand bg-brand/5"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <p className="text-base font-bold text-slate-900">{product.name}</p>
+                  <p className="text-sm text-slate-500">NT${product.skus[0]?.unit_price}</p>
+                </button>
+              ))}
+            </div>
+
+            {activeProduct && (
+              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4">
+                <div>
+                  <p className="text-base font-bold text-slate-900">{activeProduct.name}</p>
+                  <p className="text-sm text-slate-500">{activeProduct.description}</p>
+                </div>
+                {activeProduct.specs.map((spec) => (
+                  <div key={spec.name} className="flex flex-col gap-2">
+                    <span className="text-sm text-slate-600">{spec.name}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {spec.options.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => setSelectedSpecs((prev) => ({ ...prev, [spec.name]: option }))}
+                          aria-pressed={selectedSpecs[spec.name] === option}
+                          className={`rounded-full border-2 px-4 py-2 text-sm transition ${
+                            selectedSpecs[spec.name] === option
+                              ? "border-brand bg-brand/5 text-brand"
+                              : "border-slate-200 text-slate-600 hover:border-slate-300"
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  disabled={!matchedSku}
+                  onClick={addToCart}
+                  className="min-h-[44px] rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                >
+                  加入購物車{matchedSku ? `（NT$${matchedSku.unit_price}）` : ""}
+                </button>
+              </div>
+            )}
+
+            <div className="flex gap-3">
               <button
-                onClick={() => {
-                  setActiveProduct(product);
-                  setSelectedSpecs({});
-                }}
+                type="button"
+                onClick={goBack}
+                className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand"
               >
-                {product.name} — NT${product.skus[0]?.unit_price}
+                返回選店家
+              </button>
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={cart.length === 0}
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+              >
+                前往購物車（{cart.length}）
               </button>
             </div>
-          ))}
-          {activeProduct && (
-            <div>
-              <h3>{activeProduct.name}</h3>
-              <p>{activeProduct.description}</p>
-              {activeProduct.specs.map((spec) => (
-                <div key={spec.name}>
-                  <span>{spec.name}：</span>
-                  {spec.options.map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => setSelectedSpecs((prev) => ({ ...prev, [spec.name]: option }))}
-                      aria-pressed={selectedSpecs[spec.name] === option}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              ))}
-              <button disabled={!matchedSku} onClick={addToCart}>
-                加入購物車{matchedSku ? `（NT$${matchedSku.unit_price}）` : ""}
-              </button>
-            </div>
-          )}
-          <button onClick={goNext} disabled={cart.length === 0}>
-            前往購物車（{cart.length}）
-          </button>
-          <button onClick={goBack}>返回選店家</button>
-        </section>
-      )}
+          </section>
+        )}
 
-      {step === "cart" && (
-        <section>
-          <h2>購物車</h2>
-          {cart.map((line) => (
-            <div key={line.sku_id}>
-              <span>
-                {line.productName}（{line.attributesLabel || "單一規格"}）x{line.quantity} — NT${line.unitPrice * line.quantity}
-              </span>
-              <button onClick={() => removeFromCart(line.sku_id)}>移除</button>
-            </div>
-          ))}
-          <p>小計：NT${cartTotal}</p>
-          <button onClick={goBack}>繼續選購</button>
-          <button onClick={goNext} disabled={cart.length === 0}>
-            前往結帳
-          </button>
-        </section>
-      )}
-
-      {step === "checkout" && (
-        <section>
-          <h2>結帳</h2>
-          <label>
-            聯絡人姓名
-            <input value={contactName} onChange={(e) => setContactName(e.target.value)} />
-          </label>
-          <label>
-            聯絡電話
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09XXXXXXXX" />
-          </label>
-          {hasPhysicalItem && (
-            <>
-              <label>
-                收件城市
-                <input value={address.city} onChange={(e) => setAddress((a) => ({ ...a, city: e.target.value }))} />
-              </label>
-              <label>
-                收件地址
-                <input value={address.street} onChange={(e) => setAddress((a) => ({ ...a, street: e.target.value }))} />
-              </label>
-            </>
-          )}
-          <p>
-            可用點數：{pointsBalance}（最多可折抵 {maxUsablePoints} 點）
-          </p>
-          <label>
-            使用點數折抵
-            <input
-              type="number"
-              min={0}
-              max={maxUsablePoints}
-              value={usedPoints}
-              onChange={(e) => setUsedPoints(Math.max(0, Math.min(maxUsablePoints, Number(e.target.value) || 0)))}
-            />
-          </label>
-          <p>商品金額：NT${cartTotal}</p>
-          <p>運費：NT${shippingFee}</p>
-          <p>點數折抵：-NT${Math.min(usedPoints, maxUsablePoints)}</p>
-          <p>應付金額：NT${orderTotal}</p>
-          <button onClick={goBack}>返回購物車</button>
-          <button onClick={handleSubmit} disabled={submitting || !contactName || !phone}>
-            {submitting ? "送出中…" : "確認送出"}
-          </button>
-        </section>
-      )}
-
-      {step === "result" && result && (
-        <section>
-          <h2>訂單完成</h2>
-          <p>訂單編號：{result.request_id}</p>
-          <p>應付金額：NT${result.total_amount}</p>
-          <p>本次獲得點數：{result.points_earned}</p>
-          {Object.entries(result.redemption_codes).length > 0 && (
-            <div>
-              <h3>兌換碼</h3>
-              {Object.entries(result.redemption_codes).map(([skuId, codes]) => (
-                <div key={skuId}>
-                  <span>{skuId}：</span>
-                  {codes.map((code) => (
-                    <code key={code}>{code}</code>
-                  ))}
+        {/* ====== Step 3: Cart ====== */}
+        {step === "cart" && (
+          <section className="flex flex-col gap-4">
+            <p className="text-base font-bold leading-relaxed text-slate-900">購物車</p>
+            <div className="flex flex-col gap-2">
+              {cart.map((line) => (
+                <div
+                  key={line.sku_id}
+                  className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
+                >
+                  <span className="text-sm text-slate-600">
+                    {line.productName}（{line.attributesLabel || "單一規格"}）x{line.quantity} — NT$
+                    {line.unitPrice * line.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeFromCart(line.sku_id)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
+                    aria-label="移除"
+                  >
+                    −
+                  </button>
                 </div>
               ))}
             </div>
-          )}
-          {order && (
-            <>
-              <p>目前狀態：{order.status}</p>
-              {order.status !== "COMPLETED" && order.status !== "CANCELLED" && (
+            <div className="rounded-xl bg-slate-50 p-4">
+              <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
+                <span>小計</span>
+                <span>NT${cartTotal}</span>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={goBack}
+                className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand"
+              >
+                繼續選購
+              </button>
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={cart.length === 0}
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+              >
+                前往結帳
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* ====== Step 4: Checkout ====== */}
+        {step === "checkout" && (
+          <section className="flex flex-col gap-4">
+            <p className="text-base font-bold leading-relaxed text-slate-900">結帳</p>
+            <div className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm text-slate-600">聯絡人姓名</span>
+                <input
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm text-slate-600">聯絡電話</span>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="09XXXXXXXX"
+                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                />
+              </label>
+              {hasPhysicalItem && (
                 <>
-                  <button onClick={handleSimulateAdvance}>Demo：推進下一個狀態</button>
-                  <button onClick={handleCancel}>取消訂單</button>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-sm text-slate-600">收件城市</span>
+                    <input
+                      value={address.city}
+                      onChange={(e) => setAddress((a) => ({ ...a, city: e.target.value }))}
+                      className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-sm text-slate-600">收件地址</span>
+                    <input
+                      value={address.street}
+                      onChange={(e) => setAddress((a) => ({ ...a, street: e.target.value }))}
+                      className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                    />
+                  </label>
                 </>
               )}
-            </>
-          )}
-        </section>
-      )}
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4">
+              <p className="text-sm text-slate-600">
+                可用點數：{pointsBalance}（最多可折抵 {maxUsablePoints} 點）
+              </p>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm text-slate-600">使用點數折抵</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={maxUsablePoints}
+                  value={usedPoints}
+                  onChange={(e) => setUsedPoints(Math.max(0, Math.min(maxUsablePoints, Number(e.target.value) || 0)))}
+                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                />
+              </label>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 p-4">
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>商品金額</span>
+                <span>NT${cartTotal}</span>
+              </div>
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>運費</span>
+                <span>NT${shippingFee}</span>
+              </div>
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>點數折抵</span>
+                <span>-NT${Math.min(usedPoints, maxUsablePoints)}</span>
+              </div>
+              <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
+                <span>應付金額</span>
+                <span>NT${orderTotal}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={goBack}
+                className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand"
+              >
+                返回購物車
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting || !contactName || !phone}
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+              >
+                {submitting ? "送出中…" : "確認送出"}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* ====== Step 5: Result ====== */}
+        {step === "result" && result && (
+          <section className="flex flex-col gap-4">
+            <p className="text-base font-bold leading-relaxed text-slate-900">訂單完成</p>
+
+            <div className="rounded-xl border border-brand/30 bg-brand/5 p-4">
+              <p className="text-sm text-slate-600">訂單編號：{result.request_id}</p>
+              <p className="text-sm text-slate-600">應付金額：NT${result.total_amount}</p>
+              <p className="text-sm font-semibold text-brand">本次獲得點數：{result.points_earned}</p>
+            </div>
+
+            {Object.entries(result.redemption_codes).length > 0 && (
+              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 p-4">
+                <p className="text-sm font-bold text-slate-700">兌換碼</p>
+                {Object.entries(result.redemption_codes).map(([skuId, codes]) => (
+                  <div key={skuId} className="flex flex-col gap-1">
+                    <span className="text-sm text-slate-600">{skuId}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {codes.map((code) => (
+                        <code key={code} className="rounded-lg bg-slate-100 px-3 py-2 font-mono text-sm">
+                          {code}
+                        </code>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {order && (
+              <>
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm text-slate-600">目前狀態：{order.status}</p>
+                </div>
+                {order.status !== "COMPLETED" && order.status !== "CANCELLED" && (
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand"
+                    >
+                      取消訂單
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSimulateAdvance}
+                      className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white"
+                    >
+                      Demo：推進下一個狀態
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
+      </main>
 
       <Toast text={toastText} onHide={() => setToastText(null)} />
       <ButlerLauncher currentPageId="shop_flow" />
-    </div>
+    </>
   );
 }

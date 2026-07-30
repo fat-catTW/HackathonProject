@@ -1,12 +1,14 @@
 # MCP Gateway Lambda Setup
 
-This project exposes five MCP tool handlers through AWS Lambda:
+This project exposes seven MCP tool handlers through AWS Lambda:
 
 - `list_services`
 - `get_service_schema`
 - `submit_service_request`
 - `get_page_context`
 - `search_pages`
+- `recommend_products_by_health_need`
+- `get_product_nutrition`
 
 ## 1. Build Lambda zip files
 
@@ -24,16 +26,20 @@ This creates:
 - `lambda_tools/dist/submit_service_request.zip`
 - `lambda_tools/dist/get_page_context.zip`
 - `lambda_tools/dist/search_pages.zip`
+- `lambda_tools/dist/recommend_products_by_health_need.zip`
+- `lambda_tools/dist/get_product_nutrition.zip`
 
 ## 2. Create the Lambda functions
 
-In AWS Lambda Console, create five Python 3.12 functions in `ap-northeast-1`:
+In AWS Lambda Console, create seven Python 3.12 functions in `ap-northeast-1`:
 
 - `list_services`
 - `get_service_schema`
 - `submit_service_request`
 - `get_page_context`
 - `search_pages`
+- `recommend_products_by_health_need`
+- `get_product_nutrition`
 
 Upload the matching zip file to each function.
 
@@ -43,6 +49,12 @@ Recommended environment variables for each Lambda:
 - `SERVICE_CATALOG_FALLBACK=true`
 
 `SERVICE_CATALOG_FALLBACK=true` means the tool still works even when DynamoDB does not yet contain the `SERVICE#...` catalog items.
+
+`recommend_products_by_health_need` additionally needs `GEMINI_API_KEY` set to
+call Gemini; without it (or if the call fails) it falls back to rule-based
+keyword matching against product tags. Neither health tool requires a Lambda
+layer for `google-genai` unless `GEMINI_API_KEY` is set — package one if you
+want live Gemini calls in production.
 
 ## 3. Create the AgentCore Gateway
 
@@ -73,6 +85,14 @@ After the Gateway is created, add three Lambda targets:
    Lambda: `search_pages`
    Tool schema: `lambda_tools/tool_schemas/search_pages.json`
 
+6. Target name: `health_recommend`
+   Lambda: `recommend_products_by_health_need`
+   Tool schema: `lambda_tools/tool_schemas/recommend_products_by_health_need.json`
+
+7. Target name: `health_nutrition`
+   Lambda: `get_product_nutrition`
+   Tool schema: `lambda_tools/tool_schemas/get_product_nutrition.json`
+
 Use outbound auth:
 
 - `GATEWAY_IAM_ROLE`
@@ -89,6 +109,8 @@ MCP_GET_SERVICE_SCHEMA_TOOL_NAME=svc_schema___get_service_schema
 MCP_SUBMIT_SERVICE_REQUEST_TOOL_NAME=svc_submit___submit_service_request
 MCP_GET_PAGE_CONTEXT_TOOL_NAME=page_ctx___get_page_context
 MCP_SEARCH_PAGES_TOOL_NAME=page_search___search_pages
+MCP_RECOMMEND_PRODUCTS_BY_HEALTH_NEED_TOOL_NAME=health_recommend___recommend_products_by_health_need
+MCP_GET_PRODUCT_NUTRITION_TOOL_NAME=health_nutrition___get_product_nutrition
 ```
 
 Tool names are prefixed by the target name in AgentCore Gateway:

@@ -88,6 +88,7 @@
       "service_form_home_cleaning",
       "service_form_restaurant_reservation",
       "service_form_food_delivery",
+      "service_form_health_product_recommendation",
       "my_services",
       "assistant"
     ],
@@ -404,6 +405,36 @@
       "food delivery",
       "delivery form",
       "manual delivery order"
+    ]
+  },
+  {
+    "page_id": "service_form_health_product_recommendation",
+    "route": "/services/health_product_recommendation",
+    "title": "健康商品推薦",
+    "summary": "讓使用者描述健康或飲食需求，取得推薦的 7-11 商品，並可查看任一商品的營養成分。",
+    "features": [
+      "描述健康或飲食需求",
+      "查看推薦商品與推薦原因",
+      "查看商品的營養成分"
+    ],
+    "available_actions": [
+      "描述健康/飲食需求",
+      "詢問推薦商品",
+      "點選推薦商品查看營養資訊"
+    ],
+    "next_steps": [
+      "先描述健康或飲食需求",
+      "再從推薦商品中挑選查看營養成分"
+    ],
+    "related_pages": [
+      "home",
+      "assistant"
+    ],
+    "keywords": [
+      "健康商品推薦表單",
+      "健康推薦頁面",
+      "營養推薦表單",
+      "health product recommendation form"
     ]
   },
   {

@@ -7,7 +7,7 @@ import uuid
 import httpx
 
 from ..config import get_settings
-from ..services import catalog
+from ..services import catalog, health_catalog, health_recommendation
 from ..services.aws import get_aws_client, get_aws_resource
 from ..services.store import STORE, now_iso
 from .page_catalog import load_page, search_pages
@@ -105,6 +105,33 @@ def _embedded_submit_service_request(params: dict) -> dict:
             },
         }
     return _save_request(params["actor_id"], params.get("session_id"), service, payload)
+
+
+def _embedded_recommend_products_by_health_need(params: dict) -> dict:
+    query = str(params.get("query") or "").strip()
+    if not query:
+        return {
+            "success": False,
+            "error": {"code": "INVALID_QUERY", "message": "query is required."},
+        }
+    result = health_recommendation.recommend(query, health_catalog.list_products())
+    return {"success": True, **result}
+
+
+def _embedded_get_product_nutrition(params: dict) -> dict:
+    product_id = str(params.get("product_id") or "").strip()
+    if not product_id:
+        return {
+            "success": False,
+            "error": {"code": "INVALID_QUERY", "message": "product_id is required."},
+        }
+    product = health_catalog.get_product(product_id)
+    if not product:
+        return {
+            "success": False,
+            "error": {"code": "PRODUCT_NOT_FOUND", "message": f"找不到 product_id: {product_id}"},
+        }
+    return {"success": True, **product}
 
 
 def _embedded_get_page_context(params: dict) -> dict:
@@ -254,6 +281,8 @@ def _invoke_lambda(tool_name: str, params: dict) -> dict:
         "submit_service_request": settings.submit_service_request_lambda_name,
         "get_page_context": settings.get_page_context_lambda_name,
         "search_pages": settings.search_pages_lambda_name,
+        "recommend_products_by_health_need": settings.recommend_products_by_health_need_lambda_name,
+        "get_product_nutrition": settings.get_product_nutrition_lambda_name,
     }
     function_name = function_names.get(tool_name)
     if not function_name:
@@ -307,6 +336,8 @@ def _gateway_tool_name(tool_name: str) -> str:
         "submit_service_request": settings.mcp_submit_service_request_tool_name,
         "get_page_context": settings.mcp_get_page_context_tool_name,
         "search_pages": settings.mcp_search_pages_tool_name,
+        "recommend_products_by_health_need": settings.mcp_recommend_products_by_health_need_tool_name,
+        "get_product_nutrition": settings.mcp_get_product_nutrition_tool_name,
     }
     return names.get(tool_name, tool_name)
 
@@ -477,6 +508,8 @@ _EMBEDDED_TOOLS = {
     "submit_service_request": _embedded_submit_service_request,
     "get_page_context": _embedded_get_page_context,
     "search_pages": _embedded_search_pages,
+    "recommend_products_by_health_need": _embedded_recommend_products_by_health_need,
+    "get_product_nutrition": _embedded_get_product_nutrition,
 }
 
 _DYNAMODB_TOOLS = {

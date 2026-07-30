@@ -1,5 +1,5 @@
 export type ServiceIconType =
-  | "aircon" | "plumbing" | "appliance" | "cleaning" | "pest" | "moving" | "restaurant"
+  | "aircon" | "plumbing" | "appliance" | "cleaning" | "pest" | "moving" | "restaurant" | "health"
   | "mic" | "send" | "check" | "chevronRight" | "chevronDown" | "close"
   | "back" | "phone" | "location" | "calendar" | "clock" | "chat"
   | "info" | "warning" | "logo" | "zoom";
@@ -62,6 +62,13 @@ const PATHS: Record<ServiceIconType, JSX.Element> = {
       <circle cx="8" cy="12" r="5.5" />
       <line x1="16.5" y1="4" x2="16.5" y2="20" />
       <path d="M14.5 4 V10 a2 2 0 0 0 4 0 V4" />
+    </>
+  ),
+  health: (
+    <>
+      <path d="M12 20.5s-7.5-4.6-9.3-9.4C1.6 7.7 3.6 5 6.6 5c1.8 0 3.3.9 4.2 2.3l1.2 1.8 1.2-1.8C14.1 5.9 15.6 5 17.4 5c3 0 5 2.7 3.9 6.1C19.5 15.9 12 20.5 12 20.5z" />
+      <line x1="9" y1="11.5" x2="15" y2="11.5" />
+      <line x1="12" y1="8.5" x2="12" y2="14.5" />
     </>
   ),
   mic: (

@@ -4,6 +4,7 @@ export type RequestStatus =
   | "DRAFT"
   | "AWAITING_USER_CONFIRMATION"
   | "SUBMITTED"
+  | "AWAITING_QUOTE"
   | "PENDING_PROVIDER"
   | "CONFIRMED"
   | "IN_PROGRESS"
@@ -30,6 +31,8 @@ export interface RequestDetail extends RequestListItem {
   service_id: string;
   form_data: Record<string, CollectedFieldValue>;
   events: ChatEvent[];
+  estimated_fee_min?: number;
+  estimated_fee_max?: number;
 }
 
 export interface ChatResponse {

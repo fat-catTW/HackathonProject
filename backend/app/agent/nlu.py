@@ -232,6 +232,14 @@ def parse_yes_no_option(text: str) -> str | None:
     return None
 
 
+def parse_pickup_method(text: str) -> str | None:
+    if re.search(r"店到店|超商|7-11|7-eleven|7-ELEVEN", text, re.IGNORECASE):
+        return "STORE_TO_STORE"
+    if re.search(r"到府|宅配到府|到家|上門", text):
+        return "HOME_PICKUP"
+    return None
+
+
 def parse_phone(text: str) -> str | None:
     m = re.search(r"09\d{2}[-\s]?\d{3}[-\s]?\d{3}", text)
     if m:
@@ -300,6 +308,8 @@ def extract_fields(service_id: str, fields: list[dict], text: str,
             value = parse_service_time(text)
         elif fid == "machine_type":
             value = parse_machine_type(text)
+        elif fid == "pickup_method":
+            value = parse_pickup_method(text)
         elif fid == "restaurant_id":
             value = parse_restaurant(text)
         elif fid == "time_slot":

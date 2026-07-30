@@ -43,7 +43,7 @@ def get_request(request_id: str, user: CurrentUser = Depends(get_current_user)):
     request = _get_or_404(user.sub, request_id)
     session_id = request.get("session_id")
     session = MEMORY.get_session(user.sub, session_id) if session_id else None
-    return {
+    response = {
         "request_id": request["request_id"],
         "session_id": session_id,
         "service_id": request["service_id"],
@@ -55,6 +55,10 @@ def get_request(request_id: str, user: CurrentUser = Depends(get_current_user)):
         "updated_at": request["updated_at"],
         "events": (session or {}).get("events", []),
     }
+    if request.get("estimated_fee_min") is not None:
+        response["estimated_fee_min"] = request.get("estimated_fee_min")
+        response["estimated_fee_max"] = request.get("estimated_fee_max")
+    return response
 
 
 @router.post("/api/requests/{request_id}/confirm")

@@ -389,6 +389,67 @@ FALLBACK_SERVICES: list[dict] = [
             ]
         },
     },
+    {
+        "id": "package_shipping",
+        "name": "包裹寄送",
+        "description": "統一速達（黑貓宅急便）到府收件或 7-11 店到店寄件。",
+        "schema": {
+            "fields": [
+                {
+                    "id": "pickup_method",
+                    "label": "取件方式",
+                    "type": "select",
+                    "required": True,
+                    "options": ["HOME_PICKUP", "STORE_TO_STORE"],
+                },
+                {
+                    "id": "sender_address",
+                    "label": "寄件地址",
+                    "type": "address",
+                    "required": True,
+                    "visibleWhen": {"fieldId": "pickup_method", "value": "HOME_PICKUP"},
+                },
+                {
+                    "id": "receiver_address",
+                    "label": "收件地址",
+                    "type": "address",
+                    "required": True,
+                    "visibleWhen": {"fieldId": "pickup_method", "value": "HOME_PICKUP"},
+                },
+                {
+                    "id": "sender_store",
+                    "label": "寄件門市",
+                    "type": "text",
+                    "required": True,
+                    "visibleWhen": {"fieldId": "pickup_method", "value": "STORE_TO_STORE"},
+                },
+                {
+                    "id": "receiver_store",
+                    "label": "收件門市",
+                    "type": "text",
+                    "required": True,
+                    "visibleWhen": {"fieldId": "pickup_method", "value": "STORE_TO_STORE"},
+                },
+                {"id": "weight_kg", "label": "包裹重量（公斤）", "type": "number", "required": True},
+                {"id": "length_cm", "label": "包裹長度（公分）", "type": "number", "required": True},
+                {"id": "width_cm", "label": "包裹寬度（公分）", "type": "number", "required": True},
+                {"id": "height_cm", "label": "包裹高度（公分）", "type": "number", "required": True},
+                {"id": "item_description", "label": "內容物概述", "type": "textarea", "required": True},
+                {"id": "declared_value", "label": "申報價值（元）", "type": "number", "required": True},
+                {
+                    "id": "pickup_time_slot",
+                    "label": "取件時段",
+                    "type": "time",
+                    "required": True,
+                    "minValue": "08:30",
+                    "maxValue": "18:00",
+                    "step": 300,
+                },
+                {"id": "contact_name", "label": "聯絡人姓名", "type": "text", "required": True},
+                {"id": "phone", "label": "聯絡電話", "type": "text", "required": True},
+            ]
+        },
+    },
 ]
 
 

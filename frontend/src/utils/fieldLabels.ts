@@ -24,6 +24,18 @@ const FIELD_LABELS: Record<string, string> = {
   store_id: "店家",
   goods: "餐點",
   note: "備註需求",
+  pickup_method: "取件方式",
+  sender_address: "寄件地址",
+  receiver_address: "收件地址",
+  sender_store: "寄件門市",
+  receiver_store: "收件門市",
+  weight_kg: "包裹重量",
+  length_cm: "包裹長度",
+  width_cm: "包裹寬度",
+  height_cm: "包裹高度",
+  item_description: "內容物概述",
+  declared_value: "申報價值",
+  pickup_time_slot: "取件時段",
 };
 
 const VALUE_LABELS: Record<string, string> = {
@@ -38,6 +50,8 @@ const VALUE_LABELS: Record<string, string> = {
   DINNER: "晚餐",
   "true": "高級訂位",
   "false": "一般訂位",
+  HOME_PICKUP: "到府收件",
+  STORE_TO_STORE: "7-11 店到店",
 };
 
 interface CartLineItem {

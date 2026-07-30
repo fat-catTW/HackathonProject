@@ -82,6 +82,7 @@ export function RequestDetailPage() {
   const nextDemo: Record<string, { to: string; label: string }> = {
     SUBMITTED: { to: "CONFIRMED", label: "Demo：模擬廠商已確認" },
     PENDING_PROVIDER: { to: "CONFIRMED", label: "Demo：模擬廠商已確認" },
+    AWAITING_QUOTE: { to: "CONFIRMED", label: "Demo：模擬廠商已報價確認" },
     CONFIRMED: { to: "IN_PROGRESS", label: "Demo：模擬服務進行中" },
     IN_PROGRESS: { to: "COMPLETED", label: "Demo：模擬服務已完成" },
   };
@@ -137,6 +138,14 @@ export function RequestDetailPage() {
               </div>
             );
           })}
+            {detail.estimated_fee_min !== undefined && (
+              <div className="flex justify-between gap-3 border-b border-gray-100 py-3.5 last:border-b-0">
+                <span className="text-gray-500">預估運費</span>
+                <span className="text-right font-bold">
+                  NT${detail.estimated_fee_min}–{detail.estimated_fee_max}
+                </span>
+              </div>
+            )}
             <div className="border-t border-dashed border-gray-200 py-3.5 text-sm text-gray-400">
               建立時間：{new Date(detail.created_at).toLocaleString("zh-TW")}
               <br />

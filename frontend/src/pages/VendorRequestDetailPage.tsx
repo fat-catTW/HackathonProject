@@ -84,6 +84,14 @@ export function VendorRequestDetailPage() {
                 <dt className="shrink-0 text-gray-500">最近更新</dt>
                 <dd className="text-slate-800">{formatTime(detail.updated_at)}</dd>
               </div>
+              {detail.estimated_fee_min !== undefined && (
+                <div className="flex gap-2">
+                  <dt className="shrink-0 text-gray-500">系統預估運費</dt>
+                  <dd className="font-bold text-slate-800">
+                    NT${detail.estimated_fee_min}–{detail.estimated_fee_max}
+                  </dd>
+                </div>
+              )}
             </dl>
           </section>
 

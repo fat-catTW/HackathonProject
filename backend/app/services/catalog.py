@@ -554,6 +554,8 @@ SELECT_LABELS = {
     "FRONT_LOAD": "滾筒式",
     "YES": "需要",
     "NO": "不需要",
+    "HOME_PICKUP": "到府收件",
+    "STORE_TO_STORE": "7-11 店到店",
 }
 
 

@@ -240,12 +240,24 @@ def _build_field_question(field: dict) -> str:
     return field.get("question") or f"請提供{field.get('label') or field['id']}。"
 
 
+def _field_is_visible(field: dict, collected: dict) -> bool:
+    visible_when = field.get("visibleWhen")
+    if not isinstance(visible_when, dict):
+        return True
+    parent_field_id = visible_when.get("fieldId")
+    expected_value = visible_when.get("value")
+    if not isinstance(parent_field_id, str):
+        return True
+    return collected.get(parent_field_id) == expected_value
+
+
 def _recompute_missing(state: dict) -> None:
     fields = state["service_schema"]["fields"]
+    collected = state["collected_fields"]
     state["missing_fields"] = [
         field["id"]
         for field in fields
-        if field.get("required") and field["id"] not in state["collected_fields"]
+        if field.get("required") and field["id"] not in collected and _field_is_visible(field, collected)
     ]
 
 
@@ -549,7 +561,7 @@ def _normalize_field_value(field: dict, value, original_text: str):
     if field_id == "phone":
         return nlu.parse_phone(str(value)) or nlu.parse_phone(original_text)
 
-    if field_id == "address":
+    if field["type"] == "address":
         return nlu.parse_address(str(value)) or nlu.parse_address(original_text) or str(value).strip()
 
     if field["type"] == "file":

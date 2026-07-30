@@ -37,12 +37,25 @@ def convert_floats_to_decimal(value):
     return value
 
 
-def _vendor_id_of(request: dict) -> int | None:
+def vendor_id_of(request: dict) -> int | None:
     """案件所屬廠商；舊資料沒有帶 service_vendor_id 時回頭查服務目錄。"""
     vendor_id = request.get("service_vendor_id")
     if vendor_id is not None:
         return int(vendor_id)
     return catalog.vendor_id_for_service(request.get("service_id", ""))
+
+
+def version_of(item: dict | None) -> int:
+    """案件的樂觀鎖版本；Milestone 3 之前寫入的案件沒有這個欄位，視為 0。
+
+    DynamoDB 讀回來的數字是 Decimal，一律轉成 int 再比對。
+    """
+    if not item:
+        return 0
+    try:
+        return int(item.get("version") or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 class BaseStore:
@@ -53,6 +66,10 @@ class BaseStore:
 
     def put_item_if_absent(self, item: dict) -> bool:
         """Write only when (PK, SK) is absent; returns whether the write happened."""
+        raise NotImplementedError
+
+    def put_item_if_version(self, item: dict, expected_version: int) -> bool:
+        """Write only when the stored item is still at expected_version (optimistic lock)."""
         raise NotImplementedError
 
     def get_item(self, pk: str, sk: str) -> dict | None:
@@ -74,13 +91,30 @@ class BaseStore:
     def next_request_id(self) -> str:
         return f"REQ-{datetime.now(TZ):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
 
-    def save_request(self, actor_id: str, request: dict) -> None:
+    def _stamp_request(self, actor_id: str, request: dict) -> None:
+        """補齊 key 欄位並把版本推進一號。
+
+        每次寫入都換版本，讀到舊版本的人（例如廠商後台開著的另一個分頁）帶著
+        過期版本回來時就會被 save_request_if_version 擋下。
+        """
         request["PK"] = f"USER#{actor_id}"
         request["SK"] = f"REQUEST#{request['request_id']}"
         request["entity_type"] = "SERVICE_REQUEST"
         request["updated_at"] = now_iso()
+        request["version"] = version_of(request) + 1
+
+    def save_request(self, actor_id: str, request: dict) -> None:
+        self._stamp_request(actor_id, request)
         self.put_item(request)
         self._save_vendor_index(actor_id, request)
+
+    def save_request_if_version(self, actor_id: str, request: dict, expected_version: int) -> bool:
+        """樂觀鎖版本的 save_request；案件已被其他人改過時回 False，不覆寫。"""
+        self._stamp_request(actor_id, request)
+        if not self.put_item_if_version(request, expected_version):
+            return False
+        self._save_vendor_index(actor_id, request)
+        return True
 
     def get_request(self, actor_id: str, request_id: str) -> dict | None:
         return self.get_item(f"USER#{actor_id}", f"REQUEST#{request_id}")
@@ -96,7 +130,7 @@ class BaseStore:
         單表沒有 GSI，廠商清單只能靠這份副本查詢。save_request 是所有狀態變更的
         必經之路，因此兩份項目一定同步；索引寫入失敗不影響住戶端的案件本體。
         """
-        vendor_id = _vendor_id_of(request)
+        vendor_id = vendor_id_of(request)
         if vendor_id is None:
             return
         try:
@@ -111,6 +145,8 @@ class BaseStore:
                     "service_id": request.get("service_id", ""),
                     "service_name": request.get("service_name", ""),
                     "status": request.get("status", ""),
+                    # 廠商後台改狀態時要帶回這個版本，因此索引也要跟著鏡射。
+                    "version": version_of(request),
                     "form_data": request.get("form_data", {}),
                     "estimated_fee_min": request.get("estimated_fee_min"),
                     "estimated_fee_max": request.get("estimated_fee_max"),
@@ -304,6 +340,16 @@ class MemoryStore(BaseStore):
             self._flush()
             return True
 
+    def put_item_if_version(self, item: dict, expected_version: int) -> bool:
+        key = (item["PK"], item["SK"])
+        with self._lock:
+            current = self._items.get(key)
+            if current is None or version_of(current) != expected_version:
+                return False
+            self._items[key] = item
+            self._flush()
+            return True
+
     def get_item(self, pk: str, sk: str) -> dict | None:
         with self._lock:
             item = self._items.get((pk, sk))
@@ -391,6 +437,27 @@ class DynamoDBStore(BaseStore):
             self._table.put_item(
                 Item=convert_floats_to_decimal(item),
                 ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
+            )
+            return True
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise
+
+    def put_item_if_version(self, item: dict, expected_version: int) -> bool:
+        from botocore.exceptions import ClientError
+
+        # version 0 代表「還沒有版本欄位的舊案件」，也要視為符合預期。
+        condition = (
+            "attribute_exists(PK) AND (attribute_not_exists(version) OR version = :expected)"
+            if expected_version == 0
+            else "version = :expected"
+        )
+        try:
+            self._table.put_item(
+                Item=convert_floats_to_decimal(item),
+                ConditionExpression=condition,
+                ExpressionAttributeValues={":expected": expected_version},
             )
             return True
         except ClientError as exc:
@@ -495,6 +562,24 @@ class ResilientStore(BaseStore):
             except Exception:
                 self._mark_primary_unavailable()
         return self._fallback.put_item_if_absent(dict(item))
+
+    def put_item_if_version(self, item: dict, expected_version: int) -> bool:
+        # 版本比對同樣以 primary 為準；primary 掛掉時只能退回本地副本，這時的
+        # 樂觀鎖只擋得住本行程看得到的併發，屬於降級行為。
+        if self._primary_available():
+            try:
+                if not self._primary.put_item_if_version(item, expected_version):
+                    return False
+                self._fallback.put_item(dict(item))
+                return True
+            except Exception:
+                self._mark_primary_unavailable()
+        local = self._fallback.get_item(item["PK"], item["SK"])
+        if local is None:
+            # 本地副本沒有這筆（案件是從 DynamoDB 讀出來的），沒有版本可比對。
+            self._fallback.put_item(dict(item))
+            return True
+        return self._fallback.put_item_if_version(dict(item), expected_version)
 
     def delete_item(self, pk: str, sk: str) -> None:
         self._fallback.delete_item(pk, sk)

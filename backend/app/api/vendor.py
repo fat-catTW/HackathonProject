@@ -1,10 +1,14 @@
-"""廠商後台 API（Milestone 3）：諮詢單／訂單清單。
+"""廠商後台 API（Milestone 3／4）：諮詢單／訂單清單與接單、拒單。
 
 廠商只看得到自己 service_vendor_id 的案件——清單一律從 token 帶出的 vendor_id
 查詢（app.auth.cognito.get_current_vendor），路徑或查詢字串都不接受 vendor_id，
 避免改個參數就翻到別家廠商的訂單。
+
+接單／拒單走兩道檢查：狀態機（app.services.statuses.VENDOR_TRANSITIONS）決定這個
+狀態能不能做這個動作，樂觀鎖（case 版本號）確保切換是基於廠商當下看到的那一版，
+兩者任一不過就回 409，不會把別人剛寫進去的狀態蓋掉。
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
 from ..auth.cognito import CurrentUser, get_current_vendor
@@ -13,17 +17,19 @@ from ..auth.vendors import demo_accounts, login as vendor_login
 from ..config import get_settings
 from ..services import catalog
 from ..services.statuses import (
+    VENDOR_CLOSED_STATUSES,
     VENDOR_ORDER_STATUSES,
     VENDOR_PENDING_STATUSES,
+    VENDOR_TRANSITIONS,
     status_label,
 )
-from ..services.store import STORE
+from ..services.store import STORE, vendor_id_of, version_of
 
 router = APIRouter(prefix="/api/vendor")
 
 # 住戶還沒送出的案件（草稿、等待使用者確認）不該出現在廠商後台。
 _VISIBLE_STATUSES = frozenset(
-    VENDOR_PENDING_STATUSES + VENDOR_ORDER_STATUSES + ("CANCELLED", "FAILED")
+    VENDOR_PENDING_STATUSES + VENDOR_ORDER_STATUSES + VENDOR_CLOSED_STATUSES
 )
 
 _SCOPES = {
@@ -41,10 +47,15 @@ class VendorLoginIn(BaseModel):
     password: str = Field(..., max_length=128)
 
 
-def _fail(status: int, code: str, message: str) -> HTTPException:
+class VendorActionIn(BaseModel):
+    # 廠商按下按鈕時看到的案件版本；對不上代表案件在這期間被改過。
+    version: int = Field(..., ge=0)
+
+
+def _fail(status: int, code: str, message: str, extra: dict | None = None) -> HTTPException:
     return HTTPException(
         status_code=status,
-        detail={"success": False, "error": {"code": code, "message": message}},
+        detail={"success": False, "error": {"code": code, "message": message} | (extra or {})},
     )
 
 
@@ -70,16 +81,24 @@ def _summary(form_data: dict) -> str:
     return " ".join(p for p in parts if p)
 
 
+def _available_actions(status: str) -> list[str]:
+    """這個狀態現在可以做的動作；前端不必自己複製一份狀態機。"""
+    return [name for name, t in VENDOR_TRANSITIONS.items() if status in t.sources]
+
+
 def _to_list_item(item: dict) -> dict:
     form_data = item.get("form_data") or {}
+    status = item.get("status", "")
     return {
         "request_id": item["request_id"],
         "service_id": item.get("service_id", ""),
         "service_name": item.get("service_name", ""),
-        "status": item.get("status", ""),
-        "status_label": status_label(item.get("status", "")),
+        "status": status,
+        "status_label": status_label(status),
         "customer_name": _customer_name(item.get("owner_id", "")),
         "summary": _summary(form_data),
+        "version": version_of(item),
+        "available_actions": _available_actions(status),
         "created_at": item.get("created_at", ""),
         "updated_at": item.get("updated_at", ""),
     }
@@ -146,24 +165,81 @@ def list_vendor_requests(
     return {"items": items, "counts": counts}
 
 
+def _load_case_or_404(vendor_id: int, request_id: str) -> tuple[str, dict]:
+    """回傳 (住戶 actor_id, 案件本體)。
+
+    VENDOR# 索引只用來確認案件屬於這家廠商、以及案件掛在哪位住戶底下；狀態與版本
+    一律以 USER# 分區的案件本體為準——索引是盡力而為的鏡射，可能落後一版，拿它當
+    樂觀鎖的基準會讓廠商永遠對不上版本。
+    """
+    index = STORE.get_vendor_request(vendor_id, request_id)
+    owner_id = str((index or {}).get("owner_id") or "")
+    request = STORE.get_request(owner_id, request_id) if owner_id else None
+    if (
+        not request
+        or vendor_id_of(request) != vendor_id
+        or request.get("status") not in _VISIBLE_STATUSES
+    ):
+        raise _fail(404, "REQUEST_NOT_FOUND", "找不到對應的案件。")
+    return owner_id, request
+
+
+def _detail_payload(owner_id: str, request: dict) -> dict:
+    status = request.get("status", "")
+    payload = {
+        "request_id": request["request_id"],
+        "service_id": request.get("service_id", ""),
+        "service_name": request.get("service_name", ""),
+        "status": status,
+        "status_label": status_label(status),
+        "customer_name": _customer_name(owner_id),
+        "version": version_of(request),
+        "available_actions": _available_actions(status),
+        "fields": _to_fields(request.get("service_id", ""), request.get("form_data") or {}),
+        "created_at": request.get("created_at", ""),
+        "updated_at": request.get("updated_at", ""),
+    }
+    if request.get("estimated_fee_min") is not None:
+        payload["estimated_fee_min"] = request.get("estimated_fee_min")
+        payload["estimated_fee_max"] = request.get("estimated_fee_max")
+    return payload
+
+
 @router.get("/requests/{request_id}")
 def get_vendor_request(request_id: str, vendor: CurrentUser = Depends(get_current_vendor)):
-    item = STORE.get_vendor_request(vendor.vendor_id, request_id)
-    if not item or item.get("status") not in _VISIBLE_STATUSES:
-        raise _fail(404, "REQUEST_NOT_FOUND", "找不到對應的案件。")
-    form_data = item.get("form_data") or {}
-    response = {
-        "request_id": item["request_id"],
-        "service_id": item.get("service_id", ""),
-        "service_name": item.get("service_name", ""),
-        "status": item.get("status", ""),
-        "status_label": status_label(item.get("status", "")),
-        "customer_name": _customer_name(item.get("owner_id", "")),
-        "fields": _to_fields(item.get("service_id", ""), form_data),
-        "created_at": item.get("created_at", ""),
-        "updated_at": item.get("updated_at", ""),
-    }
-    if item.get("estimated_fee_min") is not None:
-        response["estimated_fee_min"] = item.get("estimated_fee_min")
-        response["estimated_fee_max"] = item.get("estimated_fee_max")
-    return response
+    owner_id, request = _load_case_or_404(vendor.vendor_id, request_id)
+    return _detail_payload(owner_id, request)
+
+
+@router.post("/requests/{request_id}/{action}")
+def act_on_vendor_request(
+    body: VendorActionIn,
+    request_id: str,
+    action: str = Path(pattern="^(accept|reject)$"),
+    vendor: CurrentUser = Depends(get_current_vendor),
+):
+    """接單／拒單：狀態機決定能不能切，樂觀鎖確保沒有人搶先改過。"""
+    owner_id, request = _load_case_or_404(vendor.vendor_id, request_id)
+    transition = VENDOR_TRANSITIONS[action]
+    status = request.get("status", "")
+
+    if status not in transition.sources:
+        # 例如住戶已取消、或另一位同事剛按過接單——案件現在的狀態不允許這個動作。
+        raise _fail(
+            409,
+            "REQUEST_STATUS_CONFLICT",
+            f"案件目前是「{status_label(status)}」，無法{transition.label}。",
+            _detail_payload(owner_id, request),
+        )
+
+    updated = dict(request) | {"status": transition.target}
+    if not STORE.save_request_if_version(owner_id, updated, body.version):
+        # 版本對不上：狀態檢查到寫入之間有人改過，或這是重複送出的同一個按鈕。
+        _, current = _load_case_or_404(vendor.vendor_id, request_id)
+        raise _fail(
+            409,
+            "REQUEST_VERSION_CONFLICT",
+            "案件已被更新，請重新整理後再操作。",
+            _detail_payload(owner_id, current),
+        )
+    return {"success": True, **_detail_payload(owner_id, updated)}

@@ -9,6 +9,7 @@ const STYLES: Record<string, string> = {
   IN_PROGRESS: "bg-success-soft text-success",
   COMPLETED: COMPLETED_STYLE,
   CANCELLED: "bg-gray-100 text-gray-500",
+  REJECTED: "bg-gray-100 text-gray-500",
   FAILED: "bg-red-50 text-danger",
   VERIFIED: COMPLETED_STYLE,
 };

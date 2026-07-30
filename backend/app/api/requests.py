@@ -90,12 +90,13 @@ def cancel_request(request_id: str, user: CurrentUser = Depends(get_current_user
                 detail={"success": False, "error": result["error"]},
             )
         return {"success": True, "request_id": request_id, "status": result["status"]}
-    if request["status"] in ("COMPLETED", "CANCELLED"):
+    # 已完工、已取消、廠商已婉拒都是終點狀態，沒有東西可以取消。
+    if request["status"] in ("COMPLETED", "CANCELLED", "REJECTED"):
         raise HTTPException(
             status_code=409,
             detail={
                 "success": False,
-                "error": {"code": "REQUEST_ALREADY_SUBMITTED", "message": "案件已完成或已取消。"},
+                "error": {"code": "REQUEST_ALREADY_SUBMITTED", "message": "案件已結案。"},
             },
         )
     request["status"] = "CANCELLED"

@@ -10,6 +10,7 @@ export type RequestStatus =
   | "IN_PROGRESS"
   | "COMPLETED"
   | "CANCELLED"
+  | "REJECTED"
   | "FAILED";
 
 export interface RequestListItem {

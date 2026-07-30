@@ -37,11 +37,21 @@ npm run dev                          # http://localhost:5173
 - 案件 CRUD、狀態流轉（含 Demo 模擬廠商確認／完工）
 - 多使用者資料隔離（PK=USER#actorId）
 
-## 廠商後台（Milestone 3）
+## 廠商後台（Milestone 3／4）
 `/vendor/login` 登入後於 `/vendor/requests` 查看自家 `service_vendor_id` 的諮詢單與訂單
-（待確認／已接訂單／全部三個分頁，可開啟案件明細看表單內容與聯絡資訊，目前為唯讀）。
+（待確認／已接訂單／全部三個分頁），開啟案件明細可看表單內容與聯絡資訊，並直接接單或婉拒。
 
-- 案件在 `save_request` 時同步鏡射一份 `PK=VENDOR#{id}` 的索引項目，單表不必加 GSI。
+- **接單／拒單**：`POST /api/vendor/requests/{id}/accept|reject`，body 帶 `version`。
+  - 狀態機定義在 `app/services/statuses.py` 的 `VENDOR_TRANSITIONS`：只有待處理中的
+    案件（`VENDOR_PENDING_STATUSES`，即 `SUBMITTED`／`PENDING_PROVIDER`／
+    `AWAITING_QUOTE`）能接單（→ `CONFIRMED`）或婉拒（→ `REJECTED`），住戶已取消或
+    同事先接走的單會被擋下並回 409 `REQUEST_STATUS_CONFLICT`。
+  - 樂觀鎖：案件帶 `version`，每次寫入加一；寫入時以 DynamoDB
+    `ConditionExpression` 比對版本，對不上回 409 `REQUEST_VERSION_CONFLICT`，
+    連點兩下或兩個分頁同時操作只會有一次生效。兩種 409 都會把案件現況一併回傳，
+    前端直接更新畫面不必重新整理。
+- 案件在 `save_request` 時同步鏡射一份 `PK=VENDOR#{id}` 的索引項目，單表不必加 GSI；
+  索引是盡力而為的鏡射，狀態與版本一律以 `PK=USER#{actor}` 的案件本體為準。
 - 廠商帳號由部署端佈建（`VENDOR_ACCOUNTS`），**不開放自助註冊**：vendor_id 決定
   看得到哪些案件，若讓使用者自行宣告等同能讀取任一廠商的訂單。
 - 內建示範帳號：`vendor1@demo.local`（潔家家事服務，vendor 1）、

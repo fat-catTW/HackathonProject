@@ -45,6 +45,7 @@ def _chat_response(session_id: str, result: dict) -> ChatResponse:
         active_field=current_active_field(state),
         request_id=state["request_id"],
         status=state["status"],
+        redirect_path=result.get("redirect_path"),
     )
 
 

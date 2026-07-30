@@ -73,6 +73,12 @@ export function ButlerPanel({
           onClose?.();
           navigate(`/requests/${r.request_id}`);
         }, 900);
+      } else if (r.redirect_path) {
+        setToastText("正在帶你前往專屬頁面。");
+        setTimeout(() => {
+          onClose?.();
+          navigate(r.redirect_path!);
+        }, 900);
       }
     } catch {
       setEvents((prev) => [

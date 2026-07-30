@@ -965,6 +965,7 @@ def handle_message(
             return _reply(
                 state,
                 "商城購物需要挑選店家、規格和購物車，這部分請到「商城購物」頁面操作會更方便，我幫你導過去囉！",
+                redirect_path="/services/shop_purchase",
             )
 
     found = _extract_fields(actor_id, state, text, events)
@@ -1408,5 +1409,5 @@ def _submit_package_shipping(actor_id: str, state: dict, latest_user_message: st
     return _reply(state, reply)
 
 
-def _reply(state: dict, reply: str) -> dict:
-    return {"reply": reply, "state": state}
+def _reply(state: dict, reply: str, redirect_path: str | None = None) -> dict:
+    return {"reply": reply, "state": state, "redirect_path": redirect_path}

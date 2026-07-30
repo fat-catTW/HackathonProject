@@ -44,4 +44,5 @@ export interface ChatResponse {
   missing_fields: string[];
   request_id: string | null;
   status: string;
+  redirect_path: string | null;
 }

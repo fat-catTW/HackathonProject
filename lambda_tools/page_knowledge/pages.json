@@ -88,6 +88,7 @@
       "service_form_home_cleaning",
       "service_form_restaurant_reservation",
       "service_form_food_delivery",
+      "service_form_package_shipping",
       "my_services",
       "assistant"
     ],
@@ -404,6 +405,43 @@
       "food delivery",
       "delivery form",
       "manual delivery order"
+    ]
+  },
+  {
+    "page_id": "service_form_package_shipping",
+    "route": "/services/package_shipping",
+    "title": "Package shipping form",
+    "summary": "Collects sender/receiver address or 7-11 store, package weight and dimensions, and pickup time for a shipping request.",
+    "features": [
+      "Choose home pickup or 7-11 store-to-store",
+      "Enter sender and receiver address or store",
+      "Enter package weight and dimensions",
+      "Estimate shipping fee"
+    ],
+    "available_actions": [
+      "Choose pickup method",
+      "Enter address or store",
+      "Enter weight and dimensions",
+      "Describe package contents",
+      "Enter contact name and phone",
+      "Submit shipping request"
+    ],
+    "next_steps": [
+      "Choose pickup method first",
+      "Then complete package details and contact info"
+    ],
+    "related_pages": [
+      "home",
+      "assistant",
+      "request_detail"
+    ],
+    "keywords": [
+      "package shipping",
+      "shipping form",
+      "black cat",
+      "t-cat",
+      "7-11 store to store",
+      "home pickup"
     ]
   },
   {

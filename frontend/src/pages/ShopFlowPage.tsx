@@ -21,6 +21,7 @@ interface CartEntry {
   attributesLabel: string;
   unitPrice: number;
   quantity: number;
+  productType: "PHYSICAL" | "SERIAL_CODE";
 }
 
 export function ShopFlowPage() {
@@ -88,7 +89,14 @@ export function ShopFlowPage() {
       }
       return [
         ...prev,
-        { sku_id: matchedSku.sku_id, productName: activeProduct.name, attributesLabel, unitPrice: matchedSku.unit_price, quantity: 1 },
+        {
+          sku_id: matchedSku.sku_id,
+          productName: activeProduct.name,
+          attributesLabel,
+          unitPrice: matchedSku.unit_price,
+          quantity: 1,
+          productType: activeProduct.product_type,
+        },
       ];
     });
     setToastText(`已加入購物車：${activeProduct.name}`);
@@ -99,7 +107,7 @@ export function ShopFlowPage() {
   }
 
   const cartTotal = cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
-  const hasPhysicalItem = cart.some((line) => products.find((p) => p.skus.some((s) => s.sku_id === line.sku_id))?.product_type === "PHYSICAL");
+  const hasPhysicalItem = cart.some((line) => line.productType === "PHYSICAL");
   const shippingFee = hasPhysicalItem ? 60 : 0;
   const payableBeforePoints = cartTotal + shippingFee;
   const maxUsablePoints = Math.min(pointsBalance, payableBeforePoints);

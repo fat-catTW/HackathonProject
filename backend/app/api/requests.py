@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth.cognito import CurrentUser, get_current_user
+from ..services import shop
 from ..services.conversation_memory import MEMORY
 from ..services.statuses import STATUS_LABELS
 from ..services.store import STORE
@@ -80,6 +81,15 @@ def confirm_request(request_id: str, user: CurrentUser = Depends(get_current_use
 @router.post("/api/requests/{request_id}/cancel")
 def cancel_request(request_id: str, user: CurrentUser = Depends(get_current_user)):
     request = _get_or_404(user.sub, request_id)
+    if request.get("service_id") == "shop_purchase":
+        result = shop.cancel_shop_order(user.sub, request_id)
+        if not result.get("success"):
+            code = result["error"]["code"]
+            raise HTTPException(
+                status_code=404 if code == "REQUEST_NOT_FOUND" else 409,
+                detail={"success": False, "error": result["error"]},
+            )
+        return {"success": True, "request_id": request_id, "status": result["status"]}
     if request["status"] in ("COMPLETED", "CANCELLED"):
         raise HTTPException(
             status_code=409,

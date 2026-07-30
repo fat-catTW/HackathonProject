@@ -113,7 +113,7 @@ export function ShopFlowPage() {
         cart: cartLines,
         contact_name: contactName,
         phone,
-        address: hasPhysicalItem ? address : undefined,
+        address: hasPhysicalItem ? { ...address, contact_name: contactName } : undefined,
         used_points: Math.min(usedPoints, maxUsablePoints),
       });
       setResult(submitted);

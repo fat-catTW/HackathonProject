@@ -1,19 +1,24 @@
 import { useNavigate } from "react-router-dom";
 import { ButlerLauncher } from "../components/ButlerLauncher";
 import { Mascot } from "../components/Mascot";
+import { OnboardingModal } from "../components/OnboardingModal";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { ThemeMenu } from "../components/ThemeMenu";
 import { SERVICES } from "../data/services";
 import { useAccessibilityMode } from "../hooks/useAccessibilityMode";
 import { useAuth } from "../hooks/useAuth";
+import { useOnboarding } from "../hooks/useOnboarding";
 
 export function HomePage() {
   const { name, logout } = useAuth();
   const { enabled: a11yEnabled } = useAccessibilityMode();
+  const { shouldShow: showOnboarding, complete: completeOnboarding } = useOnboarding();
   const navigate = useNavigate();
 
   return (
     <>
+      {showOnboarding && <OnboardingModal onComplete={completeOnboarding} />}
+
       <main className="mx-auto min-h-dvh max-w-md bg-brand-soft px-5 pb-32 pt-8">
         <header className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">

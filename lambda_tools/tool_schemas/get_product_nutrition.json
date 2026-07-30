@@ -1,0 +1,64 @@
+[
+  {
+    "name": "get_product_nutrition",
+    "description": "Get full nutrition info (calories, protein, carbs, fat, sodium, tags, allergens) for a single 7-11 product by its product_id.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "description": "Product id, for example P001."
+        }
+      },
+      "required": ["product_id"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "price": {
+          "type": "integer"
+        },
+        "calories": {
+          "type": "integer"
+        },
+        "protein_g": {
+          "type": "number"
+        },
+        "carbs_g": {
+          "type": "number"
+        },
+        "fat_g": {
+          "type": "number"
+        },
+        "sodium_mg": {
+          "type": "integer"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allergens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["success"]
+    }
+  }
+]

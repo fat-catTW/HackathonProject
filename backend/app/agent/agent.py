@@ -739,6 +739,12 @@ def new_state() -> dict:
         "request_id": None,
         "status": "COLLECTING_INFORMATION",
         "short_term_memory": [],
+        # health_product_recommendation is a one-shot query-and-answer service
+        # (see catalog.py), not a form-and-submit one. It never sets request_id;
+        # instead the agent answers directly and resets service_id back to None
+        # while keeping this list around so a same-session follow-up naming one
+        # of the recommended products can be answered with its nutrition info.
+        "health_last_recommendations": [],
     }
 
 
@@ -897,6 +903,11 @@ def handle_message(
         return _reply(state, _model_reply(actor_id, state, "confirmation_retry", latest_user_message=text))
 
     if not state["service_id"]:
+        if state.get("health_last_recommendations"):
+            health_followup_reply = _handle_health_followup(state, text, auth_token)
+            if health_followup_reply:
+                return _reply(state, health_followup_reply)
+
         if _looks_like_memory_question(text):
             memory_reply = _reply_from_memory(actor_id)
             if memory_reply:
@@ -929,6 +940,18 @@ def handle_message(
         state["service_name"] = _display_service_name(service_id, (service or {}).get("name") or schema_result.get("title"))
         state["service_schema"] = {"fields": schema_result["fields"]}
         _recompute_missing(state)
+
+        if service_id == "health_product_recommendation":
+            # The message that triggered detection is itself the health/diet
+            # query (single-field, no form to fill) — answer immediately
+            # instead of falling through to the generic field-collection flow.
+            reply = _answer_health_recommendation(state, text, auth_token)
+            state["service_id"] = None
+            state["service_name"] = None
+            state["service_schema"] = None
+            state["collected_fields"] = {}
+            state["missing_fields"] = []
+            return _reply(state, reply)
 
     found = _extract_fields(actor_id, state, text, events)
     if state.get("service_id") == "package_shipping" and "item_description" in found:
@@ -1273,6 +1296,58 @@ def _submit_delivery(actor_id: str, state: dict, latest_user_message: str) -> di
             request_id=result["request_id"],
         ),
     )
+
+
+def _format_health_recommendation_reply(result: dict) -> str:
+    recommendations = result.get("recommendations") or []
+    if not recommendations:
+        return "很抱歉，目前沒有找到符合這個需求的商品，要不要換個方式描述你的需求？"
+    lines = ["這是我幫你找到的推薦商品："]
+    for index, rec in enumerate(recommendations, start=1):
+        lines.append(f"{index}. {rec.get('name', '')}：{rec.get('reason', '')}")
+    if result.get("fallback_used"):
+        lines.append("（這次是用關鍵字比對挑選的，僅供參考）")
+    lines.append("如果想知道某項商品的詳細營養資訊，可以直接告訴我商品名稱。")
+    return "\n".join(lines)
+
+
+def _answer_health_recommendation(state: dict, query: str, auth_token: str | None) -> str:
+    result = tools.call("recommend_products_by_health_need", {"query": query}, auth_token=auth_token)
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "查詢失敗")
+        return f"抱歉，這次查詢沒有成功，原因是：{message}。你可以稍後再試一次。"
+    state["health_last_recommendations"] = result.get("recommendations") or []
+    return _format_health_recommendation_reply(result)
+
+
+def _format_health_nutrition_reply(product: dict) -> str:
+    lines = [
+        f"{product.get('name', '')} 的營養資訊：",
+        f"熱量：{product.get('calories')} kcal",
+        f"蛋白質：{product.get('protein_g')} g",
+        f"碳水：{product.get('carbs_g')} g",
+        f"脂肪：{product.get('fat_g')} g",
+        f"鈉：{product.get('sodium_mg')} mg",
+    ]
+    allergens = product.get("allergens") or []
+    if allergens:
+        lines.append(f"過敏原：{'、'.join(allergens)}")
+    return "\n".join(lines)
+
+
+def _handle_health_followup(state: dict, text: str, auth_token: str | None) -> str | None:
+    """若使用者接著問剛才推薦清單裡某項商品，直接查營養資訊回答；否則回 None 讓一般流程繼續判斷。"""
+    recommendations = state.get("health_last_recommendations") or []
+    matched = next(
+        (rec for rec in recommendations if rec.get("name") and rec["name"] in text),
+        None,
+    )
+    if not matched:
+        return None
+    result = tools.call("get_product_nutrition", {"product_id": matched["product_id"]}, auth_token=auth_token)
+    if not result.get("success"):
+        return None
+    return _format_health_nutrition_reply(result)
 
 
 def _submit_package_shipping(actor_id: str, state: dict, latest_user_message: str) -> dict:

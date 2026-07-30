@@ -14,6 +14,8 @@ FUNCTIONS = {
     "submit_service_request": ROOT / "submit_service_request" / "handler.py",
     "get_page_context": ROOT / "get_page_context" / "handler.py",
     "search_pages": ROOT / "search_pages" / "handler.py",
+    "recommend_products_by_health_need": ROOT / "recommend_products_by_health_need" / "handler.py",
+    "get_product_nutrition": ROOT / "get_product_nutrition" / "handler.py",
 }
 
 

@@ -3,6 +3,14 @@
 from .delivery_catalog import list_stores
 from .restaurant_catalog import RESTAURANTS
 
+# health_product_recommendation is a query-and-answer service (like
+# restaurant_reservation / food_delivery), not a form-and-submit one: the
+# agent (see app/agent/agent.py) intercepts it before the generic
+# submit_service_request flow and calls tools.call("recommend_products_by_health_need", ...)
+# directly, replying with the recommendation instead of creating a case.
+# The single "query" field below only exists so list_services/get_service_schema
+# has something to describe; it is never validated/submitted.
+
 SERVICES: list[dict] = [
     {
         "id": "plumbing_repair",
@@ -304,6 +312,26 @@ SERVICES: list[dict] = [
                     "type": "textarea",
                     "required": False,
                     "question": "如果有其他補充，也可以留下備註。",
+                },
+            ]
+        },
+    },
+    {
+        "id": "health_product_recommendation",
+        "name": "健康商品推薦",
+        "description": "說出健康或飲食需求，推薦適合的 7-11 商品",
+        "service_vendor_id": None,
+        "cms_type": None,
+        "enabled": True,
+        "keywords": ["健康", "營養", "減脂", "增肌", "低糖", "低鈉", "推薦", "飲食", "吃什麼"],
+        "schema": {
+            "fields": [
+                {
+                    "id": "query",
+                    "label": "健康或飲食需求",
+                    "type": "textarea",
+                    "required": True,
+                    "question": "請問想解決什麼健康或飲食需求呢？例如：我在減脂但想吃點甜食。",
                 },
             ]
         },

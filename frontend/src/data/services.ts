@@ -379,6 +379,14 @@ export const SERVICES: ServiceDefinition[] = [
     ],
   },
   {
+    service_id: "health_product_recommendation",
+    title: "健康商品推薦",
+    subtitle: "說出健康或飲食需求，推薦適合的 7-11 商品",
+    description: "說出健康或飲食需求（例如減脂、增肌、低鈉），AI 會推薦適合的 7-11 商品。",
+    icon: "health",
+    fields: [],
+  },
+  {
     service_id: "restaurant_reservation",
     title: "餐廳訂位",
     subtitle: "22世紀風味館 精選餐廳訂位服務",

@@ -73,6 +73,14 @@ SERVICE_FORM_ALIASES = {
         "叫外送",
         "點餐",
     ),
+    "service_form_health_product_recommendation": (
+        "健康",
+        "營養",
+        "減脂",
+        "增肌",
+        "低鈉",
+        "推薦",
+    ),
 }
 
 

@@ -94,6 +94,7 @@ class Settings:
         "apac.amazon.nova-pro-v1:0",
     )
     dynamodb_table_name: str = os.getenv("DYNAMODB_TABLE_NAME", "ServiceAssistant")
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     mock_store_path: Path = _BACKEND_ROOT / os.getenv("MOCK_STORE_PATH", ".local-store.json")
     user_store_path: Path = _BACKEND_ROOT / os.getenv("USER_STORE_PATH", ".local-users.json")
     allow_demo_auth: bool = _env_flag("ALLOW_DEMO_AUTH", True)
@@ -103,6 +104,10 @@ class Settings:
     submit_service_request_lambda_name: str = os.getenv("SUBMIT_SERVICE_REQUEST_LAMBDA_NAME", "")
     get_page_context_lambda_name: str = os.getenv("GET_PAGE_CONTEXT_LAMBDA_NAME", "")
     search_pages_lambda_name: str = os.getenv("SEARCH_PAGES_LAMBDA_NAME", "")
+    recommend_products_by_health_need_lambda_name: str = os.getenv(
+        "RECOMMEND_PRODUCTS_BY_HEALTH_NEED_LAMBDA_NAME", ""
+    )
+    get_product_nutrition_lambda_name: str = os.getenv("GET_PRODUCT_NUTRITION_LAMBDA_NAME", "")
 
     # AgentCore integration.
     agentcore_runtime_arn: str = os.getenv("AGENTCORE_RUNTIME_ARN", "")
@@ -116,6 +121,12 @@ class Settings:
     mcp_submit_service_request_tool_name: str = os.getenv("MCP_SUBMIT_SERVICE_REQUEST_TOOL_NAME", "submit_service_request")
     mcp_get_page_context_tool_name: str = os.getenv("MCP_GET_PAGE_CONTEXT_TOOL_NAME", "get_page_context")
     mcp_search_pages_tool_name: str = os.getenv("MCP_SEARCH_PAGES_TOOL_NAME", "search_pages")
+    mcp_recommend_products_by_health_need_tool_name: str = os.getenv(
+        "MCP_RECOMMEND_PRODUCTS_BY_HEALTH_NEED_TOOL_NAME", "recommend_products_by_health_need"
+    )
+    mcp_get_product_nutrition_tool_name: str = os.getenv(
+        "MCP_GET_PRODUCT_NUTRITION_TOOL_NAME", "get_product_nutrition"
+    )
 
     demo_users: dict = field(
         default_factory=lambda: {

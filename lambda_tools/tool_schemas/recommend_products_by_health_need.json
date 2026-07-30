@@ -1,0 +1,56 @@
+[
+  {
+    "name": "recommend_products_by_health_need",
+    "description": "Recommend 7-11 products based on a user's natural-language health or diet need (e.g. weight loss, muscle gain, low sodium). Returns up to 5 matching products with reasons.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "User's health/diet need described in natural language, for example \"我在減脂但想吃點甜食\"."
+        }
+      },
+      "required": ["query"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "query": {
+          "type": "string"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "product_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "match_tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["product_id", "name", "reason"]
+          }
+        },
+        "fallback_used": {
+          "type": "boolean",
+          "description": "True when the rule-based keyword fallback was used instead of Gemini."
+        }
+      },
+      "required": ["success"]
+    }
+  }
+]

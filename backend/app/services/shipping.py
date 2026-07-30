@@ -1,6 +1,7 @@
 """Package shipping order service (統一速達／黑貓宅急便 + 7-11 店到店)."""
 from __future__ import annotations
 
+from . import catalog
 from .store import STORE, now_iso
 
 EXCLUDED_COUNTIES = {"金門縣", "連江縣", "澎湖縣"}
@@ -13,18 +14,9 @@ PROHIBITED_KEYWORDS: dict[str, tuple[str, ...]] = {
     "有價證券/證件": ("現金", "股票", "票券", "證件", "有價證券"),
 }
 
-_REQUIRED_FIELDS = (
-    "pickup_method",
-    "weight_kg",
-    "length_cm",
-    "width_cm",
-    "height_cm",
-    "item_description",
-    "declared_value",
-    "pickup_time_slot",
-    "contact_name",
-    "phone",
-)
+# 需要進行數字運算（材積、超重、申報價值上限）的欄位；接受原始 API 呼叫時可能是字串，
+# 必須先驗證型別才能做加總／比較，避免未經驗證的算術丟出未處理的例外。
+_NUMERIC_FIELDS = ("weight_kg", "length_cm", "width_cm", "height_cm", "declared_value")
 
 
 def contains_prohibited_keywords(text: str) -> list[str]:
@@ -33,6 +25,42 @@ def contains_prohibited_keywords(text: str) -> list[str]:
         for category, keywords in PROHIBITED_KEYWORDS.items()
         if any(keyword in text for keyword in keywords)
     ]
+
+
+def _field_is_visible(field: dict, payload: dict) -> bool:
+    visible_when = field.get("visibleWhen")
+    if not isinstance(visible_when, dict):
+        return True
+    parent_field_id = visible_when.get("fieldId")
+    expected_value = visible_when.get("value")
+    if not isinstance(parent_field_id, str):
+        return True
+    return payload.get(parent_field_id) == expected_value
+
+
+def _schema_fields() -> list[dict]:
+    schema = catalog.get_service_schema("package_shipping") or {"fields": []}
+    return schema["fields"]
+
+
+def _missing_required_fields(payload: dict) -> list[str]:
+    fields = _schema_fields()
+    required = [
+        field["id"]
+        for field in fields
+        if field.get("required") and _field_is_visible(field, payload)
+    ]
+    return [field_id for field_id in required if payload.get(field_id) in (None, "")]
+
+
+def _missing_required_fields_message(missing: list[str]) -> str:
+    field_labels = {field["id"]: field.get("label", field["id"]) for field in _schema_fields()}
+    labels = [field_labels.get(field_id, field_id) for field_id in missing]
+    return f"缺少必填欄位：{'、'.join(labels)}。"
+
+
+def _is_valid_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 def estimate_shipping_fee(
@@ -55,20 +83,33 @@ def _error(code: str, message: str) -> dict:
 
 
 def _validate_payload(payload: dict) -> dict | None:
-    for field_id in _REQUIRED_FIELDS:
-        if payload.get(field_id) in (None, ""):
-            return _error("INVALID_FORM_DATA", f"Missing required field: {field_id}")
+    missing = _missing_required_fields(payload)
+    if missing:
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_FORM_DATA",
+                "message": _missing_required_fields_message(missing),
+                "missing_fields": missing,
+            },
+        }
 
     pickup_method = payload["pickup_method"]
     if pickup_method not in ("HOME_PICKUP", "STORE_TO_STORE"):
         return _error("INVALID_FORM_DATA", "pickup_method 必須是 HOME_PICKUP 或 STORE_TO_STORE。")
 
-    if pickup_method == "HOME_PICKUP":
-        if payload.get("sender_address") in (None, "") or payload.get("receiver_address") in (None, ""):
-            return _error("INVALID_FORM_DATA", "到府收件需要填寫寄件與收件地址。")
-    else:
-        if payload.get("sender_store") in (None, "") or payload.get("receiver_store") in (None, ""):
-            return _error("INVALID_FORM_DATA", "店到店需要填寫寄件與收件門市。")
+    invalid_numeric = [field_id for field_id in _NUMERIC_FIELDS if not _is_valid_number(payload.get(field_id))]
+    if invalid_numeric:
+        return _error("INVALID_FORM_DATA", "包裹重量、長寬高與申報價值必須是數字。")
+
+    if not payload.get("prohibited_item_ack"):
+        matched = contains_prohibited_keywords(payload["item_description"])
+        if matched:
+            categories = "、".join(matched)
+            return _error(
+                "PROHIBITED_ITEM",
+                f"你提到的內容物可能屬於「{categories}」類別，這類物品寄送有限制，請確認內容物是否可以寄送。",
+            )
 
     total_cm = payload["length_cm"] + payload["width_cm"] + payload["height_cm"]
     weight_kg = payload["weight_kg"]
@@ -118,7 +159,7 @@ def create_shipping_order(actor_id: str, payload: dict) -> dict:
         "order_type": "20",
         "order_status": "01",
         "status": "AWAITING_QUOTE",
-        "form_data": {k: v for k, v in payload.items() if k != "session_id"},
+        "form_data": {k: v for k, v in payload.items() if k not in ("session_id", "prohibited_item_ack")},
         "estimated_fee_min": fee_min,
         "estimated_fee_max": fee_max,
         "created_at": created_at,

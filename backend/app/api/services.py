@@ -52,6 +52,7 @@ def create_service_request(
             "PACKAGE_TOO_LARGE",
             "OUT_OF_SERVICE_AREA",
             "DECLARED_VALUE_TOO_HIGH",
+            "PROHIBITED_ITEM",
         }
         status_code = (
             400

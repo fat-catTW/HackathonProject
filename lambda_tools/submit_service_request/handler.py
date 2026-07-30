@@ -483,6 +483,8 @@ def _submit_shop_order(actor_id: str, session_id: str, payload: dict) -> dict:
     total_amount = payable_before_points - points_discount
     points_earned = sum(sku["unit_points"] * qty for _p, sku, qty in resolved)
 
+    from botocore.exceptions import ClientError
+
     table = dynamodb_table()
 
     points_deducted = 0
@@ -496,8 +498,10 @@ def _submit_shop_order(actor_id: str, session_id: str, payload: dict) -> dict:
                 ExpressionAttributeValues={":amt": points_to_deduct, ":now": now_iso()},
             )
             points_deducted = points_to_deduct
-        except Exception:
-            return _error("INSUFFICIENT_POINTS", "點數餘額不足")
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return _error("INSUFFICIENT_POINTS", "點數餘額不足")
+            raise
 
     decremented: list[tuple[str, int]] = []
     for _product, sku, qty in resolved:
@@ -509,7 +513,9 @@ def _submit_shop_order(actor_id: str, session_id: str, payload: dict) -> dict:
                 ExpressionAttributeValues={":qty": qty, ":now": now_iso()},
             )
             decremented.append((sku["sku_id"], qty))
-        except Exception:
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
             for sku_id, quantity in decremented:
                 table.update_item(
                     Key={"PK": f"SHOP_SKU#{sku_id}", "SK": "STOCK"},
@@ -564,7 +570,27 @@ def _submit_shop_order(actor_id: str, session_id: str, payload: dict) -> dict:
         "created_at": now_iso(),
         "updated_at": now_iso(),
     }
-    _put_request_item(item)
+    try:
+        _put_request_item(item)
+    except Exception:
+        for sku_id, quantity in decremented:
+            table.update_item(
+                Key={"PK": f"SHOP_SKU#{sku_id}", "SK": "STOCK"},
+                UpdateExpression="SET quantity = quantity + :qty, updated_at = :now",
+                ExpressionAttributeValues={":qty": quantity, ":now": now_iso()},
+            )
+        table.update_item(
+            Key={"PK": f"USER#{actor_id}", "SK": "POINTS"},
+            UpdateExpression="SET balance = balance - :amt, updated_at = :now",
+            ExpressionAttributeValues={":amt": points_earned, ":now": now_iso()},
+        )
+        if points_deducted:
+            table.update_item(
+                Key={"PK": f"USER#{actor_id}", "SK": "POINTS"},
+                UpdateExpression="SET balance = balance + :amt, updated_at = :now",
+                ExpressionAttributeValues={":amt": points_deducted, ":now": now_iso()},
+            )
+        return _error("ORDER_SAVE_FAILED", "訂單建立失敗，請稍後再試")
 
     return {
         "success": True,

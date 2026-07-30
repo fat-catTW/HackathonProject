@@ -2,11 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { sendMessage } from "../api/chat";
 import { cancelRequest, getRequest, simulateStatus } from "../api/requests";
-import { ButlerLauncher } from "../components/ButlerLauncher";
 import { ChatMessage } from "../components/ChatMessage";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { StatusBadge } from "../components/StatusBadge";
+import { ButlerLauncher } from "../components/ButlerLauncher";
 import { Toast } from "../components/Toast";
 import type { RequestDetail } from "../types/request";
 import { fieldLabel, formatFieldValue } from "../utils/fieldLabels";
@@ -240,7 +240,11 @@ export function RequestDetailPage() {
       />
 
       <Toast text={toastText} onHide={() => setToastText(null)} />
-      <ButlerLauncher currentPageId="request_detail" />
+      <ButlerLauncher
+        currentPageId="request_detail"
+        requestId={detail.request_id}
+        serviceName={detail.service_name}
+      />
     </>
   );
 }

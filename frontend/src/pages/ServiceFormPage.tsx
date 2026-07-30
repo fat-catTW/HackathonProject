@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { createServiceRequest } from "../api/services";
-import { ButlerLauncher } from "../components/ButlerLauncher";
 import { ServiceIcon } from "../components/ServiceIcon";
+import { ButlerLauncher } from "../components/ButlerLauncher";
 import { Toast } from "../components/Toast";
 import { getServiceDefinition } from "../data/services";
 import { counties, getDistrictsByCountyName } from "../data/twRegions";
@@ -106,10 +106,10 @@ function preventWheelValueChange(event: React.WheelEvent<HTMLInputElement>) {
   }
 }
 
-function buildInitialValues(fields: ServiceField[]) {
+function buildInitialValues(fields: ServiceField[], prefill?: Record<string, string>) {
   const entries: Array<[string, string]> = [];
   for (const field of fields) {
-    entries.push([field.id, ""]);
+    entries.push([field.id, prefill?.[field.id] ?? ""]);
     if (field.type === "address") {
       entries.push([`${field.id}${ADDRESS_COUNTY_SUFFIX}`, ""]);
       entries.push([`${field.id}${ADDRESS_DISTRICT_SUFFIX}`, ""]);
@@ -173,8 +173,11 @@ function buildStructuredAddress(county: string, district: string, detail: string
 
 export function ServiceFormPage() {
   const { serviceId = "" } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const schema = useMemo(() => getServiceDefinition(serviceId), [serviceId]);
+  const supportPrefill = (location.state as { supportPrefill?: Record<string, string> } | null)
+    ?.supportPrefill;
   const [values, setValues] = useState<FormValues>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -182,11 +185,11 @@ export function ServiceFormPage() {
   const [createdRequestId, setCreatedRequestId] = useState<string | null>(null);
 
   useEffect(() => {
-    setValues(buildInitialValues(schema?.fields ?? []));
+    setValues(buildInitialValues(schema?.fields ?? [], supportPrefill));
     setErrors({});
     setCreatedRequestId(null);
     setToastText(null);
-  }, [schema]);
+  }, [schema, supportPrefill]);
 
   useEffect(() => {
     if (!createdRequestId) return;
@@ -198,18 +201,33 @@ export function ServiceFormPage() {
     () => (schema?.fields ?? []).filter((field) => isFieldVisible(field, values)),
     [schema, values],
   );
-  const groupedFields = useMemo(() => groupFields(visibleFields), [visibleFields]);
-  const requiredFieldCount = useMemo(
-    () => visibleFields.filter((field) => field.required).length,
+  const formFields = useMemo(
+    () => visibleFields.filter((field) => !field.hidden),
     [visibleFields],
+  );
+  const groupedFields = useMemo(() => groupFields(formFields), [formFields]);
+  const supportContextItems = useMemo(() => {
+    if (serviceId !== "customer_support") return [];
+
+    return [
+      { label: "目前頁面", value: values.current_page_label },
+      { label: "頁面代碼", value: values.current_page_id },
+      { label: "關聯案件編號", value: values.related_request_id },
+      { label: "關聯服務", value: values.related_service_name },
+      { label: "參考 FAQ", value: values.faq_reference },
+    ].filter((item) => item.value);
+  }, [serviceId, values]);
+  const requiredFieldCount = useMemo(
+    () => formFields.filter((field) => field.required).length,
+    [formFields],
   );
   const completedCount = useMemo(
     () =>
-      visibleFields.filter((field) => {
+      formFields.filter((field) => {
         const value = (values[field.id] ?? "").trim();
         return field.required && value !== "";
       }).length,
-    [visibleFields, values],
+    [formFields, values],
   );
   const airconEstimate = useMemo(() => {
     if (serviceId !== "air_conditioner_cleaning") return null;
@@ -347,7 +365,10 @@ export function ServiceFormPage() {
     });
   }
 
-  function updateAddressValue(fieldId: string, nextAddressParts: Partial<Record<"county" | "district" | "detail", string>>) {
+  function updateAddressValue(
+    fieldId: string,
+    nextAddressParts: Partial<Record<"county" | "district" | "detail", string>>,
+  ) {
     setValues((prev) => {
       const county = nextAddressParts.county ?? prev[addressCountyKey(fieldId)] ?? "";
       const district = nextAddressParts.district ?? prev[addressDistrictKey(fieldId)] ?? "";
@@ -386,7 +407,7 @@ export function ServiceFormPage() {
     if (!schema) return false;
 
     const nextErrors: Record<string, string> = {};
-    for (const field of visibleFields) {
+    for (const field of formFields) {
       const rawValue = (values[field.id] ?? "").trim();
       if (field.type === "address") {
         const county = (values[addressCountyKey(field.id)] ?? "").trim();
@@ -596,7 +617,7 @@ export function ServiceFormPage() {
                       ? "number"
                       : field.type === "date"
                         ? "date"
-                        : "text"
+                      : "text"
                   }
                   aria-label={field.label}
                   inputMode={field.type === "number" ? "numeric" : undefined}
@@ -717,6 +738,26 @@ export function ServiceFormPage() {
             />
           </div>
         </section>
+
+        {supportContextItems.length > 0 && (
+          <section className="mt-6 rounded-[28px] border border-brand/10 bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <p className="text-sm font-semibold text-brand">已自動帶入</p>
+              <h3 className="mt-1 text-lg font-black text-slate-900">客服可直接看到這些上下文</h3>
+            </div>
+            <div className="space-y-3">
+              {supportContextItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-start justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3"
+                >
+                  <span className="text-sm text-slate-500">{item.label}</span>
+                  <span className="text-right text-sm font-bold text-slate-900">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="mt-6 space-y-5">
           {groupedFields.map((group) => (
@@ -912,7 +953,7 @@ export function ServiceFormPage() {
       )}
 
       <Toast text={toastText} onHide={() => setToastText(null)} />
-      <ButlerLauncher currentPageId="service_form" />
+      {schema.service_id !== "customer_support" && <ButlerLauncher currentPageId="service_form" />}
     </>
   );
 }

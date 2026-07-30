@@ -572,6 +572,33 @@ SERVICES: list[dict] = [
             ]
         },
     },
+    {
+        "id": "customer_support",
+        "name": "客服諮詢",
+        "description": "FAQ 無法解決時，建立客服諮詢單並帶入目前頁面與案件資訊。",
+        "enabled": True,
+        "show_in_catalog": False,
+        "request_category": "CUSTOMER_SUPPORT",
+        "pms_form_type": 5,
+        "schema": {
+            "fields": [
+                {"id": "faq_reference", "label": "參考 FAQ", "type": "text", "required": False},
+                {"id": "current_page_id", "label": "頁面代碼", "type": "text", "required": False},
+                {"id": "current_page_label", "label": "目前頁面", "type": "text", "required": False},
+                {"id": "related_request_id", "label": "關聯案件編號", "type": "text", "required": False},
+                {"id": "related_service_name", "label": "關聯服務", "type": "text", "required": False},
+                {
+                    "id": "issue_topic",
+                    "label": "問題分類",
+                    "type": "select",
+                    "required": True,
+                    "options": ["訂單取消", "廠商回覆進度", "查看報價", "其他問題"],
+                },
+                {"id": "issue_summary", "label": "問題摘要", "type": "text", "required": True},
+                {"id": "issue_details", "label": "問題說明", "type": "textarea", "required": True},
+            ]
+        },
+    },
 ]
 
 SELECT_LABELS = {
@@ -591,7 +618,7 @@ def list_services() -> list[dict]:
     return [
         {"id": service["id"], "name": service["name"], "description": service["description"]}
         for service in SERVICES
-        if service["enabled"]
+        if service["enabled"] and service.get("show_in_catalog", True)
     ]
 
 

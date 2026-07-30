@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ButlerLauncher } from "../components/ButlerLauncher";
 import { ServiceIcon } from "../components/ServiceIcon";
+import { ButlerLauncher } from "../components/ButlerLauncher";
 import { Toast } from "../components/Toast";
 import {
   getDeliveryOrder,
@@ -581,7 +581,11 @@ export function DeliveryFlowPage() {
       </main>
 
       <Toast text={toastText} onHide={() => setToastText(null)} />
-      <ButlerLauncher currentPageId="delivery_flow" />
+      <ButlerLauncher
+        currentPageId="delivery_flow"
+        requestId={order?.request_id}
+        serviceName={order ? "外送訂單" : undefined}
+      />
     </>
   );
 }

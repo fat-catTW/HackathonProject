@@ -1,0 +1,38 @@
+[
+  {
+    "name": "get_shop_products",
+    "description": "List shop products, optionally filtered by store_id. Each product includes its specs (e.g. color/size) and SKUs (price, points earned per unit).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "store_id": {
+          "type": "string",
+          "description": "Optional store id to filter products by. Omit to list all products across all stores."
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "success": { "type": "boolean" },
+        "products": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "store_id": { "type": "string" },
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "product_type": { "type": "string" },
+              "specs": { "type": "array" },
+              "skus": { "type": "array" }
+            }
+          }
+        }
+      },
+      "required": ["success"]
+    }
+  }
+]

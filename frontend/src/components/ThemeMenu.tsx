@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAccessibilityMode } from "../hooks/useAccessibilityMode";
+import { useOnboarding } from "../hooks/useOnboarding";
 import { useTheme } from "../hooks/useTheme";
 import { Mascot } from "./Mascot";
 import { ServiceIcon } from "./ServiceIcon";
@@ -8,6 +9,7 @@ import { ServiceIcon } from "./ServiceIcon";
 export function ThemeMenu() {
   const { themeId, themes, setTheme } = useTheme();
   const { enabled: a11yEnabled, toggle: toggleA11y } = useAccessibilityMode();
+  const { reopen: reopenOnboarding } = useOnboarding();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -93,6 +95,20 @@ export function ThemeMenu() {
               </span>
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              reopenOnboarding();
+              setOpen(false);
+            }}
+            className="mt-3 flex w-full items-center gap-2 rounded-2xl border-2 border-transparent px-2 py-2.5 text-left transition hover:border-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-slate-600">
+              <ServiceIcon type="info" size={18} />
+            </span>
+            <span className="text-xs font-bold text-slate-600">重新觀看新手導覽</span>
+          </button>
         </div>
       )}
     </div>

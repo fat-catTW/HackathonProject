@@ -10,6 +10,7 @@ import {
   simulateDeliveryStatus,
   submitDeliveryOrder,
 } from "../api/delivery";
+import { counties, getDistrictsByCountyName } from "../data/twRegions";
 import type {
   CartItem,
   DeliveryAddress,
@@ -32,7 +33,7 @@ export function DeliveryFlowPage() {
     lat: 25.033,
     lng: 121.565,
     area: "",
-    city: "台北市",
+    city: "",
     street: "",
     remark: "",
     contact_name: "",
@@ -51,6 +52,7 @@ export function DeliveryFlowPage() {
   const [toastText, setToastText] = useState<string | null>(null);
 
   const step = STEP_ORDER[stepIndex];
+  const districtOptions = getDistrictsByCountyName(address.city);
   const goNext = () => setStepIndex((i) => Math.min(i + 1, STEP_ORDER.length - 1));
   const goBack = () => setStepIndex((i) => Math.max(i - 1, 0));
 
@@ -85,6 +87,12 @@ export function DeliveryFlowPage() {
     }, 5000);
     return () => clearInterval(interval);
   }, [step, order]);
+
+  useEffect(() => {
+    if (!address.area) return;
+    if (districtOptions.includes(address.area)) return;
+    setAddress((current) => ({ ...current, area: "" }));
+  }, [address.area, districtOptions]);
 
   function addToCart(item: MenuItem) {
     setCart((prev) => {
@@ -138,7 +146,10 @@ export function DeliveryFlowPage() {
   }
 
   const canSubmitAddress =
-    address.contact_name.trim() && address.city.trim() && address.street.trim();
+    address.contact_name.trim() &&
+    address.city.trim() &&
+    address.area.trim() &&
+    address.street.trim();
 
   return (
     <>
@@ -160,28 +171,43 @@ export function DeliveryFlowPage() {
           <section className="flex flex-col gap-4">
             <p className="text-base font-bold leading-relaxed text-slate-900">請輸入外送地址</p>
             <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm text-slate-600">縣市</span>
+                  <select
+                    aria-label="縣市"
+                    value={address.city}
+                    onChange={(e) => setAddress({ ...address, city: e.target.value, area: "" })}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-base"
+                  >
+                    <option value="">請選擇縣市</option>
+                    {counties.map((county) => (
+                      <option key={county.code} value={county.name}>
+                        {county.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm text-slate-600">鄉鎮市區</span>
+                  <select
+                    aria-label="鄉鎮市區"
+                    value={address.area}
+                    disabled={!address.city}
+                    onChange={(e) => setAddress({ ...address, area: e.target.value })}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-base disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    <option value="">{address.city ? "請選擇鄉鎮市區" : "請先選擇縣市"}</option>
+                    {districtOptions.map((district) => (
+                      <option key={district} value={district}>
+                        {district}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
               <label className="flex flex-col gap-1">
-                <span className="text-sm text-slate-600">城市</span>
-                <input
-                  type="text"
-                  value={address.city}
-                  onChange={(e) => setAddress({ ...address, city: e.target.value })}
-                  placeholder="例：台北市"
-                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-sm text-slate-600">區域</span>
-                <input
-                  type="text"
-                  value={address.area}
-                  onChange={(e) => setAddress({ ...address, area: e.target.value })}
-                  placeholder="例：大安區"
-                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-sm text-slate-600">街道地址</span>
+                <span className="text-sm text-slate-600">地址</span>
                 <input
                   type="text"
                   value={address.street}

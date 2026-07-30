@@ -131,6 +131,10 @@ DELIVERY_STORES: list[dict] = [
     },
 ]
 
+# --- 商城購物：商品目錄（複製自 backend/app/services/shop_catalog.py，
+#     同樣的分開部署理由） ---
+from .shop_catalog import SHOP_PRODUCTS, SHOP_STORES  # noqa: F401 (kept for get_shop_store/get_shop_sku below)
+
 
 def get_restaurant(restaurant_id: str) -> dict | None:
     return next((r for r in RESTAURANTS if r["id"] == restaurant_id), None)
@@ -138,6 +142,18 @@ def get_restaurant(restaurant_id: str) -> dict | None:
 
 def get_delivery_store(store_id: str) -> dict | None:
     return next((s for s in DELIVERY_STORES if s["id"] == store_id), None)
+
+
+def get_shop_store(store_id: str) -> dict | None:
+    return next((s for s in SHOP_STORES if s["id"] == store_id), None)
+
+
+def get_shop_sku(sku_id: str) -> tuple[dict, dict] | None:
+    for product in SHOP_PRODUCTS:
+        for sku in product["skus"]:
+            if sku["sku_id"] == sku_id:
+                return product, sku
+    return None
 
 
 def convert_floats_to_decimal(value):
@@ -447,6 +463,16 @@ FALLBACK_SERVICES: list[dict] = [
                 },
                 {"id": "contact_name", "label": "聯絡人姓名", "type": "text", "required": True},
                 {"id": "phone", "label": "聯絡電話", "type": "text", "required": True},
+            ]
+        },
+    },
+    {
+        "id": "shop_purchase",
+        "name": "商城購物",
+        "description": "多店家商城購物，可用點數折抵",
+        "schema": {
+            "fields": [
+                {"id": "note", "label": "購物需求", "type": "text", "required": True},
             ]
         },
     },

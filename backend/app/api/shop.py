@@ -19,9 +19,14 @@ def list_shop_stores() -> dict:
     return {"stores": shop_catalog.list_stores()}
 
 
+@router.get("/api/shop/categories")
+def list_shop_categories() -> dict:
+    return {"categories": shop_catalog.list_categories()}
+
+
 @router.get("/api/shop/products")
-def list_shop_products(store_id: str | None = None) -> dict:
-    return {"products": shop_catalog.list_products(store_id)}
+def list_shop_products(category_id: str | None = None, store_id: str | None = None) -> dict:
+    return {"products": shop_catalog.list_products(category_id=category_id, store_id=store_id)}
 
 
 @router.get("/api/shop/products/{product_id}")

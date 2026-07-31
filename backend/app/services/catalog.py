@@ -357,6 +357,26 @@ SERVICES: list[dict] = [
         },
     },
     {
+        "id": "shop_price_compare",
+        "name": "商品比價",
+        "description": "說出想比價的商品名稱，馬上看到各店家價格",
+        "service_vendor_id": None,
+        "cms_type": None,
+        "enabled": True,
+        "keywords": ["比價", "比較", "比較價格", "哪裡最便宜", "哪家最便宜", "最便宜", "價格比較"],
+        "schema": {
+            "fields": [
+                {
+                    "id": "query",
+                    "label": "想比價的商品",
+                    "type": "textarea",
+                    "required": True,
+                    "question": "請問想比較哪一個商品的價格呢？",
+                },
+            ],
+        },
+    },
+    {
         "id": "restaurant_reservation",
         "name": "餐廳訂位",
         "description": "22世紀風味館 精選餐廳訂位服務",
@@ -598,6 +618,7 @@ SERVICES: list[dict] = [
         "description": "FAQ 無法解決時，建立客服諮詢單並帶入目前頁面與案件資訊。",
         "enabled": True,
         "show_in_catalog": False,
+        "keywords": [],
         "request_category": "CUSTOMER_SUPPORT",
         "pms_form_type": 5,
         "schema": {

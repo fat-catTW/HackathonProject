@@ -991,6 +991,22 @@ def handle_message(
                 redirect_path="/services/shop_purchase",
             )
 
+        if service_id == "shop_price_compare":
+            # One-shot query-and-answer service (like health_product_recommendation):
+            # answer directly with a price summary instead of collecting form fields.
+            reply, redirect_path = _answer_price_compare(text, auth_token)
+            state["service_id"] = None
+            state["service_name"] = None
+            state["service_schema"] = None
+            state["collected_fields"] = {}
+            state["missing_fields"] = []
+            return _reply(
+                state,
+                reply,
+                redirect_path=redirect_path,
+                redirect_requires_confirmation=redirect_path is not None,
+            )
+
     found = _extract_fields(actor_id, state, text, events)
     if state.get("service_id") == "package_shipping" and "item_description" in found:
         matched = shipping.contains_prohibited_keywords(found["item_description"])
@@ -1358,6 +1374,19 @@ def _answer_health_recommendation(state: dict, query: str, auth_token: str | Non
     return _format_health_recommendation_reply(result)
 
 
+def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str | None]:
+    result = tools.call("compare_product_prices", {"query": query}, auth_token=auth_token)
+    if not result.get("success"):
+        return f"抱歉，沒有找到「{query}」的比價資訊，要不要換個商品名稱再試一次？", None
+    offers = result["offers"]
+    lines = [f"「{result['product_name']}」目前有 {len(offers)} 家店販售："]
+    for index, offer in enumerate(offers):
+        tag = "（最便宜）" if index == 0 else ""
+        lines.append(f"　{offer['store_name']} NT${offer['unit_price']}{tag}")
+    lines.append("我幫你打開比價頁面，可以直接選店家下單。")
+    return "\n".join(lines), f"/services/shop_purchase?compare={result['group_id']}"
+
+
 def _format_health_nutrition_reply(product: dict) -> str:
     lines = [
         f"{product.get('name', '')} 的營養資訊：",
@@ -1432,5 +1461,15 @@ def _submit_package_shipping(actor_id: str, state: dict, latest_user_message: st
     return _reply(state, reply)
 
 
-def _reply(state: dict, reply: str, redirect_path: str | None = None) -> dict:
-    return {"reply": reply, "state": state, "redirect_path": redirect_path}
+def _reply(
+    state: dict,
+    reply: str,
+    redirect_path: str | None = None,
+    redirect_requires_confirmation: bool = False,
+) -> dict:
+    return {
+        "reply": reply,
+        "state": state,
+        "redirect_path": redirect_path,
+        "redirect_requires_confirmation": redirect_requires_confirmation,
+    }

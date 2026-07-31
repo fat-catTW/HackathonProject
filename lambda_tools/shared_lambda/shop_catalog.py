@@ -26,6 +26,8 @@ SHOP_STORES: list[dict] = [
     {"id": "store_miaojie", "name": "妙潔小舖", "category": "居家清潔", "image": None},
     {"id": "store_health_mart", "name": "健康藥妝", "category": "藥妝保健", "image": None},
     {"id": "store_lohas_health", "name": "樂活保健", "category": "藥妝保健", "image": None},
+    {"id": "store_watsons", "name": "屈臣氏 台北信義店", "category": "藥妝", "image": None},
+    {"id": "store_carrefour", "name": "家樂福 內湖店", "category": "量販", "image": None},
 ]
 
 SHOP_PRODUCTS: list[dict] = [
@@ -52,6 +54,7 @@ SHOP_PRODUCTS: list[dict] = [
         "id": "prod_tumbler",
         "store_id": "store_uni_style",
         "category_id": "cat_daily",
+        "compare_group_id": "cmp_tumbler",
         "name": "不鏽鋼保溫杯 500ml",
         "description": "12 小時保冷、6 小時保溫，附背帶。",
         "product_type": "PHYSICAL",
@@ -158,6 +161,7 @@ SHOP_PRODUCTS: list[dict] = [
         "id": "prod_clean_spray",
         "store_id": "store_shujie",
         "category_id": "cat_cleaning",
+        "compare_group_id": "cmp_clean_spray",
         "name": "多功能清潔噴霧 500ml",
         "description": "廚房、浴室皆可使用，天然配方溫和不傷手。",
         "product_type": "PHYSICAL",
@@ -185,6 +189,7 @@ SHOP_PRODUCTS: list[dict] = [
         "id": "prod_vitamin_c",
         "store_id": "store_health_mart",
         "category_id": "cat_health",
+        "compare_group_id": "cmp_vitamin_c",
         "name": "維他命C發泡錠",
         "description": "每錠含維他命C 1000mg，檸檬口味。",
         "product_type": "PHYSICAL",
@@ -205,6 +210,94 @@ SHOP_PRODUCTS: list[dict] = [
         "specs": [],
         "skus": [
             {"sku_id": "sku_fish_oil_60", "attributes": {}, "unit_price": 399, "unit_points": 40},
+        ],
+    },
+    {
+        "id": "prod_vitamin_c_lohas",
+        "store_id": "store_lohas_health",
+        "category_id": "cat_health",
+        "compare_group_id": "cmp_vitamin_c",
+        "name": "維他命C發泡錠",
+        "description": "每錠含維他命C 1000mg，檸檬口味。",
+        "product_type": "PHYSICAL",
+        "image": None,
+        "specs": [],
+        "skus": [
+            {"sku_id": "sku_vitamin_c_lohas", "attributes": {}, "unit_price": 239, "unit_points": 24},
+        ],
+    },
+    {
+        "id": "prod_vitamin_c_watsons",
+        "store_id": "store_watsons",
+        "category_id": "cat_health",
+        "compare_group_id": "cmp_vitamin_c",
+        "name": "維他命C發泡錠",
+        "description": "每錠含維他命C 1000mg，檸檬口味。",
+        "product_type": "PHYSICAL",
+        "image": None,
+        "specs": [],
+        "skus": [
+            {"sku_id": "sku_vitamin_c_watsons", "attributes": {}, "unit_price": 249, "unit_points": 25},
+        ],
+    },
+    {
+        "id": "prod_clean_spray_miaojie",
+        "store_id": "store_miaojie",
+        "category_id": "cat_cleaning",
+        "compare_group_id": "cmp_clean_spray",
+        "name": "多功能清潔噴霧 500ml",
+        "description": "廚房、浴室皆可使用，天然配方溫和不傷手。",
+        "product_type": "PHYSICAL",
+        "image": None,
+        "specs": [{"name": "香味", "options": ["檸檬", "茶樹"]}],
+        "skus": [
+            {"sku_id": "sku_clean_spray_miaojie_lemon", "attributes": {"香味": "檸檬"}, "unit_price": 119, "unit_points": 12},
+            {"sku_id": "sku_clean_spray_miaojie_tea", "attributes": {"香味": "茶樹"}, "unit_price": 119, "unit_points": 12},
+        ],
+    },
+    {
+        "id": "prod_clean_spray_carrefour",
+        "store_id": "store_carrefour",
+        "category_id": "cat_cleaning",
+        "compare_group_id": "cmp_clean_spray",
+        "name": "多功能清潔噴霧 500ml",
+        "description": "廚房、浴室皆可使用，天然配方溫和不傷手。",
+        "product_type": "PHYSICAL",
+        "image": None,
+        "specs": [{"name": "香味", "options": ["檸檬", "茶樹"]}],
+        "skus": [
+            {"sku_id": "sku_clean_spray_carrefour_lemon", "attributes": {"香味": "檸檬"}, "unit_price": 109, "unit_points": 11},
+            {"sku_id": "sku_clean_spray_carrefour_tea", "attributes": {"香味": "茶樹"}, "unit_price": 109, "unit_points": 11},
+        ],
+    },
+    {
+        "id": "prod_tumbler_daiso",
+        "store_id": "store_daiso",
+        "category_id": "cat_daily",
+        "compare_group_id": "cmp_tumbler",
+        "name": "不鏽鋼保溫杯 500ml",
+        "description": "12 小時保冷、6 小時保溫，附背帶。",
+        "product_type": "PHYSICAL",
+        "image": None,
+        "specs": [{"name": "顏色", "options": ["粉", "藍"]}],
+        "skus": [
+            {"sku_id": "sku_tumbler_daiso_pink", "attributes": {"顏色": "粉"}, "unit_price": 490, "unit_points": 49},
+            {"sku_id": "sku_tumbler_daiso_blue", "attributes": {"顏色": "藍"}, "unit_price": 490, "unit_points": 49},
+        ],
+    },
+    {
+        "id": "prod_tumbler_watsons",
+        "store_id": "store_watsons",
+        "category_id": "cat_daily",
+        "compare_group_id": "cmp_tumbler",
+        "name": "不鏽鋼保溫杯 500ml",
+        "description": "12 小時保冷、6 小時保溫，附背帶。",
+        "product_type": "PHYSICAL",
+        "image": None,
+        "specs": [{"name": "顏色", "options": ["粉", "藍"]}],
+        "skus": [
+            {"sku_id": "sku_tumbler_watsons_pink", "attributes": {"顏色": "粉"}, "unit_price": 550, "unit_points": 55},
+            {"sku_id": "sku_tumbler_watsons_blue", "attributes": {"顏色": "藍"}, "unit_price": 550, "unit_points": 55},
         ],
     },
 ]
@@ -229,7 +322,11 @@ def list_products(*, category_id: str | None = None, store_id: str | None = None
     if store_id is not None:
         products = [p for p in products if p["store_id"] == store_id]
     return [
-        {**p, "store_name": (get_store(p["store_id"]) or {}).get("name", "")}
+        {
+            **p,
+            "store_name": (get_store(p["store_id"]) or {}).get("name", ""),
+            "compare_group_id": p.get("compare_group_id"),
+        }
         for p in products
     ]
 
@@ -243,4 +340,36 @@ def get_sku(sku_id: str) -> tuple[dict, dict] | None:
         for sku in product["skus"]:
             if sku["sku_id"] == sku_id:
                 return product, sku
+    return None
+
+
+def list_compare_offers(group_id: str) -> list[dict]:
+    offers = [
+        {
+            **p,
+            "store_name": (get_store(p["store_id"]) or {}).get("name", ""),
+            "min_unit_price": min(sku["unit_price"] for sku in p["skus"]),
+        }
+        for p in SHOP_PRODUCTS
+        if p.get("compare_group_id") == group_id
+    ]
+    return sorted(offers, key=lambda o: o["min_unit_price"])
+
+
+def find_compare_group_id_by_query(query: str) -> str | None:
+    for p in SHOP_PRODUCTS:
+        group_id = p.get("compare_group_id")
+        if not group_id:
+            continue
+        name = p["name"]
+        if name in query or query in name:
+            return group_id
+        # Users often shorten a product name to its leading noun (e.g. "維他命C"
+        # for "維他命C發泡錠") and embed it mid-sentence ("我想比較維他命C的
+        # 價格"); search for the name's leading core anywhere in the query
+        # instead of requiring the full name or a query-start match.
+        core_len = min(len(name), 4)
+        core = name[:core_len]
+        if core_len >= 3 and core in query:
+            return group_id
     return None

@@ -35,3 +35,23 @@ def test_list_shop_products_filtered_by_store_id_still_works():
     filtered = response.json()["products"]
     assert filtered
     assert all(p["store_id"] == store_id for p in filtered)
+
+
+def test_get_shop_compare_group_returns_offers_sorted_by_price():
+    client = TestClient(app)
+    response = client.get("/api/shop/compare/cmp_vitamin_c")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["group_id"] == "cmp_vitamin_c"
+    assert body["category_id"] == "cat_health"
+    offers = body["offers"]
+    assert len(offers) == 3
+    prices = [o["min_unit_price"] for o in offers]
+    assert prices == sorted(prices)
+
+
+def test_get_shop_compare_group_unknown_id_returns_404():
+    client = TestClient(app)
+    response = client.get("/api/shop/compare/does_not_exist")
+    assert response.status_code == 404
+    assert response.json()["detail"]["error"]["code"] == "COMPARE_GROUP_NOT_FOUND"

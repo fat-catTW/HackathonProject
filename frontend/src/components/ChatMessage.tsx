@@ -10,7 +10,13 @@ import { Mascot } from "./Mascot";
  * - 助理氣泡：不透明 `--color-surface` 底 + `--color-foreground` 字，左側附小型 Mascot 頭像
  *   （對應聊天機器人 App 參考稿每則助理訊息前的機器人頭像）
  */
-export function ChatMessage({ event }: { event: ChatEvent }) {
+export function ChatMessage({
+  event,
+  onRedirectClick,
+}: {
+  event: ChatEvent;
+  onRedirectClick?: (path: string) => void;
+}) {
   const isUser = event.role === "USER";
   return (
     <div className={`flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -30,6 +36,15 @@ export function ChatMessage({ event }: { event: ChatEvent }) {
         }`}
       >
         {event.content}
+        {event.redirectPath && (
+          <button
+            type="button"
+            onClick={() => onRedirectClick?.(event.redirectPath!)}
+            className="mt-3 block min-h-[44px] w-full rounded-2xl bg-[var(--color-primary)] px-4 py-2.5 text-base font-bold text-[var(--color-on-primary)]"
+          >
+            查看完整比價 →
+          </button>
+        )}
       </div>
     </div>
   );

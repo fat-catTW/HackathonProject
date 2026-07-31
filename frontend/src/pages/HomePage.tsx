@@ -1,5 +1,6 @@
-﻿import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AllServicesModal } from "../components/AllServicesModal";
 import { Mascot } from "../components/Mascot";
 import { OnboardingModal } from "../components/OnboardingModal";
 import { ServiceIcon } from "../components/ServiceIcon";
@@ -7,18 +8,31 @@ import { BottomNav } from "../components/BottomNav";
 import { AppearanceMenu } from "../components/AppearanceMenu";
 import { SupportPanel } from "../components/SupportPanel";
 import { SERVICES } from "../data/services";
+import { SERVICE_TONES } from "../utils/serviceTones";
 import { useAccessibilityMode } from "../hooks/useAccessibilityMode";
 import { useAuth } from "../hooks/useAuth";
 import { useOnboarding } from "../hooks/useOnboarding";
 
-/* icon／卡片底色在紫、桃紅、青、藍四色間輪替，刻意讓多種色相同時出現在同一個畫面，
-   不是只有單一品牌色的深淺變化。 */
-const SERVICE_TONES = [
-  { soft: "var(--color-primary-soft)", ink: "var(--color-primary)" },
-  { soft: "var(--color-secondary-soft)", ink: "var(--color-secondary)" },
-  { soft: "var(--color-tertiary-soft)", ink: "var(--color-tertiary)" },
-  { soft: "var(--color-info-soft)", ink: "var(--color-info)" },
+const PREVIEW_COUNT = 4;
+
+/*
+ * Header 大標題第二行輪播的情境問句，直接取材自實際服務（而不是憑空造句），
+ * 讓使用者一看就知道「這句話是真的在講這個 App 能做的事」，比固定一句
+ * 「今天想使用什麼服務？」更容易讓人聯想到自己剛好卡住的生活小事。
+ */
+const GREETING_PROMPTS = [
+  "水電漏水了嗎？",
+  "洗衣機該洗了？",
+  "冷氣該洗了嗎？",
+  "想大掃除嗎？",
+  "想找健康好物嗎？",
+  "想訂位吃飯嗎？",
+  "今天想吃點什麼？",
+  "想逛街買東西嗎？",
+  "有包裹要寄送嗎？",
 ] as const;
+
+const GREETING_INTERVAL_MS = 5200;
 
 export function HomePage() {
   const { name, logout } = useAuth();
@@ -26,25 +40,28 @@ export function HomePage() {
   const { shouldShow: showOnboarding, complete: completeOnboarding } = useOnboarding();
   const navigate = useNavigate();
   const entryServices = SERVICES.filter((service) => !service.hidden);
-  const serviceRailRef = useRef<HTMLDivElement>(null);
+  const previewServices = entryServices.slice(0, PREVIEW_COUNT);
+  const remainingCount = entryServices.length - previewServices.length;
   const [supportOpen, setSupportOpen] = useState(false);
-
-  function scrollServiceRail(direction: "prev" | "next") {
-    const el = serviceRailRef.current;
-    if (!el) return;
-    const amount = el.clientWidth * 0.7 * (direction === "next" ? 1 : -1);
-    el.scrollBy({ left: amount, behavior: "smooth" });
-  }
+  const [servicesOpen, setServicesOpen] = useState(false);
+  const [greetingIndex, setGreetingIndex] = useState(0);
 
   useEffect(() => {
-    if (!supportOpen) return;
+    if (!supportOpen && !servicesOpen) return;
     const { body } = document;
     const previousOverflow = body.style.overflow;
     body.style.overflow = "hidden";
     return () => {
       body.style.overflow = previousOverflow;
     };
-  }, [supportOpen]);
+  }, [supportOpen, servicesOpen]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setGreetingIndex((prev) => (prev + 1) % GREETING_PROMPTS.length);
+    }, GREETING_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <>
@@ -112,122 +129,92 @@ export function HomePage() {
             className="relative mt-1 text-3xl font-black leading-tight"
             style={{ textShadow: "0 2px 14px rgba(76,29,149,0.45)" }}
           >
-            今天想使用
-            <br />
-            什麼服務？
+            <span key={greetingIndex} className="greeting-fade inline-block">
+              {GREETING_PROMPTS[greetingIndex]}
+            </span>
           </h1>
         </header>
 
         {/*
-          服務項目改成可橫向滑動的卡片列（服務有 9 種，直接攤開成 2 欄格子會拉得很長）。
-          原生 overflow-x-auto + snap 支援觸控滑動；箭頭按鈕另外提供滑鼠使用者一個明確的
-          「還有更多、點一下看下一批」入口，兩種操作方式並存。
+          AI 管家入口：改成「光暈圓形頭像」為主的入口卡，而不是文字說明＋小插圖。
+          這頁真正的重點是管家本人，移到服務清單前面、緊接在 header 下方——
+          頭像本身放大、疊多層模糊光暈當「靈氣」，底下只留一個最短的行動提示，
+          整張卡片都是同一個按鈕，點哪裡都會進聊天室。
         */}
         <section className="mt-8">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-black text-[var(--color-foreground)]">目前所有服務</h2>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => scrollServiceRail("prev")}
-                aria-label="上一批服務"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-surface)] text-[var(--color-muted-foreground)] shadow-sm transition hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              >
-                <ServiceIcon type="back" size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollServiceRail("next")}
-                aria-label="下一批服務"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-surface)] text-[var(--color-muted-foreground)] shadow-sm transition hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              >
-                <ServiceIcon type="chevronRight" size={16} />
-              </button>
-            </div>
-          </div>
-          <div
-            ref={serviceRailRef}
-            className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-5 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          <button
+            type="button"
+            onClick={() => navigate("/new")}
+            className="flex w-full flex-col items-center overflow-hidden rounded-[28px] bg-[var(--color-canvas)] px-5 py-7 text-center transition hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
-            {entryServices.map((service, index) => {
-              const tone = SERVICE_TONES[index % SERVICE_TONES.length];
-              return (
-                <button
-                  key={service.service_id}
-                  type="button"
-                  onClick={() => navigate(`/services/${service.service_id}`)}
-                  style={{ "--i": index, background: tone.soft } as React.CSSProperties}
-                  className="stagger-item group w-40 shrink-0 snap-start rounded-[24px] p-4 text-left transition hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                >
-                  {/*
-                    icon 底座改成「有光澤感的圓角方塊」：白面到色調底的斜向漸層 + 內側高光陰影，
-                    讓圖示容器本身有點立體感，取代單純的實色方塊；線條圖示本身也加粗
-                    （strokeWidth 2）搭配較大尺寸，避免圖示在底座裡看起來單薄、空洞。
-                  */}
-                  <span
-                    className="flex h-16 w-16 items-center justify-center rounded-2xl transition-transform duration-200 group-hover:scale-105"
-                    style={{
-                      backgroundImage: `linear-gradient(145deg, var(--color-surface) 0%, ${tone.soft} 100%)`,
-                      boxShadow: `inset 0 1px 1px rgba(255,255,255,0.8), inset 0 -6px 10px -7px rgba(0,0,0,0.12), 0 10px 18px -12px ${tone.ink}`,
-                      color: tone.ink,
-                    }}
-                  >
-                    <ServiceIcon type={service.icon} size={32} strokeWidth={2} />
-                  </span>
-                  {/*
-                    標題與副標題都鎖定單行（line-clamp-1）：只要有任何一張卡的文字換成兩行，
-                    後面所有內容的起始高度就會跟著錯開，卡片列橫向排開時看起來高低不齊。
-                    鎖兩者都只有一行，才能保證每張卡片高度完全一致；超出的文字用省略號截斷。
-                  */}
-                  <p className="mt-4 line-clamp-1 text-base font-black leading-snug text-[var(--color-foreground)]">{service.title}</p>
-                  <p className="mt-1 line-clamp-1 text-xs leading-5 text-[var(--color-muted-foreground)]">{service.subtitle}</p>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/*
-          機器人插圖卡：原本是自動播放的影片，改成靜態插圖（使用者提供），拿掉影片檔案。
-          整寬色塊卡，左邊放文字介紹＋進入對話的行動點，右邊放直式相框，相框角落加一顆
-          模糊色塊當光暈，多一點層次感。
-        */}
-        <section className="mt-8 overflow-hidden rounded-[28px] bg-[var(--color-canvas)] p-5">
-          <div className="flex items-center gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-brand">AI 管家</p>
-              <h2 className="mt-1 text-lg font-black leading-snug text-[var(--color-foreground)]">
-                隨時都在，陪你把事情說清楚
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-[var(--color-muted-foreground)]">
-                有任何生活雜事，直接開口跟管家說就好。
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate("/new")}
-                className="mt-4 inline-flex min-h-[40px] items-center gap-1 rounded-full bg-brand px-4 text-sm font-bold text-[var(--color-on-primary)] transition hover:opacity-90"
-              >
-                開始對話
-                <ServiceIcon type="chevronRight" size={14} />
-              </button>
-            </div>
-
-            <div className="relative shrink-0">
+            <p className="text-sm font-bold text-brand">AI 管家</p>
+            <div className="relative mt-4 h-[150px] w-[150px] shrink-0">
               <span
                 aria-hidden
-                className="pointer-events-none absolute -inset-3 -z-10 rounded-full opacity-70 blur-2xl"
-                style={{ background: "var(--color-secondary-soft)" }}
+                className="pointer-events-none absolute -inset-6 rounded-full opacity-70 blur-2xl"
+                style={{ background: "var(--color-primary-accent)" }}
               />
-              <div className="relative aspect-[4/5] w-28 overflow-hidden rounded-[22px] shadow-[0_20px_45px_-20px_var(--color-primary)] ring-1 ring-[var(--color-border)]">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -inset-2 rounded-full opacity-60 blur-xl"
+                style={{ background: "var(--color-primary)" }}
+              />
+              <div className="relative h-full w-full overflow-hidden rounded-full shadow-[0_20px_45px_-15px_var(--color-primary)] ring-1 ring-[var(--color-border)]">
                 <img
                   src="/images/ai-companion.jpg"
                   alt=""
                   aria-hidden
                   className="h-full w-full object-cover"
+                  style={{ objectPosition: "50% 25%" }}
                 />
               </div>
             </div>
-          </div>
+            <span className="mt-5 inline-flex min-h-[40px] items-center gap-1 rounded-full bg-brand px-4 text-sm font-bold text-[var(--color-on-primary)]">
+              輕觸進入對話
+              <ServiceIcon type="chevronRight" size={14} />
+            </span>
+          </button>
+        </section>
+
+        {/*
+          服務捷徑列：份量刻意比管家小一號，只露出前 4 個服務圖示 + 「還有幾個」提示，
+          整張卡是一個按鈕，點哪裡都開啟「所有服務」視窗（AllServicesModal）。
+          不做成可各自導頁的獨立按鈕，是為了讓「瀏覽全部」這個動作只有一種入口、
+          不會讓使用者以為小圖示跟文字連結是兩種不同功能。
+        */}
+        <section className="mt-6">
+          <button
+            type="button"
+            onClick={() => setServicesOpen(true)}
+            className="flex w-full flex-col gap-3 rounded-[22px] bg-[var(--color-surface)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-[var(--color-foreground)]">熱門服務</span>
+              <span className="inline-flex items-center gap-1 text-sm font-bold text-brand">
+                瀏覽全部
+                <ServiceIcon type="chevronRight" size={14} />
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              {previewServices.map((service, index) => {
+                const tone = SERVICE_TONES[index % SERVICE_TONES.length];
+                return (
+                  <span
+                    key={service.service_id}
+                    className="flex h-11 w-11 items-center justify-center rounded-full"
+                    style={{ background: tone.soft, color: tone.ink }}
+                  >
+                    <ServiceIcon type={service.icon} size={20} />
+                  </span>
+                );
+              })}
+              {remainingCount > 0 && (
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-canvas)] text-xs font-extrabold text-[var(--color-muted-foreground)]">
+                  +{remainingCount}
+                </span>
+              )}
+            </div>
+          </button>
         </section>
 
         {/*
@@ -250,7 +237,7 @@ export function HomePage() {
           >
             <div className="relative z-10 max-w-[62%]">
               <p className="text-lg font-black text-[var(--color-on-secondary)]">我的服務</p>
-              <p className="mt-1.5 text-sm leading-6 text-[var(--color-on-secondary)] opacity-85">
+              <p className="mt-1.5 line-clamp-1 text-sm leading-6 text-[var(--color-on-secondary)] opacity-85">
                 查看已建立的服務需求與案件進度
               </p>
               <span className="mt-4 inline-flex items-center gap-1 rounded-full bg-[var(--color-surface)] px-4 py-2 text-sm font-bold text-[var(--color-secondary)]">
@@ -282,8 +269,8 @@ export function HomePage() {
           >
             <div className="relative z-10 max-w-[62%]">
               <p className="text-lg font-black text-[var(--color-on-primary)]">客服中心</p>
-              <p className="mt-1.5 text-sm leading-6 text-[var(--color-on-primary)] opacity-85">
-                常見問題快速解答，需要時轉真人客服
+              <p className="mt-1.5 line-clamp-1 text-sm leading-6 text-[var(--color-on-primary)] opacity-85">
+                常見問題快速解答，轉真人客服
               </p>
               <span className="mt-4 inline-flex items-center gap-1 rounded-full bg-[var(--color-surface)] px-4 py-2 text-sm font-bold text-[var(--color-primary)]">
                 洽詢
@@ -325,6 +312,20 @@ export function HomePage() {
           />
           <div className="relative flex h-full items-end justify-end">
             <SupportPanel currentPageId="home" onClose={() => setSupportOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      {servicesOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-scrim)] px-4 py-6 backdrop-blur-[2px] sm:px-6 sm:py-8">
+          <button
+            type="button"
+            aria-label="關閉所有服務視窗"
+            onClick={() => setServicesOpen(false)}
+            className="absolute inset-0"
+          />
+          <div className="relative w-full max-w-md">
+            <AllServicesModal onClose={() => setServicesOpen(false)} />
           </div>
         </div>
       )}

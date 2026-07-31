@@ -399,7 +399,7 @@ export const SERVICES: ServiceDefinition[] = [
     title: "美食外送",
     subtitle: "附近店家美食外送到府",
     description: "選擇餐點、輸入地址，輕鬆享受外送到家服務。",
-    icon: "restaurant",
+    icon: "delivery",
     fields: [],
   },
   {

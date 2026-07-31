@@ -17,7 +17,7 @@ def test_list_products_all_and_filtered_by_store():
     all_products = shop_catalog.list_products()
     assert len(all_products) >= 3
     store_id = all_products[0]["store_id"]
-    filtered = shop_catalog.list_products(store_id)
+    filtered = shop_catalog.list_products(store_id=store_id)
     assert filtered
     assert all(p["store_id"] == store_id for p in filtered)
 
@@ -63,3 +63,36 @@ def test_physical_products_have_specs_matching_sku_attribute_keys():
         spec_names = {spec["name"] for spec in product["specs"]}
         for sku in product["skus"]:
             assert set(sku["attributes"].keys()) == spec_names
+
+
+def test_list_categories_returns_all_categories():
+    categories = shop_catalog.list_categories()
+    assert len(categories) >= 5
+    assert all({"id", "name"} <= set(c.keys()) for c in categories)
+
+
+def test_every_product_has_a_valid_category_id():
+    category_ids = {c["id"] for c in shop_catalog.list_categories()}
+    for product in shop_catalog.list_products():
+        assert product["category_id"] in category_ids
+
+
+def test_each_category_has_at_least_two_distinct_vendors():
+    products = shop_catalog.list_products()
+    for category in shop_catalog.list_categories():
+        store_ids = {p["store_id"] for p in products if p["category_id"] == category["id"]}
+        assert len(store_ids) >= 2, f"{category['id']} 底下廠商不足兩家"
+
+
+def test_list_products_filtered_by_category():
+    all_products = shop_catalog.list_products()
+    category_id = all_products[0]["category_id"]
+    filtered = shop_catalog.list_products(category_id=category_id)
+    assert filtered
+    assert all(p["category_id"] == category_id for p in filtered)
+
+
+def test_list_products_includes_store_name():
+    product = shop_catalog.list_products()[0]
+    store = shop_catalog.get_store(product["store_id"])
+    assert product["store_name"] == store["name"]

@@ -7,15 +7,15 @@ import {
   cancelShopOrder,
   getShopOrder,
   getShopPoints,
+  listShopCategories,
   listShopProducts,
-  listShopStores,
   simulateShopOrderProgress,
   submitShopOrder,
 } from "../api/shop";
-import type { ShopCartLine, ShopOrder, ShopProduct, ShopStore, ShopSubmitResult } from "../types/shop";
+import type { ShopCartLine, ShopCategory, ShopOrder, ShopProduct, ShopSubmitResult } from "../types/shop";
 
-type Step = "store" | "product" | "cart" | "checkout" | "result";
-const STEP_ORDER: Step[] = ["store", "product", "cart", "checkout", "result"];
+type Step = "category" | "product" | "cart" | "checkout" | "result";
+const STEP_ORDER: Step[] = ["category", "product", "cart", "checkout", "result"];
 
 interface CartEntry {
   sku_id: string;
@@ -31,8 +31,8 @@ export function ShopFlowPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const step = STEP_ORDER[stepIndex];
 
-  const [stores, setStores] = useState<ShopStore[]>([]);
-  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<ShopCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [activeProduct, setActiveProduct] = useState<ShopProduct | null>(null);
   const [selectedSpecs, setSelectedSpecs] = useState<Record<string, string>>({});
@@ -50,14 +50,14 @@ export function ShopFlowPage() {
   const [toastText, setToastText] = useState<string | null>(null);
 
   useEffect(() => {
-    listShopStores().then((res) => setStores(res.stores)).catch(() => setToastText("店家清單載入失敗"));
+    listShopCategories().then((res) => setCategories(res.categories)).catch(() => setToastText("商品類型載入失敗"));
     getShopPoints().then((res) => setPointsBalance(res.balance)).catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (!selectedStoreId) return;
-    listShopProducts(selectedStoreId).then((res) => setProducts(res.products)).catch(() => setToastText("商品清單載入失敗"));
-  }, [selectedStoreId]);
+    if (!selectedCategoryId) return;
+    listShopProducts(selectedCategoryId).then((res) => setProducts(res.products)).catch(() => setToastText("商品清單載入失敗"));
+  }, [selectedCategoryId]);
 
   useEffect(() => {
     if (step !== "result" || !result || result.status === "COMPLETED") return;
@@ -190,23 +190,22 @@ export function ShopFlowPage() {
           <h1 className="text-xl font-black text-slate-900">商城購物</h1>
         </header>
 
-        {/* ====== Step 1: Store Selection ====== */}
-        {step === "store" && (
+        {/* ====== Step 1: Category Selection ====== */}
+        {step === "category" && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">請選擇店家</p>
+            <p className="text-base font-bold leading-relaxed text-slate-900">請選擇商品類型</p>
             <div className="flex flex-col gap-3">
-              {stores.map((store) => (
+              {categories.map((category) => (
                 <button
-                  key={store.id}
+                  key={category.id}
                   type="button"
                   onClick={() => {
-                    setSelectedStoreId(store.id);
+                    setSelectedCategoryId(category.id);
                     goNext();
                   }}
                   className="rounded-2xl border-2 border-slate-200 p-4 text-left transition hover:border-slate-300"
                 >
-                  <p className="text-base font-bold text-slate-900">{store.name}</p>
-                  <p className="text-sm text-slate-500">{store.category}</p>
+                  <p className="text-base font-bold text-slate-900">{category.name}</p>
                 </button>
               ))}
             </div>
@@ -304,7 +303,7 @@ export function ShopFlowPage() {
                 onClick={goBack}
                 className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand"
               >
-                返回選店家
+                返回選品類
               </button>
               <button
                 type="button"

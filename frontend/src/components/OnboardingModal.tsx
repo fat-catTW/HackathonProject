@@ -39,7 +39,13 @@ interface Props {
   onComplete: () => void;
 }
 
-/** 首次登入的全螢幕導引卡片（M13）。可左右滑動、點擊「下一步」，含跳過按鈕。 */
+/**
+ * 首次登入的全螢幕導引卡片（M13）。可左右滑動、點擊「下一步」，含跳過按鈕。
+ *
+ * 配色一律引用語意色 Token（Requirement 6.6），Light/Dark 共用同一份 className。
+ * 底層改用不透明的 `--color-surface`：此為覆蓋整個視窗的全螢幕層，若沿用半透明的
+ * `--color-primary-soft`（Dark 模式為 16% 半透明藍）會讓下層畫面透出來、內容無法閱讀。
+ */
 export function OnboardingModal({ onComplete }: Props) {
   const [index, setIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -77,13 +83,13 @@ export function OnboardingModal({ onComplete }: Props) {
       role="dialog"
       aria-modal="true"
       aria-label="新手導引"
-      className="fixed inset-0 z-[60] flex flex-col bg-brand-soft"
+      className="fixed inset-0 z-[60] flex flex-col bg-[var(--color-surface)]"
     >
       <div className="flex justify-end px-5 pt-6">
         <button
           type="button"
           onClick={onComplete}
-          className="rounded-full px-4 py-2 text-sm font-bold text-slate-500 transition hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          className="rounded-full px-4 py-2 text-sm font-bold text-[var(--color-muted-foreground)] transition hover:text-[var(--color-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
         >
           跳過
         </button>
@@ -94,14 +100,16 @@ export function OnboardingModal({ onComplete }: Props) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex h-40 w-40 items-center justify-center rounded-full bg-white shadow-[0_24px_60px_rgba(15,76,129,0.15)]">
+        <div className="flex h-40 w-40 items-center justify-center rounded-full bg-[var(--color-primary-soft)] shadow-xl">
           <Mascot size={92} />
         </div>
-        <span className="mt-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white">
+        <span className="mt-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-[var(--color-on-primary)]">
           <ServiceIcon type={slide.icon} size={28} />
         </span>
-        <h2 className="mt-5 text-2xl font-black text-slate-900">{slide.title}</h2>
-        <p className="mt-3 max-w-xs text-base leading-7 text-slate-500">{slide.description}</p>
+        <h2 className="mt-5 text-2xl font-black text-[var(--color-foreground)]">{slide.title}</h2>
+        <p className="mt-3 max-w-xs text-base leading-7 text-[var(--color-muted-foreground)]">
+          {slide.description}
+        </p>
       </div>
 
       <div className="flex items-center justify-center gap-2 pb-6">
@@ -113,7 +121,9 @@ export function OnboardingModal({ onComplete }: Props) {
             aria-current={i === index}
             onClick={() => goTo(i)}
             className={`h-2 rounded-full transition-all ${
-              i === index ? "w-6 bg-brand" : "w-2 bg-brand/25"
+              i === index
+                ? "w-6 bg-[var(--color-primary)]"
+                : "w-2 bg-[var(--color-muted-foreground)]"
             }`}
           />
         ))}
@@ -123,7 +133,7 @@ export function OnboardingModal({ onComplete }: Props) {
         <button
           type="button"
           onClick={handleNext}
-          className="w-full rounded-2xl bg-brand py-4 text-lg font-black text-white shadow-[0_16px_40px_rgba(15,76,129,0.28)] transition hover:bg-brand-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          className="w-full rounded-2xl bg-[var(--color-primary)] py-4 text-lg font-black text-[var(--color-on-primary)] shadow-lg transition hover:bg-[var(--color-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
         >
           {isLast ? "開始使用" : "下一步"}
         </button>

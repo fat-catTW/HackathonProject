@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ButlerLauncher } from "../components/ButlerLauncher";
+import { GlassPanel } from "../components/GlassPanel";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { Toast } from "../components/Toast";
 import {
@@ -183,17 +184,17 @@ export function ShopFlowPage() {
             type="button"
             onClick={() => navigate("/home")}
             aria-label="返回"
-            className="flex h-11 w-11 items-center justify-center text-gray-500"
+            className="flex h-11 w-11 items-center justify-center text-[var(--color-muted-foreground)]"
           >
             <ServiceIcon type="back" size={22} />
           </button>
-          <h1 className="text-xl font-black text-slate-900">商城購物</h1>
+          <h1 className="text-xl font-black text-[var(--color-foreground)]">商城購物</h1>
         </header>
 
         {/* ====== Step 1: Store Selection ====== */}
         {step === "store" && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">請選擇店家</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">請選擇店家</p>
             <div className="flex flex-col gap-3">
               {stores.map((store) => (
                 <button
@@ -203,10 +204,10 @@ export function ShopFlowPage() {
                     setSelectedStoreId(store.id);
                     goNext();
                   }}
-                  className="rounded-2xl border-2 border-slate-200 p-4 text-left transition hover:border-slate-300"
+                  className="rounded-2xl border-2 border-[var(--color-border)] p-4 text-left transition hover:border-[var(--color-primary)]"
                 >
-                  <p className="text-base font-bold text-slate-900">{store.name}</p>
-                  <p className="text-sm text-slate-500">{store.category}</p>
+                  <p className="text-base font-bold text-[var(--color-foreground)]">{store.name}</p>
+                  <p className="text-sm text-[var(--color-muted-foreground)]">{store.category}</p>
                 </button>
               ))}
             </div>
@@ -216,7 +217,7 @@ export function ShopFlowPage() {
         {/* ====== Step 2: Product Selection ====== */}
         {step === "product" && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">請選擇商品</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">請選擇商品</p>
             <div className="flex flex-col gap-3">
               {products.map((product) => (
                 <button
@@ -230,24 +231,24 @@ export function ShopFlowPage() {
                   className={`rounded-2xl border-2 p-4 text-left transition ${
                     activeProduct?.id === product.id
                       ? "border-brand bg-brand/5"
-                      : "border-slate-200 hover:border-slate-300"
+                      : "border-[var(--color-border)] hover:border-[var(--color-primary)]"
                   }`}
                 >
-                  <p className="text-base font-bold text-slate-900">{product.name}</p>
-                  <p className="text-sm text-slate-500">NT${product.skus[0]?.unit_price}</p>
+                  <p className="text-base font-bold text-[var(--color-foreground)]">{product.name}</p>
+                  <p className="text-sm text-[var(--color-muted-foreground)]">NT${product.skus[0]?.unit_price}</p>
                 </button>
               ))}
             </div>
 
             {activeProduct && (
-              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4">
+              <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border)] p-4">
                 <div>
-                  <p className="text-base font-bold text-slate-900">{activeProduct.name}</p>
-                  <p className="text-sm text-slate-500">{activeProduct.description}</p>
+                  <p className="text-base font-bold text-[var(--color-foreground)]">{activeProduct.name}</p>
+                  <p className="text-sm text-[var(--color-muted-foreground)]">{activeProduct.description}</p>
                 </div>
                 {activeProduct.specs.map((spec) => (
                   <div key={spec.name} className="flex flex-col gap-2">
-                    <span className="text-sm text-slate-600">{spec.name}</span>
+                    <span className="text-sm text-[var(--color-muted-foreground)]">{spec.name}</span>
                     <div className="flex flex-wrap gap-2">
                       {spec.options.map((option) => (
                         <button
@@ -258,7 +259,7 @@ export function ShopFlowPage() {
                           className={`rounded-full border-2 px-4 py-2 text-sm transition ${
                             selectedSpecs[spec.name] === option
                               ? "border-brand bg-brand/5 text-brand"
-                              : "border-slate-200 text-slate-600 hover:border-slate-300"
+                              : "border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]"
                           }`}
                         >
                           {option}
@@ -268,11 +269,11 @@ export function ShopFlowPage() {
                   </div>
                 ))}
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-slate-600">數量</span>
+                  <span className="text-sm text-[var(--color-muted-foreground)]">數量</span>
                   <button
                     type="button"
                     onClick={() => setPendingQuantity((q) => Math.max(1, q - 1))}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-muted-foreground)]"
                     aria-label="減少數量"
                   >
                     −
@@ -281,7 +282,7 @@ export function ShopFlowPage() {
                   <button
                     type="button"
                     onClick={() => setPendingQuantity((q) => q + 1)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-[var(--color-on-primary)]"
                     aria-label="增加數量"
                   >
                     +
@@ -291,7 +292,7 @@ export function ShopFlowPage() {
                   type="button"
                   disabled={!matchedSku}
                   onClick={addToCart}
-                  className="min-h-[44px] rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                  className="min-h-[44px] rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
                 >
                   加入購物車{matchedSku ? `（NT$${matchedSku.unit_price * pendingQuantity}）` : ""}
                 </button>
@@ -310,7 +311,7 @@ export function ShopFlowPage() {
                 type="button"
                 onClick={goNext}
                 disabled={cart.length === 0}
-                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
               >
                 前往購物車（{cart.length}）
               </button>
@@ -321,24 +322,24 @@ export function ShopFlowPage() {
         {/* ====== Step 3: Cart ====== */}
         {step === "cart" && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">購物車</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">購物車</p>
             <div className="flex flex-col gap-2">
               {cart.map((line) => (
                 <div
                   key={line.sku_id}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
+                  className="flex items-center justify-between rounded-xl border border-[var(--color-border)] px-4 py-3"
                 >
                   <div>
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-[var(--color-muted-foreground)]">
                       {line.productName}（{line.attributesLabel || "單一規格"}）
                     </p>
-                    <p className="text-sm text-slate-500">NT${line.unitPrice * line.quantity}</p>
+                    <p className="text-sm text-[var(--color-muted-foreground)]">NT${line.unitPrice * line.quantity}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => updateCartQuantity(line.sku_id, line.quantity - 1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-muted-foreground)]"
                       aria-label="減少數量"
                     >
                       −
@@ -347,7 +348,7 @@ export function ShopFlowPage() {
                     <button
                       type="button"
                       onClick={() => updateCartQuantity(line.sku_id, line.quantity + 1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-[var(--color-on-primary)]"
                       aria-label="增加數量"
                     >
                       +
@@ -355,7 +356,7 @@ export function ShopFlowPage() {
                     <button
                       type="button"
                       onClick={() => removeFromCart(line.sku_id)}
-                      className="ml-1 text-xs text-slate-400 underline"
+                      className="ml-1 text-xs text-[var(--color-muted-foreground)] underline"
                       aria-label="移除"
                     >
                       移除
@@ -364,8 +365,8 @@ export function ShopFlowPage() {
                 </div>
               ))}
             </div>
-            <div className="rounded-xl bg-slate-50 p-4">
-              <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
+            <div className="rounded-xl bg-[var(--color-canvas)] p-4">
+              <div className="flex justify-between border-t border-[var(--color-border)] pt-2 text-base font-bold text-[var(--color-foreground)]">
                 <span>小計</span>
                 <span>NT${cartTotal}</span>
               </div>
@@ -382,7 +383,7 @@ export function ShopFlowPage() {
                 type="button"
                 onClick={goNext}
                 disabled={cart.length === 0}
-                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
               >
                 前往結帳
               </button>
@@ -393,82 +394,86 @@ export function ShopFlowPage() {
         {/* ====== Step 4: Checkout ====== */}
         {step === "checkout" && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">結帳</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">結帳</p>
             <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-sm text-slate-600">聯絡人姓名</span>
+                <span className="text-sm text-[var(--color-muted-foreground)]">聯絡人姓名</span>
                 <input
                   value={contactName}
                   onChange={(e) => setContactName(e.target.value)}
-                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                  className="rounded-xl border border-[var(--color-border)] px-4 py-3 text-base"
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-sm text-slate-600">聯絡電話</span>
+                <span className="text-sm text-[var(--color-muted-foreground)]">聯絡電話</span>
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="09XXXXXXXX"
-                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                  className="rounded-xl border border-[var(--color-border)] px-4 py-3 text-base"
                 />
               </label>
               {hasPhysicalItem && (
                 <>
                   <label className="flex flex-col gap-1">
-                    <span className="text-sm text-slate-600">收件城市</span>
+                    <span className="text-sm text-[var(--color-muted-foreground)]">收件城市</span>
                     <input
                       value={address.city}
                       onChange={(e) => setAddress((a) => ({ ...a, city: e.target.value }))}
-                      className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                      className="rounded-xl border border-[var(--color-border)] px-4 py-3 text-base"
                     />
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="text-sm text-slate-600">收件地址</span>
+                    <span className="text-sm text-[var(--color-muted-foreground)]">收件地址</span>
                     <input
                       value={address.street}
                       onChange={(e) => setAddress((a) => ({ ...a, street: e.target.value }))}
-                      className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                      className="rounded-xl border border-[var(--color-border)] px-4 py-3 text-base"
                     />
                   </label>
                 </>
               )}
             </div>
 
-            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4">
-              <p className="text-sm text-slate-600">
+            <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border)] p-4">
+              <p className="text-sm text-[var(--color-muted-foreground)]">
                 可用點數：{pointsBalance}（最多可折抵 {maxUsablePoints} 點）
               </p>
               <label className="flex flex-col gap-1">
-                <span className="text-sm text-slate-600">使用點數折抵</span>
+                <span className="text-sm text-[var(--color-muted-foreground)]">使用點數折抵</span>
                 <input
                   type="number"
                   min={0}
                   max={maxUsablePoints}
                   value={usedPoints}
                   onChange={(e) => setUsedPoints(Math.max(0, Math.min(maxUsablePoints, Number(e.target.value) || 0)))}
-                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                  className="rounded-xl border border-[var(--color-border)] px-4 py-3 text-base"
                 />
               </label>
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-4">
-              <div className="flex justify-between text-sm text-slate-600">
+            {/*
+              最終確認摘要卡（應付金額）套 GlassPanel 作為流程終點強調（Requirement 13.6、15.1）；
+              其餘步驟卡維持不透明實色（Requirement 15.2）。
+            */}
+            <GlassPanel className="rounded-xl p-4">
+              <div className="flex justify-between text-sm text-[var(--color-muted-foreground)]">
                 <span>商品金額</span>
                 <span>NT${cartTotal}</span>
               </div>
-              <div className="flex justify-between text-sm text-slate-600">
+              <div className="flex justify-between text-sm text-[var(--color-muted-foreground)]">
                 <span>運費</span>
                 <span>NT${shippingFee}</span>
               </div>
-              <div className="flex justify-between text-sm text-slate-600">
+              <div className="flex justify-between text-sm text-[var(--color-muted-foreground)]">
                 <span>點數折抵</span>
                 <span>-NT${Math.min(usedPoints, maxUsablePoints)}</span>
               </div>
-              <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
+              <div className="mt-1 flex justify-between border-t border-[var(--color-border)] pt-2 text-base font-bold text-[var(--color-foreground)]">
                 <span>應付金額</span>
                 <span>NT${orderTotal}</span>
               </div>
-            </div>
+            </GlassPanel>
 
             <div className="flex gap-3">
               <button
@@ -482,7 +487,7 @@ export function ShopFlowPage() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={submitting || !contactName || !phone}
-                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
               >
                 {submitting ? "送出中…" : "確認送出"}
               </button>
@@ -493,23 +498,23 @@ export function ShopFlowPage() {
         {/* ====== Step 5: Result ====== */}
         {step === "result" && result && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">訂單完成</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">訂單完成</p>
 
             <div className="rounded-xl border border-brand/30 bg-brand/5 p-4">
-              <p className="text-sm text-slate-600">訂單編號：{result.request_id}</p>
-              <p className="text-sm text-slate-600">應付金額：NT${result.total_amount}</p>
+              <p className="text-sm text-[var(--color-muted-foreground)]">訂單編號：{result.request_id}</p>
+              <p className="text-sm text-[var(--color-muted-foreground)]">應付金額：NT${result.total_amount}</p>
               <p className="text-sm font-semibold text-brand">本次獲得點數：{result.points_earned}</p>
             </div>
 
             {Object.entries(result.redemption_codes).length > 0 && (
-              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 p-4">
-                <p className="text-sm font-bold text-slate-700">兌換碼</p>
+              <div className="flex flex-col gap-2 rounded-xl border border-[var(--color-border)] p-4">
+                <p className="text-sm font-bold text-[var(--color-foreground)]">兌換碼</p>
                 {Object.entries(result.redemption_codes).map(([skuId, codes]) => (
                   <div key={skuId} className="flex flex-col gap-1">
-                    <span className="text-sm text-slate-600">{skuId}</span>
+                    <span className="text-sm text-[var(--color-muted-foreground)]">{skuId}</span>
                     <div className="flex flex-wrap gap-2">
                       {codes.map((code) => (
-                        <code key={code} className="rounded-lg bg-slate-100 px-3 py-2 font-mono text-sm">
+                        <code key={code} className="rounded-lg bg-[var(--color-canvas)] px-3 py-2 font-mono text-sm">
                           {code}
                         </code>
                       ))}
@@ -521,8 +526,8 @@ export function ShopFlowPage() {
 
             {order && (
               <>
-                <div className="rounded-xl bg-slate-50 p-4">
-                  <p className="text-sm text-slate-600">目前狀態：{order.status}</p>
+                <div className="rounded-xl bg-[var(--color-canvas)] p-4">
+                  <p className="text-sm text-[var(--color-muted-foreground)]">目前狀態：{order.status}</p>
                 </div>
                 {order.status !== "COMPLETED" && order.status !== "CANCELLED" && (
                   <div className="flex gap-3">
@@ -536,7 +541,7 @@ export function ShopFlowPage() {
                     <button
                       type="button"
                       onClick={handleSimulateAdvance}
-                      className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white"
+                      className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)]"
                     >
                       Demo：推進下一個狀態
                     </button>

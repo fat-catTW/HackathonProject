@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PeopleCounter } from "../components/PeopleCounter";
 import { PremiumToggle } from "../components/PremiumToggle";
@@ -68,15 +68,15 @@ export function ReservationFlowPage() {
     <>
       <main className="mx-auto min-h-dvh max-w-md bg-canvas px-5 pb-32 pt-8">
         <header className="flex items-center gap-3 pb-4">
-          <button type="button" onClick={() => navigate("/home")} aria-label="返回" className="flex h-11 w-11 items-center justify-center text-gray-500">
+          <button type="button" onClick={() => navigate("/home")} aria-label="返回" className="flex h-11 w-11 items-center justify-center text-[var(--color-muted-foreground)]">
             <ServiceIcon type="back" size={22} />
           </button>
-          <h1 className="text-xl font-black text-slate-900">餐廳訂位</h1>
+          <h1 className="text-xl font-black text-[var(--color-foreground)]">餐廳訂位</h1>
         </header>
 
         {step === "restaurant" && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">請選擇想去的餐廳</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">請選擇想去的餐廳</p>
             <RestaurantCardList
               restaurants={restaurants}
               selectedId={restaurantId}
@@ -87,7 +87,7 @@ export function ReservationFlowPage() {
               type="button"
               disabled={!restaurantId}
               onClick={goNext}
-              className="mt-2 min-h-[44px] rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+              className="mt-2 min-h-[44px] rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
             >
               下一步
             </button>
@@ -105,7 +105,7 @@ export function ReservationFlowPage() {
                 type="button"
                 disabled={!date}
                 onClick={goNext}
-                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
               >
                 下一步
               </button>
@@ -124,7 +124,7 @@ export function ReservationFlowPage() {
                 type="button"
                 disabled={!timeSlot || !specificTime}
                 onClick={goNext}
-                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
               >
                 下一步
               </button>
@@ -134,13 +134,13 @@ export function ReservationFlowPage() {
 
         {step === "people" && (
           <section className="flex flex-col gap-6">
-            <p className="text-base font-bold leading-relaxed text-slate-900">請問幾位用餐？</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">請問幾位用餐？</p>
             <PeopleCounter value={people} onChange={setPeople} />
             <div className="flex gap-3">
               <button type="button" onClick={goBack} className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand">
                 上一步
               </button>
-              <button type="button" onClick={goNext} className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white">
+              <button type="button" onClick={goNext} className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)]">
                 下一步
               </button>
             </div>
@@ -158,7 +158,7 @@ export function ReservationFlowPage() {
                 type="button"
                 disabled={!contactName.trim() || !phone}
                 onClick={goNext}
-                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
               >
                 下一步
               </button>
@@ -168,7 +168,7 @@ export function ReservationFlowPage() {
 
         {step === "premium" && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">請問需要指定餐廳或高級訂位服務嗎？</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">請問需要指定餐廳或高級訂位服務嗎？</p>
             <PremiumToggle value={isPremium} onChange={setIsPremium} />
             <div className="flex gap-3">
               <button type="button" onClick={goBack} className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand">
@@ -178,7 +178,7 @@ export function ReservationFlowPage() {
                 type="button"
                 disabled={isPremium === null}
                 onClick={goNext}
-                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
               >
                 下一步
               </button>

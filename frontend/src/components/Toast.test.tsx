@@ -17,6 +17,15 @@ describe("Toast", () => {
     expect(screen.getByText("案件已成功建立")).toBeInTheDocument();
   });
 
+  // Requirement 6.6：覆蓋層元件不寫死色碼，一律引用語意色 Token
+  it("styles the pill with semantic color tokens", () => {
+    render(<Toast text="案件已成功建立" onHide={() => {}} />);
+    const pill = screen.getByText("案件已成功建立");
+    expect(pill.className).toContain("bg-[var(--color-surface)]");
+    expect(pill.className).toContain("border-[var(--color-border)]");
+    expect(pill.className).toContain("text-[var(--color-foreground)]");
+  });
+
   it("calls onHide after the duration elapses", () => {
     vi.useFakeTimers();
     const onHide = vi.fn();

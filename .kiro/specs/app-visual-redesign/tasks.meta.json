@@ -1,0 +1,717 @@
+{
+  "pbtResults": {
+    "1.5 撰寫 Property 1 的 property-based 測試": {
+      "status": "passed",
+      "lastRunTimestamp": 1785460636410
+    },
+    "1.6 撰寫 Property 2 的 property-based 測試": {
+      "status": "passed",
+      "lastRunTimestamp": 1785460724596
+    },
+    "1.7 撰寫 Property 3 的 property-based 測試": {
+      "status": "passed",
+      "lastRunTimestamp": 1785460907233
+    },
+    "1.8 撰寫 Property 4 的 property-based 測試": {
+      "status": "passed",
+      "lastRunTimestamp": 1785461028739
+    }
+  },
+  "executionHistory": {
+    "1.1 新增 `frontend/src/hooks/useColorMode.ts`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432643830
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432656778
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432827229
+      }
+    ],
+    "1.2 於 `frontend/src/main.tsx` 匯入並初始化 `useColorMode` 的模組副作用": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432643889
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432832327
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432952420
+      }
+    ],
+    "1.3 新增 `fast-check` 至 `frontend/package.json` 的 devDependencies（固定版本號）": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432643940
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432957900
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785433067260
+      }
+    ],
+    "1.4 撰寫 `frontend/src/hooks/useColorMode.test.ts` 單元測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432643994
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785433072734
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785460496834
+      }
+    ],
+    "1.5 撰寫 Property 1 的 property-based 測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644073
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785460506953
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785460653068
+      }
+    ],
+    "1.6 撰寫 Property 2 的 property-based 測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644110
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785460657426
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785460739629
+      }
+    ],
+    "1.7 撰寫 Property 3 的 property-based 測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644153
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785460744366
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785460933598
+      }
+    ],
+    "1.8 撰寫 Property 4 的 property-based 測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644189
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785460938269
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785461045639
+      }
+    ],
+    "2.1 以 `html[data-color-mode=\"light\"]` / `html[data-color-mode=\"dark\"]` 取代既有 `html[data-theme=\"...\"]` 區塊": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644231
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785461052773
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785461390224
+      }
+    ],
+    "2.2 新增 `.glass-panel` 工具類別與 Dark 模式加強樣式": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644267
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785461394926
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785461553333
+      }
+    ],
+    "2.3 新增 `.bg-wordmark-texture` 與漸層工具類別": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644304
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785461558077
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785461863184
+      }
+    ],
+    "2.4 新增字型 Token 與網路字型載入": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644359
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785461868094
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785462052307
+      }
+    ],
+    "2.5 校準 `frontend/tailwind.config.js` 既有色彩別名對應至新變數名稱": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644441
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785462057261
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785462533918
+      }
+    ],
+    "2.6 撰寫設計 Token 靜態斷言測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644528
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785462542727
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785467304904
+      }
+    ],
+    "2.7 撰寫對比度計算測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644562
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785467309872
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785468107410
+      }
+    ],
+    "3. Checkpoint - 確認基礎設施可運作": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644594
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785468126724
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785468194927
+      }
+    ],
+    "4.1 修改 `frontend/src/components/Mascot.tsx` 的 props 介面": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644628
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785468200063
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785468418228
+      }
+    ],
+    "4.2 撰寫 `Mascot.test.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644672
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785468423298
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785469194051
+      }
+    ],
+    "4.3 新增 `frontend/src/components/AppearanceMenu.tsx`（取代 `ThemeMenu.tsx`）": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644731
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785469203295
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785469353386
+      }
+    ],
+    "4.4 撰寫 `AppearanceMenu.test.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644786
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785469359018
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785469593619
+      }
+    ],
+    "4.5 新增 `frontend/src/components/GlassPanel.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644845
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785469602374
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785469701301
+      }
+    ],
+    "4.6 新增 `frontend/src/components/PhoneMockup.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644887
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785469706556
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785469902009
+      }
+    ],
+    "4.7 新增 `frontend/src/components/FloatingBadge.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432644976
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785469915036
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785470109685
+      }
+    ],
+    "4.8 撰寫 `GlassPanel` / `PhoneMockup` / `FloatingBadge` 渲染測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645014
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785470115361
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785470311492
+      }
+    ],
+    "4.9 移除舊主題機制並更新所有引用端": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645056
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785470316536
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785470922726
+      }
+    ],
+    "5.1 更新狀態呈現元件至新語意色 Token": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645098
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785470930564
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785471187196
+      }
+    ],
+    "5.2 更新覆蓋層類元件": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645141
+      },
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785471193037
+      },
+      {
+        "executionId": "e5ac35d8-3205-41f1-81e5-66202738dd9a",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785472043253
+      }
+    ],
+    "5.3 更新清單與資料型元件（維持不透明實色，不套玻璃擬態或漸層）": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645184
+      },
+      {
+        "executionId": "e5ac35d8-3205-41f1-81e5-66202738dd9a",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785472049535
+      }
+    ],
+    "5.4 更新表單控件類元件": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645217
+      }
+    ],
+    "5.5 更新摘要型元件": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645254
+      }
+    ],
+    "5.6 更新受影響的既有元件測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645286
+      }
+    ],
+    "6. Checkpoint - 確認共用元件在兩模式下皆正確渲染": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645320
+      }
+    ],
+    "7.1 重寫 Hero 區": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645350
+      }
+    ],
+    "7.2 移除主題色塊預覽區塊": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645383
+      }
+    ],
+    "7.3 更新 Highlights 與 Services 區塊配色與字型": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645433
+      }
+    ],
+    "7.4 接入 Hero 頭像素材或 placeholder": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645490
+      }
+    ],
+    "7.5 撰寫 `LandingPage` 渲染測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645534
+      }
+    ],
+    "8.1 更新 `frontend/src/pages/LoginPage.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645577
+      }
+    ],
+    "8.2 更新 `frontend/src/pages/VendorLoginPage.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645616
+      }
+    ],
+    "8.3 撰寫兩個登入頁的渲染測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645662
+      }
+    ],
+    "9.1 更新 `frontend/src/components/ButlerPanel.tsx` 與 `ButlerLauncher.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645697
+      }
+    ],
+    "9.2 更新 `frontend/src/pages/HomePage.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645841
+      }
+    ],
+    "9.3 更新 `frontend/src/pages/ServiceFormPage.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645947
+      }
+    ],
+    "9.4 更新資料密集頁面": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432645994
+      }
+    ],
+    "9.5 更新多步驟流程頁": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646030
+      }
+    ],
+    "9.6 驗證 `frontend/src/pages/NewRequestPage.tsx` 無需自身視覺改動": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646074
+      }
+    ],
+    "9.7 更新 Tier C 頁面的既有測試並補充 class 斷言": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646123
+      }
+    ],
+    "10.1 更新 `frontend/src/pages/VendorRequestsPage.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646196
+      }
+    ],
+    "10.2 更新 `frontend/src/pages/VendorRequestDetailPage.tsx`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646243
+      }
+    ],
+    "10.3 撰寫 Tier D 頁面渲染測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646281
+      }
+    ],
+    "11. Checkpoint - 確認 14 個頁面皆已套用新 Token": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646326
+      }
+    ],
+    "12.1 撰寫視覺特效邊界靜態掃描測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646363
+      }
+    ],
+    "12.2 撰寫硬編碼色碼掃描測試": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646400
+      }
+    ],
+    "12.3 驗證改版範圍限制": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646445
+      }
+    ],
+    "12.4 執行完整前端測試套件回歸": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646489
+      }
+    ],
+    "13.1 建立 `docs/brand-guidelines-visual-redesign.md`": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646533
+      }
+    ],
+    "14. 最終 checkpoint - 交付前驗證": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785432646587
+      }
+    ],
+    "1. 建立色彩模式系統（Color_Mode_System）": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785461045768
+      }
+    ],
+    "2. 重寫設計 Token 系統（`frontend/src/index.css`）": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785468107523
+      }
+    ],
+    "4. 共用元件重構與新增": [
+      {
+        "executionId": "e0478fff-9094-491d-902f-8bf0a952bea9",
+        "chatSessionId": "sess_d682f655-018d-4c0c-9a27-76357cc3bde0",
+        "timestamp": 1785470922810
+      }
+    ]
+  }
+}

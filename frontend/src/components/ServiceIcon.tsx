@@ -2,12 +2,14 @@ export type ServiceIconType =
   | "aircon" | "plumbing" | "appliance" | "cleaning" | "pest" | "moving" | "restaurant" | "health"
   | "mic" | "send" | "check" | "chevronRight" | "chevronDown" | "close"
   | "back" | "phone" | "location" | "calendar" | "clock" | "chat"
-  | "info" | "warning" | "logo" | "zoom" | "shop";
+  | "info" | "warning" | "logo" | "zoom" | "shop" | "home" | "sun" | "moon" | "more";
 
 interface Props {
   type: ServiceIconType;
   size?: number;
   className?: string;
+  /** 線條粗細，預設 1.6。重點展示場合（例如服務卡大圖示）可以加粗，讓圖示更有份量、不單薄。 */
+  strokeWidth?: number;
 }
 
 const PATHS: Record<ServiceIconType, JSX.Element> = {
@@ -142,10 +144,34 @@ const PATHS: Record<ServiceIconType, JSX.Element> = {
       <line x1="9" y1="9" x2="9" y2="3" /><line x1="15" y1="9" x2="15" y2="3" />
     </>
   ),
+  home: (
+    <>
+      <path d="M4 11.5 L12 4 L20 11.5" /><path d="M6 10 V20 H18 V10" />
+      <line x1="10" y1="20" x2="10" y2="14.5" /><line x1="14" y1="20" x2="14" y2="14.5" />
+      <line x1="10" y1="14.5" x2="14" y2="14.5" />
+    </>
+  ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4.4" />
+      <line x1="12" y1="2.5" x2="12" y2="5" /><line x1="12" y1="19" x2="12" y2="21.5" />
+      <line x1="2.5" y1="12" x2="5" y2="12" /><line x1="19" y1="12" x2="21.5" y2="12" />
+      <line x1="5.3" y1="5.3" x2="7.1" y2="7.1" /><line x1="16.9" y1="16.9" x2="18.7" y2="18.7" />
+      <line x1="18.7" y1="5.3" x2="16.9" y2="7.1" /><line x1="7.1" y1="16.9" x2="5.3" y2="18.7" />
+    </>
+  ),
+  moon: <path d="M20 14.2A8.4 8.4 0 0 1 9.8 4 8.6 8.6 0 1 0 20 14.2z" />,
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </>
+  ),
 };
 
 /** 服務/介面圖示（原始 SVG 來自設計稿 ServiceIcon.dc.html）。未知 type 時 fallback 為 chat 圖示。 */
-export function ServiceIcon({ type, size = 24, className }: Props) {
+export function ServiceIcon({ type, size = 24, className, strokeWidth = 1.6 }: Props) {
   const content = PATHS[type] ?? PATHS.chat;
   return (
     <svg
@@ -154,7 +180,7 @@ export function ServiceIcon({ type, size = 24, className }: Props) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}

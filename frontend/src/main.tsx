@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
-import "./hooks/useTheme";
+import "./hooks/useColorMode";
 import "./hooks/useAccessibilityMode";
 import "./index.css";
 

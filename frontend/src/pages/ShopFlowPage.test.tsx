@@ -25,6 +25,18 @@ const products = [
     specs: [],
     skus: [{ sku_id: "sku_a", attributes: {}, unit_price: 50, unit_points: 5 }],
   },
+  {
+    id: "prod_b",
+    store_id: "store_b",
+    store_name: "B 店家",
+    category_id: "cat_beverage",
+    name: "商品 B",
+    description: "描述 B",
+    product_type: "SERIAL_CODE" as const,
+    image: null,
+    specs: [],
+    skus: [{ sku_id: "sku_b", attributes: {}, unit_price: 80, unit_points: 8 }],
+  },
 ];
 
 function renderPage() {
@@ -64,5 +76,23 @@ describe("ShopFlowPage", () => {
 
     expect(await screen.findByText("商品 A")).toBeInTheDocument();
     expect(screen.getByText("A 店家")).toBeInTheDocument();
+  });
+
+  it("groups cart items by vendor", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("飲品兌換"));
+
+    await user.click(await screen.findByText("商品 A"));
+    await user.click(screen.getByText("加入購物車（NT$50）"));
+
+    await user.click(screen.getByText("商品 B"));
+    await user.click(screen.getByText("加入購物車（NT$80）"));
+
+    await user.click(screen.getByText(/前往購物車/));
+
+    expect(await screen.findByText("A 店家")).toBeInTheDocument();
+    expect(screen.getByText("B 店家")).toBeInTheDocument();
   });
 });

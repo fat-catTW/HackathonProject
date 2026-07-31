@@ -19,6 +19,8 @@ const STEP_ORDER: Step[] = ["category", "product", "cart", "checkout", "result"]
 
 interface CartEntry {
   sku_id: string;
+  storeId: string;
+  storeName: string;
   productName: string;
   attributesLabel: string;
   unitPrice: number;
@@ -99,6 +101,8 @@ export function ShopFlowPage() {
         ...prev,
         {
           sku_id: matchedSku.sku_id,
+          storeId: activeProduct.store_id,
+          storeName: activeProduct.store_name,
           productName: activeProduct.name,
           attributesLabel,
           unitPrice: matchedSku.unit_price,
@@ -122,6 +126,19 @@ export function ShopFlowPage() {
         : prev.map((line) => (line.sku_id === skuId ? { ...line, quantity } : line)),
     );
   }
+
+  const cartGroups = useMemo(() => {
+    const groups = new Map<string, { storeName: string; lines: CartEntry[] }>();
+    for (const line of cart) {
+      const existing = groups.get(line.storeId);
+      if (existing) {
+        existing.lines.push(line);
+      } else {
+        groups.set(line.storeId, { storeName: line.storeName, lines: [line] });
+      }
+    }
+    return Array.from(groups.values());
+  }, [cart]);
 
   const cartTotal = cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   const hasPhysicalItem = cart.some((line) => line.productType === "PHYSICAL");
@@ -322,45 +339,50 @@ export function ShopFlowPage() {
         {step === "cart" && (
           <section className="flex flex-col gap-4">
             <p className="text-base font-bold leading-relaxed text-slate-900">購物車</p>
-            <div className="flex flex-col gap-2">
-              {cart.map((line) => (
-                <div
-                  key={line.sku_id}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm text-slate-600">
-                      {line.productName}（{line.attributesLabel || "單一規格"}）
-                    </p>
-                    <p className="text-sm text-slate-500">NT${line.unitPrice * line.quantity}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => updateCartQuantity(line.sku_id, line.quantity - 1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
-                      aria-label="減少數量"
+            <div className="flex flex-col gap-4">
+              {cartGroups.map((group) => (
+                <div key={group.storeName} className="flex flex-col gap-2">
+                  <p className="text-sm font-bold text-slate-500">{group.storeName}</p>
+                  {group.lines.map((line) => (
+                    <div
+                      key={line.sku_id}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
                     >
-                      −
-                    </button>
-                    <span className="w-6 text-center text-base font-bold">{line.quantity}</span>
-                    <button
-                      type="button"
-                      onClick={() => updateCartQuantity(line.sku_id, line.quantity + 1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"
-                      aria-label="增加數量"
-                    >
-                      +
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeFromCart(line.sku_id)}
-                      className="ml-1 text-xs text-slate-400 underline"
-                      aria-label="移除"
-                    >
-                      移除
-                    </button>
-                  </div>
+                      <div>
+                        <p className="text-sm text-slate-600">
+                          {line.productName}（{line.attributesLabel || "單一規格"}）
+                        </p>
+                        <p className="text-sm text-slate-500">NT${line.unitPrice * line.quantity}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateCartQuantity(line.sku_id, line.quantity - 1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
+                          aria-label="減少數量"
+                        >
+                          −
+                        </button>
+                        <span className="w-6 text-center text-base font-bold">{line.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateCartQuantity(line.sku_id, line.quantity + 1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"
+                          aria-label="增加數量"
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(line.sku_id)}
+                          className="ml-1 text-xs text-slate-400 underline"
+                          aria-label="移除"
+                        >
+                          移除
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>

@@ -58,6 +58,9 @@ export function ShopFlowPage() {
 
   useEffect(() => {
     if (!selectedCategoryId) return;
+    setActiveProduct(null);
+    setSelectedSpecs({});
+    setPendingQuantity(1);
     listShopProducts(selectedCategoryId).then((res) => setProducts(res.products)).catch(() => setToastText("商品清單載入失敗"));
   }, [selectedCategoryId]);
 

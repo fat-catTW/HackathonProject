@@ -39,6 +39,21 @@ const products = [
   },
 ];
 
+const dailyProducts = [
+  {
+    id: "prod_c",
+    store_id: "store_c",
+    store_name: "C 店家",
+    category_id: "cat_daily",
+    name: "商品 C",
+    description: "描述 C",
+    product_type: "PHYSICAL" as const,
+    image: null,
+    specs: [],
+    skus: [{ sku_id: "sku_c", attributes: {}, unit_price: 100, unit_points: 10 }],
+  },
+];
+
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -94,5 +109,23 @@ describe("ShopFlowPage", () => {
 
     expect(await screen.findByText("A 店家")).toBeInTheDocument();
     expect(screen.getByText("B 店家")).toBeInTheDocument();
+  });
+
+  it("clears the stale product detail panel when switching to a different category", async () => {
+    const user = userEvent.setup();
+    vi.mocked(shopApi.listShopProducts)
+      .mockResolvedValueOnce({ products })
+      .mockResolvedValueOnce({ products: dailyProducts });
+    renderPage();
+
+    await user.click(await screen.findByText("飲品兌換"));
+    await user.click(await screen.findByText("商品 A"));
+    expect(await screen.findByText("加入購物車（NT$50）")).toBeInTheDocument();
+
+    await user.click(screen.getByText("返回選品類"));
+    await user.click(await screen.findByText("生活日用品"));
+
+    expect(await screen.findByText("商品 C")).toBeInTheDocument();
+    expect(screen.queryByText(/加入購物車/)).not.toBeInTheDocument();
   });
 });

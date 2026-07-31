@@ -7,7 +7,7 @@ import uuid
 import httpx
 
 from ..config import get_settings
-from ..services import catalog, health_catalog, health_recommendation
+from ..services import catalog, health_catalog, health_recommendation, shop_catalog
 from ..services.aws import get_aws_client, get_aws_resource
 from ..services.store import STORE, now_iso
 from .page_catalog import load_page, search_pages
@@ -132,6 +132,31 @@ def _embedded_get_product_nutrition(params: dict) -> dict:
             "error": {"code": "PRODUCT_NOT_FOUND", "message": f"找不到 product_id: {product_id}"},
         }
     return {"success": True, **product}
+
+
+def _embedded_compare_product_prices(params: dict) -> dict:
+    query = str(params.get("query") or "").strip()
+    if not query:
+        return {
+            "success": False,
+            "error": {"code": "INVALID_QUERY", "message": "query is required."},
+        }
+    group_id = shop_catalog.find_compare_group_id_by_query(query)
+    if not group_id:
+        return {
+            "success": False,
+            "error": {"code": "PRODUCT_NOT_FOUND", "message": f"找不到「{query}」的比價商品"},
+        }
+    offers = shop_catalog.list_compare_offers(group_id)
+    return {
+        "success": True,
+        "group_id": group_id,
+        "product_name": offers[0]["name"],
+        "offers": [
+            {"store_name": o["store_name"], "unit_price": o["min_unit_price"]}
+            for o in offers
+        ],
+    }
 
 
 def _embedded_get_page_context(params: dict) -> dict:
@@ -510,6 +535,7 @@ _EMBEDDED_TOOLS = {
     "search_pages": _embedded_search_pages,
     "recommend_products_by_health_need": _embedded_recommend_products_by_health_need,
     "get_product_nutrition": _embedded_get_product_nutrition,
+    "compare_product_prices": _embedded_compare_product_prices,
 }
 
 _DYNAMODB_TOOLS = {

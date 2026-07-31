@@ -58,6 +58,7 @@ def test_agent_detects_price_compare_and_replies_with_redirect():
     assert result["state"]["service_id"] is None
     assert result["state"]["request_id"] is None
     assert result["redirect_path"] == "/services/shop_purchase?compare=cmp_vitamin_c"
+    assert result["redirect_requires_confirmation"] is True
     assert "健康藥妝" in result["reply"] or "樂活保健" in result["reply"]
     assert "最便宜" in result["reply"]
 
@@ -122,4 +123,5 @@ def test_agent_price_compare_not_found_has_no_redirect():
         result = agent.handle_message("user-1", "sess-1", state, "我想比價完全不相關的字串xyz")
 
     assert result["redirect_path"] is None
+    assert result["redirect_requires_confirmation"] is False
     assert result["state"]["service_id"] is None

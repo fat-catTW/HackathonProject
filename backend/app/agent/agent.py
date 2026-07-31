@@ -1000,7 +1000,12 @@ def handle_message(
             state["service_schema"] = None
             state["collected_fields"] = {}
             state["missing_fields"] = []
-            return _reply(state, reply, redirect_path=redirect_path)
+            return _reply(
+                state,
+                reply,
+                redirect_path=redirect_path,
+                redirect_requires_confirmation=redirect_path is not None,
+            )
 
     found = _extract_fields(actor_id, state, text, events)
     if state.get("service_id") == "package_shipping" and "item_description" in found:
@@ -1456,5 +1461,15 @@ def _submit_package_shipping(actor_id: str, state: dict, latest_user_message: st
     return _reply(state, reply)
 
 
-def _reply(state: dict, reply: str, redirect_path: str | None = None) -> dict:
-    return {"reply": reply, "state": state, "redirect_path": redirect_path}
+def _reply(
+    state: dict,
+    reply: str,
+    redirect_path: str | None = None,
+    redirect_requires_confirmation: bool = False,
+) -> dict:
+    return {
+        "reply": reply,
+        "state": state,
+        "redirect_path": redirect_path,
+        "redirect_requires_confirmation": redirect_requires_confirmation,
+    }

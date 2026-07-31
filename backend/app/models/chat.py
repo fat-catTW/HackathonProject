@@ -25,3 +25,4 @@ class ChatResponse(BaseModel):
     request_id: str | None = None
     status: str = "COLLECTING_INFORMATION"
     redirect_path: str | None = None
+    redirect_requires_confirmation: bool = False

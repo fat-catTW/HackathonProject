@@ -987,7 +987,7 @@ def handle_message(
             state["missing_fields"] = []
             return _reply(
                 state,
-                "商城購物需要挑選店家、規格和購物車，這部分請到「商城購物」頁面操作會更方便，我幫你導過去囉！",
+                "商城購物需要挑選商品類型、規格和購物車，這部分請到「商城購物」頁面操作會更方便，我幫你導過去囉！",
                 redirect_path="/services/shop_purchase",
             )
 

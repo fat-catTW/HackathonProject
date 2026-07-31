@@ -1,4 +1,6 @@
-"""廠商後台：資料隔離與清單可見性。"""
+"""廠商後台：資料隔離、清單可見性，以及接單／拒單的狀態機與樂觀鎖。"""
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -46,6 +48,20 @@ def submit_air_conditioner_request(client: TestClient) -> str:
     body = res.json()
     assert body["success"], body
     return body["request_id"]
+
+
+def vendor_detail(client: TestClient, token: str, request_id: str) -> dict:
+    res = client.get(f"/api/vendor/requests/{request_id}", headers=auth(token))
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+def vendor_act(client: TestClient, token: str, request_id: str, action: str, version: int):
+    return client.post(
+        f"/api/vendor/requests/{request_id}/{action}",
+        json={"version": version},
+        headers=auth(token),
+    )
 
 
 def test_vendor_sees_only_own_service_vendor_id(client):
@@ -127,6 +143,149 @@ def test_unsubmitted_draft_is_hidden_from_vendor(client):
     )
     res = client.get("/api/vendor/requests", headers=auth(vendor_token(client, VENDOR_CLEANING)))
     assert request_id not in [i["request_id"] for i in res.json()["items"]]
+
+
+# ---- 接單／拒單：狀態機 + 樂觀鎖 ----
+
+
+def test_accept_moves_request_from_pending_to_orders(client):
+    request_id = submit_air_conditioner_request(client)
+    token = vendor_token(client, VENDOR_CLEANING)
+    detail = vendor_detail(client, token, request_id)
+    assert detail["available_actions"] == ["accept", "reject"]
+
+    res = vendor_act(client, token, request_id, "accept", detail["version"])
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["status"] == "CONFIRMED"
+    assert body["status_label"] == "已確認"
+    assert body["version"] == detail["version"] + 1
+    assert body["available_actions"] == []  # 已接的單不能再接一次
+
+    orders = client.get("/api/vendor/requests?scope=orders", headers=auth(token))
+    assert request_id in [i["request_id"] for i in orders.json()["items"]]
+    pending = client.get("/api/vendor/requests?scope=pending", headers=auth(token))
+    assert request_id not in [i["request_id"] for i in pending.json()["items"]]
+
+
+def test_accept_is_visible_to_the_resident(client):
+    request_id = submit_air_conditioner_request(client)
+    token = vendor_token(client, VENDOR_CLEANING)
+    vendor_act(client, token, request_id, "accept", vendor_detail(client, token, request_id)["version"])
+
+    res = client.get(f"/api/requests/{request_id}", headers=auth(RESIDENT_TOKEN))
+    assert res.json()["status"] == "CONFIRMED"
+
+
+def test_reject_closes_the_request(client):
+    request_id = submit_air_conditioner_request(client)
+    token = vendor_token(client, VENDOR_CLEANING)
+    version = vendor_detail(client, token, request_id)["version"]
+
+    res = vendor_act(client, token, request_id, "reject", version)
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "REJECTED"
+    assert res.json()["status_label"] == "廠商已婉拒"
+
+    all_items = client.get("/api/vendor/requests?scope=all", headers=auth(token)).json()["items"]
+    assert request_id in [i["request_id"] for i in all_items]  # 全部分頁仍看得到
+    pending = client.get("/api/vendor/requests?scope=pending", headers=auth(token)).json()["items"]
+    assert request_id not in [i["request_id"] for i in pending]
+    # 已婉拒是終點狀態，住戶端也不能再取消
+    cancel = client.post(f"/api/requests/{request_id}/cancel", headers=auth(RESIDENT_TOKEN))
+    assert cancel.status_code == 409
+
+
+def test_second_accept_with_the_same_version_is_rejected(client):
+    """重複送出（連點兩下、重整後再按）不會重跑一次狀態切換。"""
+    request_id = submit_air_conditioner_request(client)
+    token = vendor_token(client, VENDOR_CLEANING)
+    version = vendor_detail(client, token, request_id)["version"]
+
+    assert vendor_act(client, token, request_id, "accept", version).status_code == 200
+
+    replay = vendor_act(client, token, request_id, "accept", version)
+    assert replay.status_code == 409
+    error = replay.json()["detail"]["error"]
+    assert error["code"] == "REQUEST_STATUS_CONFLICT"
+    # 錯誤訊息帶著案件現況，前端可以直接更新畫面
+    assert error["status"] == "CONFIRMED"
+    assert error["version"] == version + 1
+
+
+def test_stale_version_is_rejected_even_when_the_status_still_allows_it(client):
+    """狀態沒變但案件被改過（表單更新等）時，舊版本一樣不能寫入。"""
+    request_id = submit_air_conditioner_request(client)
+    token = vendor_token(client, VENDOR_CLEANING)
+    stale_version = vendor_detail(client, token, request_id)["version"]
+
+    request = STORE.get_request("user-vincent", request_id)
+    STORE.save_request("user-vincent", request)  # 狀態仍是 SUBMITTED，但版本前進一號
+
+    res = vendor_act(client, token, request_id, "accept", stale_version)
+    assert res.status_code == 409
+    assert res.json()["detail"]["error"]["code"] == "REQUEST_VERSION_CONFLICT"
+    assert STORE.get_request("user-vincent", request_id)["status"] == "SUBMITTED"
+
+    fresh = vendor_detail(client, token, request_id)["version"]
+    assert vendor_act(client, token, request_id, "accept", fresh).status_code == 200
+
+
+def test_concurrent_accept_and_reject_only_one_wins(client):
+    request_id = submit_air_conditioner_request(client)
+    token = vendor_token(client, VENDOR_CLEANING)
+    version = vendor_detail(client, token, request_id)["version"]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = [
+            f.result()
+            for f in [
+                pool.submit(vendor_act, client, token, request_id, action, version)
+                for action in ("accept", "reject")
+            ]
+        ]
+
+    codes = sorted(r.status_code for r in results)
+    assert codes == [200, 409]
+    winner = next(r for r in results if r.status_code == 200).json()
+    assert STORE.get_request("user-vincent", request_id)["status"] == winner["status"]
+
+
+def test_cancelled_request_cannot_be_accepted(client):
+    request_id = submit_air_conditioner_request(client)
+    token = vendor_token(client, VENDOR_CLEANING)
+    version = vendor_detail(client, token, request_id)["version"]
+
+    assert client.post(
+        f"/api/requests/{request_id}/cancel", headers=auth(RESIDENT_TOKEN)
+    ).status_code == 200
+
+    res = vendor_act(client, token, request_id, "accept", version)
+    assert res.status_code == 409
+    assert res.json()["detail"]["error"]["code"] == "REQUEST_STATUS_CONFLICT"
+    assert STORE.get_request("user-vincent", request_id)["status"] == "CANCELLED"
+
+
+def test_vendor_cannot_act_on_another_vendors_request(client):
+    request_id = submit_air_conditioner_request(client)
+    version = vendor_detail(client, vendor_token(client, VENDOR_CLEANING), request_id)["version"]
+
+    res = vendor_act(client, vendor_token(client, VENDOR_PLUMBING), request_id, "accept", version)
+    assert res.status_code == 404
+    assert STORE.get_request("user-vincent", request_id)["status"] == "SUBMITTED"
+
+
+def test_unknown_action_is_rejected(client):
+    request_id = submit_air_conditioner_request(client)
+    token = vendor_token(client, VENDOR_CLEANING)
+    res = vendor_act(client, token, request_id, "complete", 1)
+    assert res.status_code == 422
+
+
+def test_resident_token_cannot_accept(client):
+    request_id = submit_air_conditioner_request(client)
+    res = vendor_act(client, RESIDENT_TOKEN, request_id, "accept", 1)
+    assert res.status_code == 403
 
 
 def test_resident_token_is_rejected_by_vendor_api(client):

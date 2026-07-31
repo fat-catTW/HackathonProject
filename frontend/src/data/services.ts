@@ -406,7 +406,7 @@ export const SERVICES: ServiceDefinition[] = [
     service_id: "shop_purchase",
     title: "商城購物",
     subtitle: "多店家商城，點數折抵",
-    description: "挑選喜歡的店家與商品，用點數折抵，實體商品或兌換券都能買。",
+    description: "挑選商品類型，比較不同店家的商品，用點數折抵，實體商品或兌換券都能買。",
     icon: "shop",
     fields: [],
   },

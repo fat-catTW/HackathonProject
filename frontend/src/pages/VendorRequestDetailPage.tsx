@@ -1,10 +1,26 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { getVendorRequest } from "../api/vendor";
+import { actOnVendorRequest, getVendorRequest } from "../api/vendor";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { StatusBadge } from "../components/StatusBadge";
-import type { VendorRequestDetail } from "../types/vendor";
+import type { VendorAction, VendorRequestDetail } from "../types/vendor";
+
+const ACTION_LABELS: Record<VendorAction, string> = {
+  accept: "接單",
+  reject: "婉拒",
+};
+
+const DONE_MESSAGES: Record<VendorAction, string> = {
+  accept: "已接下這張單，狀態更新為「已確認」。",
+  reject: "已婉拒這張單。",
+};
+
+// 案件現況也會隨 409 一起回來，直接拿來更新畫面就不必再打一次 API。
+function conflictDetail(error: ApiError): VendorRequestDetail | null {
+  return error.data.request_id ? (error.data as unknown as VendorRequestDetail) : null;
+}
 
 function formatTime(value: string) {
   if (!value) return "";
@@ -23,6 +39,10 @@ export function VendorRequestDetailPage() {
   const [detail, setDetail] = useState<VendorRequestDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // 送出中的動作；同時用來把兩顆按鈕都鎖住，避免連點送出兩次。
+  const [acting, setActing] = useState<VendorAction | null>(null);
+  const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
+  const [confirmingReject, setConfirmingReject] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -37,6 +57,32 @@ export function VendorRequestDetailPage() {
       })
       .finally(() => setLoading(false));
   }, [navigate, requestId]);
+
+  const runAction = (action: VendorAction) => {
+    if (!detail || acting) return;
+    setActing(action);
+    setNotice(null);
+    actOnVendorRequest(requestId, action, detail.version)
+      .then((result) => {
+        setDetail(result);
+        setNotice({ tone: "ok", text: DONE_MESSAGES[action] });
+      })
+      .catch((e) => {
+        if (e instanceof ApiError && e.code === "UNAUTHORIZED") {
+          navigate("/vendor/login");
+          return;
+        }
+        if (e instanceof ApiError) {
+          // 狀態機或樂觀鎖擋下來：把畫面換成案件現在的樣子，按鈕也跟著收掉。
+          const current = conflictDetail(e);
+          if (current) setDetail(current);
+          setNotice({ tone: "warn", text: e.message });
+          return;
+        }
+        setNotice({ tone: "warn", text: "操作失敗，請稍後再試" });
+      })
+      .finally(() => setActing(null));
+  };
 
   return (
     <main className="mx-auto min-h-dvh max-w-3xl bg-canvas px-5 pb-16 pt-8 sm:px-8">
@@ -110,11 +156,61 @@ export function VendorRequestDetailPage() {
             </dl>
           </section>
 
-          <p className="mt-5 text-center text-sm text-gray-400">
-            目前為唯讀清單；接單與完工回報將在後續里程碑開放。
-          </p>
+          {notice && (
+            <p
+              role="status"
+              className={`mt-5 rounded-2xl p-4 text-center text-base font-bold ${
+                notice.tone === "ok"
+                  ? "bg-success-soft text-success"
+                  : "bg-accent-soft text-accent"
+              }`}
+            >
+              {notice.text}
+            </p>
+          )}
+
+          {detail.available_actions.length > 0 ? (
+            <section className="mt-5 flex flex-col gap-3 sm:flex-row">
+              {detail.available_actions.includes("accept") && (
+                <button
+                  type="button"
+                  onClick={() => runAction("accept")}
+                  disabled={acting !== null}
+                  className="flex-1 rounded-2xl bg-brand px-6 py-4 text-lg font-black text-white shadow-sm transition hover:brightness-105 disabled:opacity-50"
+                >
+                  {acting === "accept" ? "處理中…" : "接下這張單"}
+                </button>
+              )}
+              {detail.available_actions.includes("reject") && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingReject(true)}
+                  disabled={acting !== null}
+                  className="flex-1 rounded-2xl border-2 border-gray-200 bg-white px-6 py-4 text-lg font-bold text-gray-500 transition hover:border-danger hover:text-danger disabled:opacity-50"
+                >
+                  {acting === "reject" ? "處理中…" : "婉拒這張單"}
+                </button>
+              )}
+            </section>
+          ) : (
+            <p className="mt-5 text-center text-sm text-gray-400">
+              這張單目前是「{detail.status_label}」，沒有可以執行的動作。
+            </p>
+          )}
         </>
       )}
+
+      <ConfirmModal
+        open={confirmingReject}
+        text={`確定要婉拒「${detail?.service_name ?? "這張單"}」嗎？婉拒後就不能再接單了。`}
+        confirmLabel={ACTION_LABELS.reject}
+        cancelLabel="再想想"
+        onConfirm={() => {
+          setConfirmingReject(false);
+          runAction("reject");
+        }}
+        onCancel={() => setConfirmingReject(false)}
+      />
     </main>
   );
 }

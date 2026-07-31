@@ -7,18 +7,20 @@ import {
   cancelShopOrder,
   getShopOrder,
   getShopPoints,
+  listShopCategories,
   listShopProducts,
-  listShopStores,
   simulateShopOrderProgress,
   submitShopOrder,
 } from "../api/shop";
-import type { ShopCartLine, ShopOrder, ShopProduct, ShopStore, ShopSubmitResult } from "../types/shop";
+import type { ShopCartLine, ShopCategory, ShopOrder, ShopProduct, ShopSubmitResult } from "../types/shop";
 
-type Step = "store" | "product" | "cart" | "checkout" | "result";
-const STEP_ORDER: Step[] = ["store", "product", "cart", "checkout", "result"];
+type Step = "category" | "product" | "cart" | "checkout" | "result";
+const STEP_ORDER: Step[] = ["category", "product", "cart", "checkout", "result"];
 
 interface CartEntry {
   sku_id: string;
+  storeId: string;
+  storeName: string;
   productName: string;
   attributesLabel: string;
   unitPrice: number;
@@ -31,8 +33,8 @@ export function ShopFlowPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const step = STEP_ORDER[stepIndex];
 
-  const [stores, setStores] = useState<ShopStore[]>([]);
-  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<ShopCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [activeProduct, setActiveProduct] = useState<ShopProduct | null>(null);
   const [selectedSpecs, setSelectedSpecs] = useState<Record<string, string>>({});
@@ -50,14 +52,17 @@ export function ShopFlowPage() {
   const [toastText, setToastText] = useState<string | null>(null);
 
   useEffect(() => {
-    listShopStores().then((res) => setStores(res.stores)).catch(() => setToastText("店家清單載入失敗"));
+    listShopCategories().then((res) => setCategories(res.categories)).catch(() => setToastText("商品類型載入失敗"));
     getShopPoints().then((res) => setPointsBalance(res.balance)).catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (!selectedStoreId) return;
-    listShopProducts(selectedStoreId).then((res) => setProducts(res.products)).catch(() => setToastText("商品清單載入失敗"));
-  }, [selectedStoreId]);
+    if (!selectedCategoryId) return;
+    setActiveProduct(null);
+    setSelectedSpecs({});
+    setPendingQuantity(1);
+    listShopProducts(selectedCategoryId).then((res) => setProducts(res.products)).catch(() => setToastText("商品清單載入失敗"));
+  }, [selectedCategoryId]);
 
   useEffect(() => {
     if (step !== "result" || !result || result.status === "COMPLETED") return;
@@ -99,6 +104,8 @@ export function ShopFlowPage() {
         ...prev,
         {
           sku_id: matchedSku.sku_id,
+          storeId: activeProduct.store_id,
+          storeName: activeProduct.store_name,
           productName: activeProduct.name,
           attributesLabel,
           unitPrice: matchedSku.unit_price,
@@ -122,6 +129,19 @@ export function ShopFlowPage() {
         : prev.map((line) => (line.sku_id === skuId ? { ...line, quantity } : line)),
     );
   }
+
+  const cartGroups = useMemo(() => {
+    const groups = new Map<string, { storeName: string; lines: CartEntry[] }>();
+    for (const line of cart) {
+      const existing = groups.get(line.storeId);
+      if (existing) {
+        existing.lines.push(line);
+      } else {
+        groups.set(line.storeId, { storeName: line.storeName, lines: [line] });
+      }
+    }
+    return Array.from(groups.values());
+  }, [cart]);
 
   const cartTotal = cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   const hasPhysicalItem = cart.some((line) => line.productType === "PHYSICAL");
@@ -190,23 +210,22 @@ export function ShopFlowPage() {
           <h1 className="text-xl font-black text-slate-900">商城購物</h1>
         </header>
 
-        {/* ====== Step 1: Store Selection ====== */}
-        {step === "store" && (
+        {/* ====== Step 1: Category Selection ====== */}
+        {step === "category" && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">請選擇店家</p>
+            <p className="text-base font-bold leading-relaxed text-slate-900">請選擇商品類型</p>
             <div className="flex flex-col gap-3">
-              {stores.map((store) => (
+              {categories.map((category) => (
                 <button
-                  key={store.id}
+                  key={category.id}
                   type="button"
                   onClick={() => {
-                    setSelectedStoreId(store.id);
+                    setSelectedCategoryId(category.id);
                     goNext();
                   }}
                   className="rounded-2xl border-2 border-slate-200 p-4 text-left transition hover:border-slate-300"
                 >
-                  <p className="text-base font-bold text-slate-900">{store.name}</p>
-                  <p className="text-sm text-slate-500">{store.category}</p>
+                  <p className="text-base font-bold text-slate-900">{category.name}</p>
                 </button>
               ))}
             </div>
@@ -235,6 +254,7 @@ export function ShopFlowPage() {
                 >
                   <p className="text-base font-bold text-slate-900">{product.name}</p>
                   <p className="text-sm text-slate-500">NT${product.skus[0]?.unit_price}</p>
+                  <p className="text-xs text-slate-400">{product.store_name}</p>
                 </button>
               ))}
             </div>
@@ -304,7 +324,7 @@ export function ShopFlowPage() {
                 onClick={goBack}
                 className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand"
               >
-                返回選店家
+                返回選品類
               </button>
               <button
                 type="button"
@@ -322,45 +342,50 @@ export function ShopFlowPage() {
         {step === "cart" && (
           <section className="flex flex-col gap-4">
             <p className="text-base font-bold leading-relaxed text-slate-900">購物車</p>
-            <div className="flex flex-col gap-2">
-              {cart.map((line) => (
-                <div
-                  key={line.sku_id}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm text-slate-600">
-                      {line.productName}（{line.attributesLabel || "單一規格"}）
-                    </p>
-                    <p className="text-sm text-slate-500">NT${line.unitPrice * line.quantity}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => updateCartQuantity(line.sku_id, line.quantity - 1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
-                      aria-label="減少數量"
+            <div className="flex flex-col gap-4">
+              {cartGroups.map((group) => (
+                <div key={group.storeName} className="flex flex-col gap-2">
+                  <p className="text-sm font-bold text-slate-500">{group.storeName}</p>
+                  {group.lines.map((line) => (
+                    <div
+                      key={line.sku_id}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
                     >
-                      −
-                    </button>
-                    <span className="w-6 text-center text-base font-bold">{line.quantity}</span>
-                    <button
-                      type="button"
-                      onClick={() => updateCartQuantity(line.sku_id, line.quantity + 1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"
-                      aria-label="增加數量"
-                    >
-                      +
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeFromCart(line.sku_id)}
-                      className="ml-1 text-xs text-slate-400 underline"
-                      aria-label="移除"
-                    >
-                      移除
-                    </button>
-                  </div>
+                      <div>
+                        <p className="text-sm text-slate-600">
+                          {line.productName}（{line.attributesLabel || "單一規格"}）
+                        </p>
+                        <p className="text-sm text-slate-500">NT${line.unitPrice * line.quantity}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateCartQuantity(line.sku_id, line.quantity - 1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
+                          aria-label="減少數量"
+                        >
+                          −
+                        </button>
+                        <span className="w-6 text-center text-base font-bold">{line.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateCartQuantity(line.sku_id, line.quantity + 1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"
+                          aria-label="增加數量"
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(line.sku_id)}
+                          className="ml-1 text-xs text-slate-400 underline"
+                          aria-label="移除"
+                        >
+                          移除
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>

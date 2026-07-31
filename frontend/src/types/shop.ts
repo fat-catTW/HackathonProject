@@ -5,6 +5,11 @@ export interface ShopStore {
   image: string | null;
 }
 
+export interface ShopCategory {
+  id: string;
+  name: string;
+}
+
 export interface ShopSpec {
   name: string;
   options: string[];
@@ -20,6 +25,8 @@ export interface ShopSku {
 export interface ShopProduct {
   id: string;
   store_id: string;
+  store_name: string;
+  category_id: string;
   name: string;
   description: string;
   product_type: "PHYSICAL" | "SERIAL_CODE";

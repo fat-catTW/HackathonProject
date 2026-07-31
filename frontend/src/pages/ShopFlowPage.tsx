@@ -1,11 +1,12 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ButlerLauncher } from "../components/ButlerLauncher";
 import { GlassPanel } from "../components/GlassPanel";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { Toast } from "../components/Toast";
 import {
   cancelShopOrder,
+  getShopCompareGroup,
   getShopOrder,
   getShopPoints,
   listShopCategories,
@@ -36,6 +37,7 @@ interface ProductGroup {
 
 export function ShopFlowPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [stepIndex, setStepIndex] = useState(0);
   const step = STEP_ORDER[stepIndex];
 
@@ -61,6 +63,21 @@ export function ShopFlowPage() {
   useEffect(() => {
     listShopCategories().then((res) => setCategories(res.categories)).catch(() => setToastText("商品類型載入失敗"));
     getShopPoints().then((res) => setPointsBalance(res.balance)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const groupId = searchParams.get("compare");
+    if (!groupId) return;
+    getShopCompareGroup(groupId)
+      .then((group) => {
+        setSelectedCategoryId(group.category_id);
+        setComparingGroupId(group.group_id);
+        setStepIndex(STEP_ORDER.indexOf("product"));
+      })
+      .catch(() => setToastText("比價資料載入失敗"));
+    // Runs once on mount to consume the initial URL; the compare param
+    // isn't re-read on subsequent in-app navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

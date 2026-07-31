@@ -24,13 +24,33 @@ export interface VendorRequestField {
   id: string;
   label: string;
   value: string;
+  /** 聯絡欄位；value 是遮罩後的內容，完整值要呼叫 revealVendorContact。 */
+  masked: boolean;
+}
+
+/** 一次「解密看了聯絡資訊」的紀錄（Milestone 15）。 */
+export interface VendorContactAccess {
+  at: string;
+  viewer_name: string;
+  /** 這次看到的欄位名稱，例如「聯絡電話」。 */
+  fields: string[];
 }
 
 export interface VendorRequestDetail
   extends Omit<VendorRequestItem, "summary"> {
   fields: VendorRequestField[];
+  /** 這筆案件有沒有可解密的聯絡資訊；沒有就不顯示解鎖按鈕。 */
+  has_contact: boolean;
+  contact_access_log: VendorContactAccess[];
   estimated_fee_min?: number;
   estimated_fee_max?: number;
+}
+
+export interface VendorContactReveal {
+  success: true;
+  request_id: string;
+  contact: { id: string; label: string; value: string }[];
+  contact_access_log: VendorContactAccess[];
 }
 
 /** 接單／拒單成功後回傳案件的最新樣貌（含新版本號）。 */

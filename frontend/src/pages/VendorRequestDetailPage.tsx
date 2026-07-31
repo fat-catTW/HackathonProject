@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { actOnVendorRequest, getVendorRequest } from "../api/vendor";
+import { actOnVendorRequest, getVendorRequest, revealVendorContact } from "../api/vendor";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { StatusBadge } from "../components/StatusBadge";
@@ -43,6 +43,13 @@ export function VendorRequestDetailPage() {
   const [acting, setActing] = useState<VendorAction | null>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
   const [confirmingReject, setConfirmingReject] = useState(false);
+  // 解密後的聯絡資訊（欄位 id → 完整內容）；null 代表還沒解鎖，畫面維持遮罩。
+  const [contact, setContact] = useState<Record<string, string> | null>(null);
+  const [revealing, setRevealing] = useState(false);
+  const [contactError, setContactError] = useState("");
+
+  const serviceFields = detail?.fields.filter((f) => !f.masked) ?? [];
+  const contactFields = detail?.fields.filter((f) => f.masked) ?? [];
 
   useEffect(() => {
     setLoading(true);
@@ -57,6 +64,28 @@ export function VendorRequestDetailPage() {
       })
       .finally(() => setLoading(false));
   }, [navigate, requestId]);
+
+  const revealContact = () => {
+    if (revealing) return;
+    setRevealing(true);
+    setContactError("");
+    revealVendorContact(requestId)
+      .then((result) => {
+        setContact(Object.fromEntries(result.contact.map((c) => [c.id, c.value])));
+        // 這次檢視也會出現在紀錄裡，直接換上後端回傳的完整清單。
+        setDetail((current) =>
+          current ? { ...current, contact_access_log: result.contact_access_log } : current,
+        );
+      })
+      .catch((e) => {
+        if (e instanceof ApiError && e.code === "UNAUTHORIZED") {
+          navigate("/vendor/login");
+          return;
+        }
+        setContactError(e instanceof ApiError ? e.message : "無法顯示聯絡資訊，請稍後再試");
+      })
+      .finally(() => setRevealing(false));
+  };
 
   const runAction = (action: VendorAction) => {
     if (!detail || acting) return;
@@ -147,17 +176,89 @@ export function VendorRequestDetailPage() {
           <section className="mt-5 rounded-[28px] bg-[var(--color-surface)] p-6 shadow-sm">
             <h2 className="text-lg font-black text-[var(--color-foreground)]">服務內容</h2>
             <dl className="mt-4 divide-y divide-[var(--color-border)]">
-              {detail.fields.map((field) => (
+              {serviceFields.map((field) => (
                 <div key={field.id} className="flex flex-wrap gap-x-4 gap-y-1 py-3">
                   <dt className="w-28 shrink-0 text-[var(--color-muted-foreground)]">{field.label}</dt>
                   <dd className="min-w-0 flex-1 font-medium text-[var(--color-foreground)]">{field.value}</dd>
                 </div>
               ))}
-              {detail.fields.length === 0 && (
+              {serviceFields.length === 0 && (
                 <p className="py-3 text-[var(--color-muted-foreground)]">這筆案件沒有填寫內容。</p>
               )}
             </dl>
           </section>
+
+          {contactFields.length > 0 && (
+            <section className="mt-5 rounded-[28px] bg-[var(--color-surface)] p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-lg font-black text-[var(--color-foreground)]">聯絡資訊</h2>
+                <span className="rounded-full bg-[var(--color-primary-soft)] px-3 py-1 text-sm font-bold text-[var(--color-primary)]">
+                  {contact ? "已解密顯示" : "已加密保護"}
+                </span>
+              </div>
+              <dl className="mt-4 divide-y divide-[var(--color-border)]">
+                {contactFields.map((field) => (
+                  <div key={field.id} className="flex flex-wrap gap-x-4 gap-y-1 py-3">
+                    <dt className="w-28 shrink-0 text-[var(--color-muted-foreground)]">
+                      {field.label}
+                    </dt>
+                    <dd
+                      className={`min-w-0 flex-1 font-medium ${
+                        contact
+                          ? "text-[var(--color-foreground)]"
+                          : "tracking-wider text-[var(--color-muted-foreground)]"
+                      }`}
+                    >
+                      {contact?.[field.id] ?? field.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              {!contact && (
+                <>
+                  <button
+                    type="button"
+                    onClick={revealContact}
+                    disabled={revealing}
+                    className="mt-4 w-full rounded-2xl border-2 border-[var(--color-primary)] bg-[var(--color-surface)] px-6 py-3 text-base font-black text-[var(--color-primary)] transition hover:bg-[var(--color-primary-soft)] disabled:opacity-50"
+                  >
+                    {revealing ? "解密中…" : "顯示完整聯絡資訊"}
+                  </button>
+                  <p className="mt-2 text-center text-sm text-[var(--color-muted-foreground)]">
+                    住戶的聯絡方式加密保存，每次檢視都會留下紀錄。
+                  </p>
+                </>
+              )}
+              {contactError && (
+                <p
+                  role="alert"
+                  className="mt-3 text-center text-sm font-bold text-[var(--color-danger)]"
+                >
+                  {contactError}
+                </p>
+              )}
+
+              {detail.contact_access_log.length > 0 && (
+                <div className="mt-5 rounded-2xl bg-[var(--color-canvas)] p-4">
+                  <h3 className="text-sm font-black text-[var(--color-muted-foreground)]">
+                    存取紀錄
+                  </h3>
+                  <ul className="mt-2 space-y-1.5">
+                    {detail.contact_access_log.map((entry) => (
+                      <li
+                        key={`${entry.at}-${entry.fields.join()}`}
+                        className="text-sm text-[var(--color-muted-foreground)]"
+                      >
+                        {formatTime(entry.at)}　{entry.viewer_name} 檢視了
+                        {entry.fields.join("、")}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
 
           {notice && (
             <p

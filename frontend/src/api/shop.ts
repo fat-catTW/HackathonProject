@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type {
+  ShopCategory,
   ShopOrder,
   ShopPointsBalance,
   ShopProduct,
@@ -12,8 +13,12 @@ export function listShopStores(): Promise<{ stores: ShopStore[] }> {
   return api("/api/shop/stores");
 }
 
-export function listShopProducts(storeId?: string): Promise<{ products: ShopProduct[] }> {
-  const query = storeId ? `?store_id=${encodeURIComponent(storeId)}` : "";
+export function listShopCategories(): Promise<{ categories: ShopCategory[] }> {
+  return api("/api/shop/categories");
+}
+
+export function listShopProducts(categoryId?: string): Promise<{ products: ShopProduct[] }> {
+  const query = categoryId ? `?category_id=${encodeURIComponent(categoryId)}` : "";
   return api(`/api/shop/products${query}`);
 }
 

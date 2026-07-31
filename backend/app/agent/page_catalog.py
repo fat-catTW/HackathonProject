@@ -32,6 +32,19 @@ APPLICATION_HINTS = (
     "手動填",
     "送出",
 )
+ORDER_HISTORY_HINTS = (
+    "我的服務",
+    "我的訂單",
+    "訂單",
+    "下訂",
+    "已下訂",
+    "已經下訂",
+    "查看訂單",
+    "查訂單",
+    "訂單進度",
+    "案件進度",
+)
+
 SERVICE_FORM_ALIASES = {
     "service_form_plumbing_repair": (
         "水電",
@@ -211,6 +224,12 @@ def search_pages(query: str, current_page_id: str | None = None, *, limit: int =
         if page_id == "home" and navigation_query and application_query:
             score += 4
             _push_reason(reasons, "home is the entry page for service applications")
+
+        if page_id == "my_services" and navigation_query and any(
+            hint.lower() in normalized_query for hint in ORDER_HISTORY_HINTS
+        ):
+            score += 18
+            _push_reason(reasons, "matched order history navigation intent")
 
         if current_page_id and current_page_id == page_id and current_page_query:
             score += 8

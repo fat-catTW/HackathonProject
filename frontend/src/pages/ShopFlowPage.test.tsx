@@ -226,4 +226,12 @@ describe("ShopFlowPage", () => {
     expect(screen.getByText("最便宜")).toBeInTheDocument();
     expect(screen.queryByText("請選擇商品類型")).not.toBeInTheDocument();
   });
+
+  it("shows a toast and doesn't crash when the compare deep link fails to load", async () => {
+    vi.mocked(shopApi.getShopCompareGroup).mockRejectedValue(new Error("network error"));
+
+    renderPageAtRoute("/services/shop_purchase?compare=cmp_x");
+
+    expect(await screen.findByText("比價資料載入失敗")).toBeInTheDocument();
+  });
 });

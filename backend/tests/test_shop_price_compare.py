@@ -62,6 +62,17 @@ def test_agent_detects_price_compare_and_replies_with_redirect():
     assert "最便宜" in result["reply"]
 
 
+def test_every_service_entry_has_a_keywords_list():
+    """Regression test: customer_support previously had no "keywords" key,
+    which crashed nlu.detect_service's unguarded `for kw in s["keywords"]`
+    for every service whenever a message reached that fallback path."""
+    for service in catalog.SERVICES:
+        assert isinstance(service.get("keywords"), list), (
+            f"{service['id']} is missing a keywords list; "
+            "nlu.detect_service iterates every enabled service's keywords unconditionally"
+        )
+
+
 def test_agent_price_compare_not_found_has_no_redirect():
     state = agent.new_state()
 

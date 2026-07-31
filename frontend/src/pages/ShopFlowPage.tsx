@@ -65,20 +65,18 @@ export function ShopFlowPage() {
     getShopPoints().then((res) => setPointsBalance(res.balance)).catch(() => {});
   }, []);
 
+  const compareParam = searchParams.get("compare");
+
   useEffect(() => {
-    const groupId = searchParams.get("compare");
-    if (!groupId) return;
-    getShopCompareGroup(groupId)
+    if (!compareParam) return;
+    getShopCompareGroup(compareParam)
       .then((group) => {
         setSelectedCategoryId(group.category_id);
         setComparingGroupId(group.group_id);
         setStepIndex(STEP_ORDER.indexOf("product"));
       })
       .catch(() => setToastText("比價資料載入失敗"));
-    // Runs once on mount to consume the initial URL; the compare param
-    // isn't re-read on subsequent in-app navigation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [compareParam]);
 
   useEffect(() => {
     if (!selectedCategoryId) return;

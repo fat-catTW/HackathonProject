@@ -30,6 +30,7 @@ vi.mock("../api/vendor", () => ({
     customer_name: LIST_ITEM.customer_name,
     fields: [],
     events: [],
+    available_actions: [],
     updated_at: LIST_ITEM.updated_at,
   })),
   vendorLogin: vi.fn(),

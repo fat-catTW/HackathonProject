@@ -59,25 +59,35 @@ export function HomePage() {
           每層都用大範圍、淡出到 transparent 的柔和光斑疊出那種發光感，
           四角圓角、留白邊界都改回一般卡片的樣子。
         */}
-        <header
-          className="relative overflow-hidden rounded-[32px] p-5 text-[var(--color-on-primary)] shadow-[0_35px_70px_-30px_var(--color-primary)]"
-          style={{
-            // 整體調淺一階：底層漸層改用 primary-accent（淺紫）到 primary（原本是 primary→primary-hover，
-            // 兩者都偏深），文字改加一圈柔和陰影確保在最淺的區域仍然讀得清楚，
-            // 不用把底色壓深來換取對比。
-            backgroundImage: `
-              radial-gradient(55% 45% at 82% 8%, rgba(255,255,255,0.55) 0%, transparent 70%),
-              radial-gradient(70% 60% at 10% 105%, var(--color-secondary) 0%, transparent 70%),
-              radial-gradient(90% 85% at 65% -15%, var(--color-primary-accent) 0%, transparent 66%),
-              linear-gradient(165deg, var(--color-primary-accent) 0%, var(--color-primary) 100%)
-            `,
-          }}
-        >
-          <Mascot
-            size={150}
-            tone="inverted"
-            className="pointer-events-none absolute -bottom-8 -right-8 opacity-[0.14]"
-          />
+        <header className="relative rounded-[32px] p-5 text-[var(--color-on-primary)] shadow-[0_35px_70px_-30px_var(--color-primary)]">
+          {/*
+            背景漸層跟裝飾用 Mascot 都收進這層獨立的 overflow-hidden 容器，跟外面的
+            AppearanceMenu／登出按鈕分開。原本 overflow-hidden 是直接放在 <header> 本身，
+            結果 AppearanceMenu 展開的選單（無障礙模式、重新觀看新手導覽都在裡面）
+            也是 header 的子元素，跟著被裁掉下半部，使用者看不到那兩個選項。
+            現在只裁掉背景這層，選單所在的內容層不再受 overflow-hidden 限制。
+          */}
+          <div
+            aria-hidden
+            className="absolute inset-0 overflow-hidden rounded-[32px]"
+            style={{
+              // 整體調淺一階：底層漸層改用 primary-accent（淺紫）到 primary（原本是 primary→primary-hover，
+              // 兩者都偏深），文字改加一圈柔和陰影確保在最淺的區域仍然讀得清楚，
+              // 不用把底色壓深來換取對比。
+              backgroundImage: `
+                radial-gradient(55% 45% at 82% 8%, rgba(255,255,255,0.55) 0%, transparent 70%),
+                radial-gradient(70% 60% at 10% 105%, var(--color-secondary) 0%, transparent 70%),
+                radial-gradient(90% 85% at 65% -15%, var(--color-primary-accent) 0%, transparent 66%),
+                linear-gradient(165deg, var(--color-primary-accent) 0%, var(--color-primary) 100%)
+              `,
+            }}
+          >
+            <Mascot
+              size={150}
+              tone="inverted"
+              className="pointer-events-none absolute -bottom-8 -right-8 opacity-[0.14]"
+            />
+          </div>
           <div className="relative flex items-center justify-between gap-4">
             <AppearanceMenu />
             <button

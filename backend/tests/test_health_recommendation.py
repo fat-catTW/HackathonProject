@@ -96,6 +96,7 @@ def test_agent_detects_health_service_and_answers_without_creating_a_case():
                 "id": "health_product_recommendation",
                 "name": "健康商品推薦",
                 "description": "說出健康或飲食需求，推薦適合的 7-11 商品",
+                "keywords": ["健康", "減脂", "增肌", "商品", "推薦"],
             }
         ],
     ):

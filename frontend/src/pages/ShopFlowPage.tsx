@@ -234,6 +234,7 @@ export function ShopFlowPage() {
                 >
                   <p className="text-base font-bold text-slate-900">{product.name}</p>
                   <p className="text-sm text-slate-500">NT${product.skus[0]?.unit_price}</p>
+                  <p className="text-xs text-slate-400">{product.store_name}</p>
                 </button>
               ))}
             </div>

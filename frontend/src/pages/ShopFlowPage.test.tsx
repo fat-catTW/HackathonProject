@@ -55,4 +55,14 @@ describe("ShopFlowPage", () => {
     expect(await screen.findByText("商品 A")).toBeInTheDocument();
     expect(shopApi.listShopProducts).toHaveBeenCalledWith("cat_beverage");
   });
+
+  it("shows the vendor name on each product card", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("飲品兌換"));
+
+    expect(await screen.findByText("商品 A")).toBeInTheDocument();
+    expect(screen.getByText("A 店家")).toBeInTheDocument();
+  });
 });

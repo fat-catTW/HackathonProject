@@ -361,6 +361,15 @@ def find_compare_group_id_by_query(query: str) -> str | None:
         group_id = p.get("compare_group_id")
         if not group_id:
             continue
-        if p["name"] in query or query in p["name"]:
+        name = p["name"]
+        if name in query or query in name:
+            return group_id
+        # Users often shorten a product name to its leading noun (e.g. "維他命C"
+        # for "維他命C發泡錠") and embed it mid-sentence ("我想比較維他命C的
+        # 價格"); search for the name's leading core anywhere in the query
+        # instead of requiring the full name or a query-start match.
+        core_len = min(len(name), 4)
+        core = name[:core_len]
+        if core_len >= 3 and core in query:
             return group_id
     return None

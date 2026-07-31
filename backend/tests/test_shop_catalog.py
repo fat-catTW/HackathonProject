@@ -127,6 +127,14 @@ def test_find_compare_group_id_by_query_matches_partial_name():
     assert shop_catalog.find_compare_group_id_by_query("我想比較維他命C發泡錠的價格") == "cmp_vitamin_c"
 
 
+def test_find_compare_group_id_by_query_matches_colloquial_short_name_with_suffix():
+    """Regression test: "維他命C比價" (short noun + a verb, no full product
+    name) previously fell through to no match even though "維他命C" alone
+    already matched via plain substring containment."""
+    assert shop_catalog.find_compare_group_id_by_query("維他命C比價") == "cmp_vitamin_c"
+    assert shop_catalog.find_compare_group_id_by_query("多功能清潔噴霧多少錢") == "cmp_clean_spray"
+
+
 def test_find_compare_group_id_by_query_no_match_returns_none():
     assert shop_catalog.find_compare_group_id_by_query("完全不相關的字串xyz") is None
 

@@ -62,6 +62,39 @@ def test_agent_detects_price_compare_and_replies_with_redirect():
     assert "最便宜" in result["reply"]
 
 
+def test_agent_detects_natural_compare_phrasing_with_product_name_in_the_middle():
+    """Regression test: "我想比較X的價格" splits 比較 and 價格 with the product
+    name, so it never contains the contiguous "比較價格"/"比價" keyword
+    substrings. Manual testing against the live agent showed this natural
+    phrasing fell through to a generic "not understood" reply instead of
+    triggering shop_price_compare."""
+    state = agent.new_state()
+
+    with patch(
+        "backend.app.agent.agent._available_services",
+        return_value=[
+            {
+                "id": "shop_price_compare",
+                "name": "商品比價",
+                "description": "說出想比價的商品名稱，馬上看到各店家價格",
+            }
+        ],
+    ):
+        result = agent.handle_message("user-1", "sess-1", state, "我想比較維他命C的價格")
+
+    assert result["redirect_path"] == "/services/shop_purchase?compare=cmp_vitamin_c"
+    assert "最便宜" in result["reply"]
+
+
+def test_embedded_compare_tool_matches_colloquial_short_product_name():
+    """Regression test: querying with just the leading noun ("維他命C")
+    instead of the full product name ("維他命C發泡錠") previously fell
+    through to PRODUCT_NOT_FOUND even though intent detection succeeded."""
+    result = tools.call("compare_product_prices", {"query": "維他命C比價"})
+    assert result["success"] is True
+    assert result["group_id"] == "cmp_vitamin_c"
+
+
 def test_every_service_entry_has_a_keywords_list():
     """Regression test: customer_support previously had no "keywords" key,
     which crashed nlu.detect_service's unguarded `for kw in s["keywords"]`

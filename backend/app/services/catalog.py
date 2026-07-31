@@ -363,7 +363,7 @@ SERVICES: list[dict] = [
         "service_vendor_id": None,
         "cms_type": None,
         "enabled": True,
-        "keywords": ["比價", "比較價格", "哪裡最便宜", "哪家最便宜", "最便宜", "價格比較"],
+        "keywords": ["比價", "比較", "比較價格", "哪裡最便宜", "哪家最便宜", "最便宜", "價格比較"],
         "schema": {
             "fields": [
                 {

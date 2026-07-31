@@ -5,46 +5,371 @@
 html { font-size: 18px; } /* 高齡友善：整體字級放大 */
 body { @apply bg-paper text-ink font-sans; }
 
-/* 機器人管家主題色系：只換 token 值，不動版面與元件結構 */
-:root,
-html[data-theme="ocean"] {
-  --color-brand: #0F4C81;
-  --color-brand-dark: #0A3A63;
-  --color-brand-soft: #EAF1F8;
-  --color-mascot-highlight: #F2A93B;
-  --color-canvas: #EEF1F4;
+/* 字型 Token：與色彩模式無關，兩模式共用同一組字族 */
+:root {
+  /* 大標題與行銷型英數字排版：拉丁字母吃 Space Grotesk，中文自動 fallback 至 Noto Sans TC */
+  --font-display: "Space Grotesk", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  /* 內文字族維持不變 */
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  /* 資料型文字（案件編號、時間戳） */
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 }
 
-html[data-theme="meadow"] {
-  --color-brand: #2E9E5B;
-  --color-brand-dark: #1F6E3F;
-  --color-brand-soft: #E5F4EB;
-  --color-mascot-highlight: #F4C77A;
-  --color-canvas: #EEF4EF;
+/* 語意色彩 Token：Light / Dark 兩模式各一組，變數名稱集合完全相同 */
+html[data-color-mode="light"] {
+  /* Brand：紫（主行動色）— 取代舊版單一藍色，脫離「全站皆藍」的制式科技感 */
+  --color-primary: #7C3AED;
+  --color-primary-hover: #6D28D9;
+  --color-primary-accent: #A78BFA;
+  --color-on-primary: #FFFFFF;
+  --color-primary-soft: #F5F3FF;
+
+  /* 第二品牌色：桃紅，用於裝飾性漸層、次要行動點綴，避免整站只有一種色相。
+     取 pink-700 而非 pink-600：白字疊於其上需 ≥4.5:1（Requirement 16.1），
+     pink-600 僅約 4.60:1 過於臨界，pink-700 提升到約 6:1 留有安全餘裕。 */
+  --color-secondary: #BE185D;
+  --color-secondary-soft: #FDF2F8;
+  --color-on-secondary: #FFFFFF;
+
+  /* 第三品牌色：青藍，用於裝飾性漸層與資訊型重點，與 info 藍區隔出不同色相層次。
+     取 cyan-700 而非 cyan-600：作為文字色時對白底僅約 3.68:1，未達 4.5:1，
+     cyan-700 提升到約 5.35:1。 */
+  --color-tertiary: #0E7490;
+  --color-tertiary-soft: #ECFEFF;
+
+  /* Surface：淡紫調中性色，取代原本偏藍灰的中性色，呼應品牌紫但保持乾淨 */
+  --color-background: #FAF8FE;
+  --color-canvas: #F1ECFB;
+  --color-surface: #FFFFFF;
+  --color-surface-glass: rgba(255, 255, 255, 0.6);
+  --color-border: #E4DDF5;
+  --color-glass-border: rgba(255, 255, 255, 0.8);
+  /* Modal / Drawer 遮罩：深紫黑 50% 不透明度，落在「足以隔離前景內容」的 40–60% 區間
+     （Requirement 16.7）。兩模式各自定值，使遮罩在淺色與深色底下都能壓住背景內容。 */
+  --color-scrim: rgba(30, 10, 50, 0.5);
+
+  /* Text */
+  --color-foreground: #1C1030;
+  --color-muted-foreground: #5C5175;
+
+  /* Semantic status：語意色維持與品牌色不同色相，狀態辨識不受換色影響 */
+  --color-success: #15803D;
+  --color-success-soft: #DCFCE7;
+  --color-warning: #B45309;
+  --color-warning-soft: #FEF3C7;
+  --color-danger: #B91C1C;
+  --color-danger-soft: #FEE2E2;
+  /* info 改採藍色（原本的品牌藍退居為語意色之一），讓「藍」仍在畫面中出現，
+     但不再是唯一的行動色，藍/紫/桃紅/青三色並存才有色彩層次。 */
+  --color-info: #1D4ED8;
+  --color-info-soft: #EFF6FF;
+
+  /* Mascot（固定值，使用者不可自訂）：紫身＋青色點綴，呼應 tertiary 色相但取更亮的
+     裝飾用色階（SVG 插圖細節不受 4.5:1 文字對比門檻限制，見 contrast.test.ts 排除項）。 */
+  --color-mascot-body: #7C3AED;
+  --color-mascot-accent: #06B6D4;
+
+  /* 反轉面板：LandingPage 的深色寬卡。改用深紫黑取代深藍黑，與新色系一致。 */
+  --color-panel-invert: #1B1030;
+  --color-on-panel-invert: #F3EEFA;
+
+  color-scheme: light;
 }
 
-html[data-theme="apricot"] {
-  --color-brand: #D97A46;
-  --color-brand-dark: #B85F32;
-  --color-brand-soft: #FBEEE1;
-  --color-mascot-highlight: #FCE2C8;
-  --color-canvas: #F5EFE9;
+html[data-color-mode="dark"] {
+  /* Brand：亮紫（霓虹感），搭配桃紅漸層端點，呼應深色聊天機器人 App 的視覺語言 */
+  --color-primary: #C084FC;
+  --color-primary-hover: #D8B4FE;
+  --color-primary-accent: #F472B6;
+  --color-on-primary: #1A0B2E;
+  --color-primary-soft: rgba(192, 132, 252, 0.18);
+
+  --color-secondary: #F472B6;
+  --color-secondary-soft: rgba(244, 114, 182, 0.18);
+  /* secondary 在 Dark 模式是亮色，需深色字才能達到對比（白字疊上去僅約 2.65:1）。 */
+  --color-on-secondary: #1A0B2E;
+
+  --color-tertiary: #22D3EE;
+  --color-tertiary-soft: rgba(34, 211, 238, 0.18);
+
+  /* Surface：近黑紫色調，取代原本的深藍黑，貼近參考稿的深色聊天 App 底色 */
+  --color-background: #0B0714;
+  --color-canvas: #150C26;
+  --color-surface: #1E1233;
+  --color-surface-glass: rgba(30, 18, 51, 0.55);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-glass-border: rgba(255, 255, 255, 0.14);
+  /* Dark 模式的遮罩取更深的近黑並提高到 60%：深色底本身亮度已低，
+     需要更高不透明度才能讓前景卡片與背景內容分離（Requirement 16.7）。 */
+  --color-scrim: rgba(5, 2, 15, 0.6);
+
+  /* Text */
+  --color-foreground: #F3EEFF;
+  --color-muted-foreground: #B8A9D9;
+
+  /* Semantic status */
+  --color-success: #4ADE80;
+  --color-success-soft: rgba(74, 222, 128, 0.16);
+  --color-warning: #FBBF24;
+  --color-warning-soft: rgba(251, 191, 36, 0.16);
+  --color-danger: #F87171;
+  --color-danger-soft: rgba(248, 113, 113, 0.16);
+  --color-info: #60A5FA;
+  --color-info-soft: rgba(59, 130, 246, 0.16);
+
+  /* Mascot（固定值，使用者不可自訂）：亮紫身＋青色點綴，深色底下形成霓虹對比 */
+  --color-mascot-body: #C084FC;
+  --color-mascot-accent: #22D3EE;
+
+  /* 反轉面板：Dark 模式下頁面本身已是近黑紫，取比 --color-surface 再亮一階，
+     讓這張寬卡在深色頁面中仍被辨識為獨立面板。 */
+  --color-panel-invert: #2A1B47;
+  --color-on-panel-invert: #F3EEFF;
+
+  color-scheme: dark;
 }
 
-html[data-theme="blush"] {
-  --color-brand: #B85C78;
-  --color-brand-dark: #8F435C;
-  --color-brand-soft: #FBEAF0;
-  --color-mascot-highlight: #F6D8C9;
-  --color-canvas: #F6EEF1;
+/* 玻璃擬態工具類別：Light/Dark 皆吃上方變數，效果隨模式自動調整 */
+.glass-panel {
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-glass-border);
 }
 
-html[data-theme="twilight"] {
-  --color-brand: #3B4A6B;
-  --color-brand-dark: #2B3550;
-  --color-brand-soft: #E7EAF1;
-  --color-mascot-highlight: #F2A93B;
-  --color-canvas: #E9EBF0;
+html[data-color-mode="dark"] .glass-panel {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); /* 模擬玻璃厚度高光 */
+}
+
+/* Fallback：瀏覽器不支援 backdrop-filter 時退回不透明 --color-surface，確保面板內文字仍可讀 */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-panel {
+    background: var(--color-surface);
+  }
+
+  /* 僅支援 -webkit- 前綴的瀏覽器（舊版 Safari）仍可享有玻璃效果 */
+  @supports (-webkit-backdrop-filter: blur(1px)) {
+    .glass-panel {
+      background: var(--color-surface-glass);
+    }
+  }
+}
+
+/* 背景大字紋理：純 CSS，不依賴圖片素材。
+   套用方式：容器加 .bg-wordmark-texture-host（建立 stacking context），
+   內部放一個 aria-hidden 的 .bg-wordmark-texture 元素，其文字即為紋理內容。 */
+.bg-wordmark-texture-host {
+  position: relative;
+  isolation: isolate; /* 讓 z-index: -1 的紋理層停在容器背景之上、內容之下 */
+}
+
+.bg-wordmark-texture {
+  position: absolute;
+  inset: 0;
+  z-index: -1; /* 內容層之下 */
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--font-display, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif);
+  font-weight: 700;
+  font-size: clamp(6rem, 18vw, 14rem);
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--color-primary);
+  opacity: 0.05;
+  transform: rotate(-6deg) translateY(-10%);
+}
+
+html[data-color-mode="dark"] .bg-wordmark-texture {
+  opacity: 0.08; /* 深色底需要稍高不透明度才能被感知，仍遠低於可辨識文字門檻 */
+}
+
+/* 淡化版：供登入頁等任務型頁面使用，不透明度低於行銷首頁 */
+.bg-wordmark-texture--subtle {
+  opacity: 0.025;
+}
+
+html[data-color-mode="dark"] .bg-wordmark-texture--subtle {
+  opacity: 0.04;
+}
+
+/* 品牌漸層：--color-primary → --color-primary-accent，供 Hero、摘要卡與主要行動按鈕使用 */
+.bg-brand-gradient {
+  background-image: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-accent) 100%);
+}
+
+/* Dark 模式：疊一層深色使漸層降飽和，再疊深色 vignette，避免在深色頁面中過度刺眼 */
+html[data-color-mode="dark"] .bg-brand-gradient {
+  background-image:
+    radial-gradient(140% 120% at 50% -10%, rgba(11, 7, 20, 0) 35%, rgba(11, 7, 20, 0.55) 100%),
+    linear-gradient(135deg, rgba(11, 7, 20, 0.22) 0%, rgba(11, 7, 20, 0.34) 100%),
+    linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-accent) 100%);
+}
+
+/* 極淡漸層色帶：供資料密集頁面的標題區／說明卡做區隔，不搶列表內容焦點 */
+.bg-brand-gradient-soft {
+  background-image: linear-gradient(135deg, var(--color-primary-soft) 0%, var(--color-canvas) 100%);
+}
+
+html[data-color-mode="dark"] .bg-brand-gradient-soft {
+  background-image:
+    linear-gradient(135deg, rgba(11, 18, 32, 0.35) 0%, rgba(11, 18, 32, 0.55) 100%),
+    linear-gradient(135deg, var(--color-primary-soft) 0%, var(--color-canvas) 100%);
+}
+
+/* ===== LandingPage 專用視覺語言（對應參考設計稿） ===== */
+
+/*
+ * 頁面外層底色：由上方的品牌漸層過渡到頁面底色，讓中央白卡有「浮起」的感覺。
+ * Light 模式改用不透明的 primary-accent／secondary（而不是幾乎等於白色的 *-soft token）
+ * 當漸層起色，讓頂部確實讀出「有顏色的天空」，而不是幾乎全白只帶一點點色差。
+ */
+.bg-hero-backdrop {
+  background-image:
+    radial-gradient(120% 85% at 50% -18%, var(--color-primary-accent) 0%, transparent 62%),
+    radial-gradient(70% 55% at 92% -8%, var(--color-secondary) 0%, transparent 55%),
+    linear-gradient(180deg, var(--color-canvas) 0%, var(--color-background) 62%);
+}
+
+html[data-color-mode="dark"] .bg-hero-backdrop {
+  background-image:
+    radial-gradient(120% 85% at 50% -18%, var(--color-primary-soft) 0%, transparent 62%),
+    radial-gradient(70% 55% at 92% -8%, var(--color-secondary-soft) 0%, transparent 55%),
+    linear-gradient(180deg, var(--color-canvas) 0%, var(--color-background) 62%);
+}
+
+/* 巨型品牌字：純裝飾（呼叫端一律加 aria-hidden）。
+   放在 overflow-hidden 的矮容器中，讓字的下半部被主卡片上緣裁掉，複製參考稿的裁切效果。 */
+.wordmark-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 0.78;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* hero 白卡底部的大圓弧收邊（參考稿的下凸曲線） */
+.hero-curve {
+  border-bottom-left-radius: 50% 5rem;
+  border-bottom-right-radius: 50% 5rem;
+}
+
+/* 流體漸層裝飾：純 CSS 疊層模擬參考稿的抽象流體影像，不依賴任何圖片素材。
+   刻意混入 secondary（桃紅）與 tertiary（青）而非只用品牌紫的深淺，
+   讓裝飾卡彼此有色相差異，不會全部長得像同一張圖的深淺變化。 */
+.bg-fluid-art {
+  background-image:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.1) 0 2px, transparent 2px 9px),
+    radial-gradient(70% 90% at 15% 25%, var(--color-secondary) 0%, transparent 62%),
+    radial-gradient(60% 80% at 80% 65%, var(--color-primary) 0%, transparent 66%),
+    conic-gradient(
+      from 210deg at 55% 45%,
+      var(--color-primary) 0deg,
+      var(--color-secondary) 110deg,
+      var(--color-primary-hover) 240deg,
+      var(--color-primary) 360deg
+    );
+  background-color: var(--color-primary-hover);
+}
+
+/* 變體：換角度、焦點位置與色相組合（紫＋青），讓並排的多張裝飾卡不會看起來像複製貼上 */
+.bg-fluid-art--alt {
+  background-image:
+    repeating-linear-gradient(65deg, rgba(255, 255, 255, 0.08) 0 2px, transparent 2px 11px),
+    radial-gradient(65% 85% at 75% 20%, var(--color-tertiary) 0%, transparent 60%),
+    radial-gradient(70% 90% at 20% 75%, var(--color-primary-hover) 0%, transparent 64%),
+    conic-gradient(
+      from 40deg at 40% 60%,
+      var(--color-primary-hover) 0deg,
+      var(--color-tertiary) 130deg,
+      var(--color-primary-accent) 250deg,
+      var(--color-primary-hover) 360deg
+    );
+  background-color: var(--color-primary);
+}
+
+/* 第三種變體：桃紅為主調，供需要三張裝飾卡並排（避免只有兩種色相輪替）的版面使用 */
+.bg-fluid-art--warm {
+  background-image:
+    repeating-linear-gradient(150deg, rgba(255, 255, 255, 0.08) 0 2px, transparent 2px 10px),
+    radial-gradient(68% 88% at 25% 30%, var(--color-primary-accent) 0%, transparent 62%),
+    radial-gradient(62% 82% at 78% 70%, var(--color-secondary) 0%, transparent 64%),
+    conic-gradient(
+      from 300deg at 50% 50%,
+      var(--color-secondary) 0deg,
+      var(--color-primary) 150deg,
+      var(--color-tertiary) 260deg,
+      var(--color-secondary) 360deg
+    );
+  background-color: var(--color-secondary);
+}
+
+/* ===== 聊天機器人 App 視覺語言（LoginPage／面板型頁面共用，對應參考設計稿） =====
+   大面積模糊色塊背景，模擬參考稿裡「柔和漸層泡泡」的氛圍卡氣氛。
+   Light 模式用 soft token（低飽和大片暈染），Dark 模式用主色 token 疊高透明度營造霓虹光暈。 */
+.bg-blob-scene {
+  position: relative;
+  isolation: isolate;
+  background-image:
+    radial-gradient(36% 28% at 14% 10%, var(--color-secondary-soft) 0%, transparent 72%),
+    radial-gradient(40% 32% at 88% 16%, var(--color-tertiary-soft) 0%, transparent 72%),
+    radial-gradient(58% 46% at 50% 102%, var(--color-primary-soft) 0%, transparent 70%);
+  background-color: var(--color-canvas);
+}
+
+html[data-color-mode="dark"] .bg-blob-scene {
+  background-image:
+    radial-gradient(38% 30% at 12% 8%, var(--color-secondary) 0%, transparent 68%),
+    radial-gradient(42% 34% at 90% 14%, var(--color-tertiary) 0%, transparent 68%),
+    radial-gradient(62% 50% at 50% 105%, var(--color-primary) 0%, transparent 66%);
+  background-color: var(--color-background);
+  background-blend-mode: normal;
+}
+
+/* Dark 模式的泡泡本身用高斯模糊感的偽元素疊出「發光」而非扁平色塊 */
+html[data-color-mode="dark"] .bg-blob-scene::before {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  z-index: -1;
+  background-image:
+    radial-gradient(38% 30% at 12% 8%, var(--color-secondary) 0%, transparent 68%),
+    radial-gradient(42% 34% at 90% 14%, var(--color-tertiary) 0%, transparent 68%),
+    radial-gradient(62% 50% at 50% 105%, var(--color-primary) 0%, transparent 66%);
+  filter: blur(48px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* 聊天氣泡（用戶端）：紫→桃紅微漸層，取代單一實色，貼近參考稿的漸層泡泡質感 */
+.bg-bubble-user {
+  background-image: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+}
+
+html[data-color-mode="dark"] .bg-bubble-user {
+  background-image: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-accent) 100%);
+  box-shadow: 0 8px 24px -8px var(--color-primary);
+}
+
+/* 疊在流體裝飾上的暗化層：確保其上的白色文字達到 WCAG 對比要求 */
+.fluid-art-scrim {
+  background-image: linear-gradient(
+    180deg,
+    rgba(2, 6, 23, 0.15) 0%,
+    rgba(2, 6, 23, 0.55) 55%,
+    rgba(2, 6, 23, 0.78) 100%
+  );
+}
+
+/* 直排文字（參考稿右側的旋轉標題） */
+.text-vertical-rl {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
 
 /* 無障礙模式：字級/間距（rem 為單位）連動放大，並提高淺灰文字對比度 */
@@ -63,6 +388,34 @@ html[data-a11y="true"] .text-slate-600 {
   color: #1F2933;
 }
 
+/*
+ * Hero 手機周邊漂浮卡片的「活潑感」動效：帶一點角度地緩慢上下浮動，讓卡片讀起來像
+ * 資訊正從手機冒出來，而不是死板貼齊格線的方框。角度／延遲透過呼叫端的
+ * `[--float-rot:...]` `[--float-delay:...]` 任意屬性 class 個別指定，避免每張卡各寫一組 keyframes。
+ * `.float-bob-centered` 額外把 `translateY(-50%)` 併入 keyframe 本身，
+ * 供原本用 `-translate-y-1/2` 做垂直置中的元素使用（CSS `animation` 會整個蓋掉
+ * `transform`，兩者不能分開疊加，因此置中位移也要寫進 keyframe）。
+ */
+@keyframes float-bob {
+  0%, 100% { transform: rotate(var(--float-rot, 0deg)) translateY(0); }
+  50% { transform: rotate(var(--float-rot, 0deg)) translateY(-10px); }
+}
+
+@keyframes float-bob-centered {
+  0%, 100% { transform: translateY(-50%) rotate(var(--float-rot, 0deg)) translateY(0); }
+  50% { transform: translateY(-50%) rotate(var(--float-rot, 0deg)) translateY(-10px); }
+}
+
+.float-bob {
+  animation: float-bob 4.5s ease-in-out infinite;
+  animation-delay: var(--float-delay, 0s);
+}
+
+.float-bob-centered {
+  animation: float-bob-centered 4.5s ease-in-out infinite;
+  animation-delay: var(--float-delay, 0s);
+}
+
 @keyframes fade-up-in {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
@@ -75,4 +428,13 @@ html[data-a11y="true"] .text-slate-600 {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+
+  /*
+   * 上面的全域規則會連 animation 帶出的 transform 一起清空；`.float-bob-centered`
+   * 依賴 keyframe 內的 translateY(-50%) 做垂直置中，因此需要在這裡補回一個靜態
+   * transform（不受 !important 規則影響，因為那條規則只清 animation/transition，
+   * 不動 transform 本身），避免無障礙使用者看到徽章位置跑掉。
+   */
+  .float-bob { transform: rotate(var(--float-rot, 0deg)); }
+  .float-bob-centered { transform: translateY(-50%) rotate(var(--float-rot, 0deg)); }
 }

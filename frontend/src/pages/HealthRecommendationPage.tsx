@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getProduct, recommendProducts } from "../api/health";
 import { ApiError } from "../api/client";
@@ -58,18 +58,18 @@ export function HealthRecommendationPage() {
             type="button"
             onClick={() => navigate("/home")}
             aria-label="返回"
-            className="flex h-11 w-11 items-center justify-center text-gray-500"
+            className="flex h-11 w-11 items-center justify-center text-[var(--color-muted-foreground)]"
           >
             <ServiceIcon type="back" size={22} />
           </button>
-          <h1 className="text-xl font-black text-slate-900">健康商品推薦</h1>
+          <h1 className="text-xl font-black text-[var(--color-foreground)]">健康商品推薦</h1>
         </header>
 
-        <section className="rounded-[24px] border border-white bg-white p-5 shadow-sm">
-          <p className="text-base font-bold leading-relaxed text-slate-900">
+        <section className="rounded-[24px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
+          <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">
             請說出你的健康或飲食需求
           </p>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+          <p className="mt-2 text-sm leading-6 text-[var(--color-muted-foreground)]">
             例如：我在減脂但想吃點甜食、想找低鈉的鮮食、素食高蛋白選項
           </p>
 
@@ -91,12 +91,12 @@ export function HealthRecommendationPage() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder={speech.listening ? "正在聆聽，請直接說出需求" : "輸入你的健康或飲食需求"}
               aria-label="健康或飲食需求"
-              className="min-w-0 flex-1 rounded-2xl border-2 border-gray-200 bg-white px-4 py-3.5 outline-none focus:border-brand"
+              className="min-w-0 flex-1 rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 outline-none focus:border-brand"
             />
             <button
               type="submit"
               disabled={loading || !query.trim()}
-              className="min-h-[44px] rounded-2xl bg-brand px-5 py-3.5 font-bold text-white disabled:opacity-40"
+              className="min-h-[44px] rounded-2xl bg-brand px-5 py-3.5 font-bold text-[var(--color-on-primary)] disabled:opacity-40"
             >
               查詢
             </button>
@@ -104,11 +104,11 @@ export function HealthRecommendationPage() {
         </section>
 
         {loading && (
-          <p className="mt-6 text-center text-sm text-gray-400">正在為你尋找推薦商品…</p>
+          <p className="mt-6 text-center text-sm text-[var(--color-muted-foreground)]">正在為你尋找推薦商品…</p>
         )}
 
         {!loading && recommendations && recommendations.length === 0 && (
-          <p className="mt-6 text-center text-sm leading-7 text-slate-500">
+          <p className="mt-6 text-center text-sm leading-7 text-[var(--color-muted-foreground)]">
             很抱歉，目前沒有找到符合這個需求的商品，要不要換個方式描述？
           </p>
         )}
@@ -116,7 +116,7 @@ export function HealthRecommendationPage() {
         {!loading && recommendations && recommendations.length > 0 && (
           <section className="mt-6 flex flex-col gap-3">
             {fallbackUsed && (
-              <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-700">
+              <p className="rounded-2xl bg-[var(--color-warning-soft)] px-4 py-3 text-sm leading-6 text-[var(--color-warning)]">
                 這次是用關鍵字比對挑選的，僅供參考。
               </p>
             )}
@@ -126,10 +126,10 @@ export function HealthRecommendationPage() {
                 type="button"
                 onClick={() => void viewProduct(rec.product_id)}
                 disabled={loadingProductId === rec.product_id}
-                className="min-h-[44px] rounded-2xl border-2 border-gray-200 bg-white p-4 text-left transition hover:border-brand disabled:opacity-60"
+                className="min-h-[44px] rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition hover:border-brand disabled:opacity-60"
               >
-                <p className="text-base font-black text-slate-900">{rec.name}</p>
-                <p className="mt-1 text-sm leading-6 text-slate-500">{rec.reason}</p>
+                <p className="text-base font-black text-[var(--color-foreground)]">{rec.name}</p>
+                <p className="mt-1 text-sm leading-6 text-[var(--color-muted-foreground)]">{rec.reason}</p>
                 {rec.match_tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {rec.match_tags.map((tag) => (
@@ -148,12 +148,12 @@ export function HealthRecommendationPage() {
         )}
 
         {selectedProduct && (
-          <section className="mt-6 rounded-[24px] border-2 border-brand bg-white p-5 shadow-sm">
+          <section className="mt-6 rounded-[24px] border-2 border-brand bg-[var(--color-surface)] p-5 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-black text-slate-900">{selectedProduct.name}</h2>
+              <h2 className="text-lg font-black text-[var(--color-foreground)]">{selectedProduct.name}</h2>
               <span className="text-sm font-bold text-brand">${selectedProduct.price}</span>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-600">
+            <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-[var(--color-muted-foreground)]">
               <p>熱量：{selectedProduct.calories} kcal</p>
               <p>蛋白質：{selectedProduct.protein_g} g</p>
               <p>碳水：{selectedProduct.carbs_g} g</p>
@@ -161,7 +161,7 @@ export function HealthRecommendationPage() {
               <p>鈉：{selectedProduct.sodium_mg} mg</p>
             </div>
             {selectedProduct.allergens.length > 0 && (
-              <p className="mt-3 text-sm text-slate-500">
+              <p className="mt-3 text-sm text-[var(--color-muted-foreground)]">
                 過敏原：{selectedProduct.allergens.join("、")}
               </p>
             )}

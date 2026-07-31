@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { GlassPanel } from "../components/GlassPanel";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { ButlerLauncher } from "../components/ButlerLauncher";
 import { Toast } from "../components/Toast";
@@ -159,26 +160,26 @@ export function DeliveryFlowPage() {
             type="button"
             onClick={() => (step === "tracking" ? navigate("/home") : navigate("/home"))}
             aria-label="返回"
-            className="flex h-11 w-11 items-center justify-center text-gray-500"
+            className="flex h-11 w-11 items-center justify-center text-[var(--color-muted-foreground)]"
           >
             <ServiceIcon type="back" size={22} />
           </button>
-          <h1 className="text-xl font-black text-slate-900">美食外送</h1>
+          <h1 className="text-xl font-black text-[var(--color-foreground)]">美食外送</h1>
         </header>
 
         {/* ====== Step 1: Address ====== */}
         {step === "address" && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">請輸入外送地址</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">請輸入外送地址</p>
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">
-                  <span className="text-sm text-slate-600">縣市</span>
+                  <span className="text-sm text-[var(--color-muted-foreground)]">縣市</span>
                   <select
                     aria-label="縣市"
                     value={address.city}
                     onChange={(e) => setAddress({ ...address, city: e.target.value, area: "" })}
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-base"
+                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-base"
                   >
                     <option value="">請選擇縣市</option>
                     {counties.map((county) => (
@@ -189,13 +190,13 @@ export function DeliveryFlowPage() {
                   </select>
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="text-sm text-slate-600">鄉鎮市區</span>
+                  <span className="text-sm text-[var(--color-muted-foreground)]">鄉鎮市區</span>
                   <select
                     aria-label="鄉鎮市區"
                     value={address.area}
                     disabled={!address.city}
                     onChange={(e) => setAddress({ ...address, area: e.target.value })}
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-base disabled:bg-slate-100 disabled:text-slate-400"
+                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-base disabled:bg-[var(--color-canvas)] disabled:text-[var(--color-muted-foreground)]"
                   >
                     <option value="">{address.city ? "請選擇鄉鎮市區" : "請先選擇縣市"}</option>
                     {districtOptions.map((district) => (
@@ -207,43 +208,43 @@ export function DeliveryFlowPage() {
                 </label>
               </div>
               <label className="flex flex-col gap-1">
-                <span className="text-sm text-slate-600">地址</span>
+                <span className="text-sm text-[var(--color-muted-foreground)]">地址</span>
                 <input
                   type="text"
                   value={address.street}
                   onChange={(e) => setAddress({ ...address, street: e.target.value })}
                   placeholder="例：忠孝東路四段100號"
-                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                  className="rounded-xl border border-[var(--color-border)] px-4 py-3 text-base"
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-sm text-slate-600">備註（樓層、門牌等）</span>
+                <span className="text-sm text-[var(--color-muted-foreground)]">備註（樓層、門牌等）</span>
                 <input
                   type="text"
                   value={address.remark}
                   onChange={(e) => setAddress({ ...address, remark: e.target.value })}
                   placeholder="例：8樓之2"
-                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                  className="rounded-xl border border-[var(--color-border)] px-4 py-3 text-base"
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-sm text-slate-600">收件人姓名</span>
+                <span className="text-sm text-[var(--color-muted-foreground)]">收件人姓名</span>
                 <input
                   type="text"
                   value={address.contact_name}
                   onChange={(e) => setAddress({ ...address, contact_name: e.target.value })}
                   placeholder="收件人姓名"
-                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                  className="rounded-xl border border-[var(--color-border)] px-4 py-3 text-base"
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-sm text-slate-600">聯絡電話（選填）</span>
+                <span className="text-sm text-[var(--color-muted-foreground)]">聯絡電話（選填）</span>
                 <input
                   type="tel"
                   value={address.phone || ""}
                   onChange={(e) => setAddress({ ...address, phone: e.target.value })}
                   placeholder="09xxxxxxxx"
-                  className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                  className="rounded-xl border border-[var(--color-border)] px-4 py-3 text-base"
                 />
               </label>
             </div>
@@ -251,7 +252,7 @@ export function DeliveryFlowPage() {
               type="button"
               disabled={!canSubmitAddress}
               onClick={goNext}
-              className="mt-2 min-h-[44px] rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+              className="mt-2 min-h-[44px] rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
             >
               下一步：選擇店家
             </button>
@@ -261,7 +262,7 @@ export function DeliveryFlowPage() {
         {/* ====== Step 2: Store Selection ====== */}
         {step === "store" && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">請選擇外送店家</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">請選擇外送店家</p>
             <div className="flex flex-col gap-3">
               {stores.map((store) => (
                 <button
@@ -274,11 +275,11 @@ export function DeliveryFlowPage() {
                   className={`rounded-2xl border-2 p-4 text-left transition ${
                     selectedStoreId === store.id
                       ? "border-brand bg-brand/5"
-                      : "border-slate-200 hover:border-slate-300"
+                      : "border-[var(--color-border)] hover:border-[var(--color-primary)]"
                   }`}
                 >
-                  <p className="text-base font-bold text-slate-900">{store.name}</p>
-                  <p className="text-sm text-slate-500">{store.cuisine} · {store.address}</p>
+                  <p className="text-base font-bold text-[var(--color-foreground)]">{store.name}</p>
+                  <p className="text-sm text-[var(--color-muted-foreground)]">{store.cuisine} · {store.address}</p>
                 </button>
               ))}
             </div>
@@ -294,7 +295,7 @@ export function DeliveryFlowPage() {
                 type="button"
                 disabled={!selectedStoreId}
                 onClick={goNext}
-                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
               >
                 選擇餐點
               </button>
@@ -305,7 +306,7 @@ export function DeliveryFlowPage() {
         {/* ====== Step 3: Menu & Cart ====== */}
         {step === "menu" && storeDetail && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">
               {storeDetail.name} — 選擇餐點
             </p>
 
@@ -316,13 +317,13 @@ export function DeliveryFlowPage() {
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
+                    className="flex items-center justify-between rounded-xl border border-[var(--color-border)] px-4 py-3"
                   >
                     <div>
-                      <p className="text-base font-semibold text-slate-900">{item.title}</p>
-                      <p className="text-sm text-slate-500">${item.price}</p>
+                      <p className="text-base font-semibold text-[var(--color-foreground)]">{item.title}</p>
+                      <p className="text-sm text-[var(--color-muted-foreground)]">${item.price}</p>
                       {item.modifier_group.length > 0 && (
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-[var(--color-muted-foreground)]">
                           可加購：{item.modifier_group.map((g) => g.name).join("、")}
                         </p>
                       )}
@@ -333,7 +334,7 @@ export function DeliveryFlowPage() {
                           <button
                             type="button"
                             onClick={() => removeFromCart(item.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-600"
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-muted-foreground)]"
                             aria-label="減少數量"
                           >
                             −
@@ -346,7 +347,7 @@ export function DeliveryFlowPage() {
                       <button
                         type="button"
                         onClick={() => addToCart(item)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-[var(--color-on-primary)]"
                         aria-label="加入購物車"
                       >
                         +
@@ -359,24 +360,24 @@ export function DeliveryFlowPage() {
 
             {/* Cart summary */}
             {cart.length > 0 && (
-              <div className="rounded-xl bg-slate-50 p-4">
-                <p className="text-sm font-bold text-slate-700">購物車（{cart.length} 項）</p>
+              <div className="rounded-xl bg-[var(--color-canvas)] p-4">
+                <p className="text-sm font-bold text-[var(--color-foreground)]">購物車（{cart.length} 項）</p>
                 {cart.map((c) => (
-                  <div key={c.id} className="flex justify-between text-sm text-slate-600">
+                  <div key={c.id} className="flex justify-between text-sm text-[var(--color-muted-foreground)]">
                     <span>{c.title} x{c.quantity}</span>
                     <span>${c.price * c.quantity}</span>
                   </div>
                 ))}
-                <div className="mt-2 border-t border-slate-200 pt-2 text-sm">
-                  <div className="flex justify-between text-slate-600">
+                <div className="mt-2 border-t border-[var(--color-border)] pt-2 text-sm">
+                  <div className="flex justify-between text-[var(--color-muted-foreground)]">
                     <span>小計</span>
                     <span>${cartTotal}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600">
+                  <div className="flex justify-between text-[var(--color-muted-foreground)]">
                     <span>外送費</span>
                     <span>${shippingFee}</span>
                   </div>
-                  <div className="flex justify-between font-bold text-slate-900">
+                  <div className="flex justify-between font-bold text-[var(--color-foreground)]">
                     <span>合計</span>
                     <span>${orderTotal}</span>
                   </div>
@@ -386,13 +387,13 @@ export function DeliveryFlowPage() {
 
             {/* Note */}
             <label className="flex flex-col gap-1">
-              <span className="text-sm text-slate-600">備註給店家（選填）</span>
+              <span className="text-sm text-[var(--color-muted-foreground)]">備註給店家（選填）</span>
               <input
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="例：不要辣、多加醬"
-                className="rounded-xl border border-slate-300 px-4 py-3 text-base"
+                className="rounded-xl border border-[var(--color-border)] px-4 py-3 text-base"
               />
             </label>
 
@@ -408,7 +409,7 @@ export function DeliveryFlowPage() {
                 type="button"
                 disabled={cart.length === 0}
                 onClick={goNext}
-                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
               >
                 確認訂單
               </button>
@@ -419,43 +420,47 @@ export function DeliveryFlowPage() {
         {/* ====== Step 4: Summary & Confirm ====== */}
         {step === "summary" && storeDetail && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">訂單確認</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">訂單確認</p>
 
-            <div className="rounded-xl border border-slate-200 p-4">
-              <p className="text-sm font-bold text-slate-700">外送地址</p>
-              <p className="text-sm text-slate-600">
+            <div className="rounded-xl border border-[var(--color-border)] p-4">
+              <p className="text-sm font-bold text-[var(--color-foreground)]">外送地址</p>
+              <p className="text-sm text-[var(--color-muted-foreground)]">
                 {address.city}{address.area}{address.street}
                 {address.remark && `（${address.remark}）`}
               </p>
-              <p className="text-sm text-slate-600">收件人：{address.contact_name}</p>
-              {address.phone && <p className="text-sm text-slate-600">電話：{address.phone}</p>}
+              <p className="text-sm text-[var(--color-muted-foreground)]">收件人：{address.contact_name}</p>
+              {address.phone && <p className="text-sm text-[var(--color-muted-foreground)]">電話：{address.phone}</p>}
             </div>
 
-            <div className="rounded-xl border border-slate-200 p-4">
-              <p className="text-sm font-bold text-slate-700">店家：{storeDetail.name}</p>
+            <div className="rounded-xl border border-[var(--color-border)] p-4">
+              <p className="text-sm font-bold text-[var(--color-foreground)]">店家：{storeDetail.name}</p>
               {cart.map((c) => (
-                <div key={c.id} className="flex justify-between text-sm text-slate-600">
+                <div key={c.id} className="flex justify-between text-sm text-[var(--color-muted-foreground)]">
                   <span>{c.title} x{c.quantity}</span>
                   <span>${c.price * c.quantity}</span>
                 </div>
               ))}
-              {note && <p className="mt-1 text-xs text-slate-400">備註：{note}</p>}
+              {note && <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">備註：{note}</p>}
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-4">
-              <div className="flex justify-between text-sm text-slate-600">
+            {/*
+              最終確認摘要卡（應付金額）套 GlassPanel 作為流程終點強調（Requirement 13.6、15.1）；
+              上方的地址卡與店家/餐點卡屬步驟資訊，維持不透明實色（Requirement 15.2）。
+            */}
+            <GlassPanel className="rounded-xl p-4">
+              <div className="flex justify-between text-sm text-[var(--color-muted-foreground)]">
                 <span>餐點小計</span>
                 <span>${cartTotal}</span>
               </div>
-              <div className="flex justify-between text-sm text-slate-600">
+              <div className="flex justify-between text-sm text-[var(--color-muted-foreground)]">
                 <span>外送費</span>
                 <span>${shippingFee}</span>
               </div>
-              <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
+              <div className="mt-1 flex justify-between border-t border-[var(--color-border)] pt-2 text-base font-bold text-[var(--color-foreground)]">
                 <span>應付金額</span>
                 <span>${orderTotal}</span>
               </div>
-            </div>
+            </GlassPanel>
 
             <div className="flex gap-3">
               <button
@@ -469,7 +474,7 @@ export function DeliveryFlowPage() {
                 type="button"
                 disabled={submitting}
                 onClick={handleSubmit}
-                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
               >
                 {submitting ? "送出中..." : "確認送出"}
               </button>
@@ -480,23 +485,23 @@ export function DeliveryFlowPage() {
         {/* ====== Step 5: Tracking ====== */}
         {step === "tracking" && order && (
           <section className="flex flex-col gap-4">
-            <p className="text-base font-bold leading-relaxed text-slate-900">外送進度追蹤</p>
+            <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">外送進度追蹤</p>
 
             <div className="rounded-xl border border-brand/30 bg-brand/5 p-4">
               <p className="text-lg font-black text-brand">
                 {order.order_status_label || "處理中"}
               </p>
-              <p className="text-sm text-slate-600">訂單編號：{order.request_id}</p>
+              <p className="text-sm text-[var(--color-muted-foreground)]">訂單編號：{order.request_id}</p>
             </div>
 
             {/* Delivery driver info */}
             {order.vendor_data?.delivery && (
-              <div className="rounded-xl border border-slate-200 p-4">
-                <p className="text-sm font-bold text-slate-700">外送員資訊</p>
-                <p className="text-sm text-slate-600">
+              <div className="rounded-xl border border-[var(--color-border)] p-4">
+                <p className="text-sm font-bold text-[var(--color-foreground)]">外送員資訊</p>
+                <p className="text-sm text-[var(--color-muted-foreground)]">
                   姓名：{order.vendor_data.delivery.driver_name}
                 </p>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-[var(--color-muted-foreground)]">
                   電話：{order.vendor_data.delivery.driver_phone}
                 </p>
                 <p className="text-sm font-semibold text-brand">
@@ -506,35 +511,35 @@ export function DeliveryFlowPage() {
             )}
 
             {/* Order details */}
-            <div className="rounded-xl border border-slate-200 p-4">
-              <p className="text-sm font-bold text-slate-700">
+            <div className="rounded-xl border border-[var(--color-border)] p-4">
+              <p className="text-sm font-bold text-[var(--color-foreground)]">
                 {order.order_items.store.name}
               </p>
               {order.order_items.goods.map((g) => (
-                <div key={g.id} className="flex justify-between text-sm text-slate-600">
+                <div key={g.id} className="flex justify-between text-sm text-[var(--color-muted-foreground)]">
                   <span>{g.title} x{g.quantity}</span>
                   <span>${g.price * g.quantity}</span>
                 </div>
               ))}
-              <div className="mt-2 border-t border-slate-200 pt-2 text-sm font-bold text-slate-900">
+              <div className="mt-2 border-t border-[var(--color-border)] pt-2 text-sm font-bold text-[var(--color-foreground)]">
                 合計 ${order.total_amount}
               </div>
             </div>
 
             {/* Status progress bar */}
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="mb-2 text-sm font-bold text-slate-700">配送狀態</p>
+            <div className="rounded-xl bg-[var(--color-canvas)] p-4">
+              <p className="mb-2 text-sm font-bold text-[var(--color-foreground)]">配送狀態</p>
               <div className="flex items-center gap-1">
                 {["01", "02", "03", "04", "05", "70"].map((s) => (
                   <div
                     key={s}
                     className={`h-2 flex-1 rounded-full ${
-                      s <= order.order_status ? "bg-brand" : "bg-slate-200"
+                      s <= order.order_status ? "bg-brand" : "bg-[var(--color-canvas)]"
                     }`}
                   />
                 ))}
               </div>
-              <div className="mt-1 flex justify-between text-xs text-slate-400">
+              <div className="mt-1 flex justify-between text-xs text-[var(--color-muted-foreground)]">
                 <span>待接單</span>
                 <span>已送達</span>
               </div>

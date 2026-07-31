@@ -1,42 +1,25 @@
+/**
+ * 吉祥物色調。圖示現在改用使用者提供的 AI orb 圖片（本身已有固定配色），tone 不再影響
+ * 圖片顏色；型別與 prop 仍保留，是為了不用同時改動全站 9 處呼叫端（Landing、ButlerPanel、
+ * ChatMessage、FloatingBadge…等）——沿用既有的 `tone="brand"` 之類寫法照樣能編譯、渲染。
+ */
+export type MascotTone = "brand" | "inverted" | "muted";
+
 interface Props {
   size?: number;
   className?: string;
-  /** 強制指定機器人主色，不給則自動跟隨目前主題（--color-brand）。用於主題選色器同時顯示多種顏色。 */
-  bodyColor?: string;
-  /** 強制指定機器人強調色，不給則自動跟隨目前主題（--color-mascot-highlight）。 */
-  highlightColor?: string;
+  /** @deprecated 圖片本身已有固定配色，此 prop 不再影響輸出，僅維持既有呼叫端相容。 */
+  tone?: MascotTone;
 }
 
-/** 品牌吉祥物圖示（原始 SVG 來自設計稿 Mascot.dc.html）。顏色隨主題切換，造型固定。 */
-export function Mascot({ size = 120, className, bodyColor, highlightColor }: Props) {
-  const body = bodyColor ?? "var(--color-brand)";
-  const highlight = highlightColor ?? "var(--color-mascot-highlight)";
+/** 全站統一使用的品牌圖示（使用者提供，放在 `frontend/public/images/`）。 */
+const MASCOT_ICON = "/images/ai-orb-icon.png";
 
+/** 品牌圖示：全站沿用同一張使用者提供的 AI orb 圖片，取代原本手繪 SVG 吉祥物。造型與配色固定。 */
+export function Mascot({ size = 120, className }: Props) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 200 220"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden
-    >
-      <line x1="100" y1="8" x2="100" y2="32" stroke={body} strokeWidth="7" strokeLinecap="round" />
-      <circle cx="100" cy="8" r="10" fill={highlight} />
-      <ellipse cx="48" cy="172" rx="15" ry="21" fill={body} transform="rotate(-18 48 172)" />
-      <ellipse cx="154" cy="150" rx="14" ry="20" fill={body} transform="rotate(38 154 150)" />
-      <rect x="56" y="138" width="88" height="68" rx="32" fill={body} />
-      <circle cx="100" cy="166" r="17" fill="#FFFFFF" />
-      <path d="M100 176 L91 165 A6.5 6.5 0 0 1 100 156 A6.5 6.5 0 0 1 109 165 Z" fill={highlight} />
-      <rect x="24" y="28" width="152" height="122" rx="48" fill={body} />
-      <circle cx="24" cy="90" r="11" fill={highlight} />
-      <circle cx="176" cy="90" r="11" fill={highlight} />
-      <rect x="47" y="55" width="106" height="74" rx="30" fill="#FFFFFF" />
-      <circle cx="80" cy="90" r="8.5" fill={body} />
-      <circle cx="120" cy="90" r="8.5" fill={body} />
-      <circle cx="65" cy="108" r="6.5" fill="#F7B8A3" opacity="0.85" />
-      <circle cx="135" cy="108" r="6.5" fill="#F7B8A3" opacity="0.85" />
-      <path d="M84 109 Q100 124 116 109" stroke={body} strokeWidth="4.5" fill="none" strokeLinecap="round" />
-    </svg>
+    // 來源圖是正方形，width/height 又固定同值，不需要 object-fit 就不會變形；
+    // 保持不帶 style，才不會踩到 LandingPage 「圖片不得有 per-mode style/filter」的檢查。
+    <img src={MASCOT_ICON} alt="" aria-hidden width={size} height={size} className={className} />
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { sendMessage } from "../api/chat";
 import { cancelRequest, getRequest, simulateStatus } from "../api/requests";
@@ -57,7 +57,7 @@ export function RequestDetailPage() {
     return (
       <>
         <main className="mx-auto min-h-dvh max-w-md bg-canvas px-5 pb-32 pt-16 text-center">
-          <p className="text-red-600">{error}</p>
+          <p className="text-[var(--color-danger)]">{error}</p>
           <button type="button" onClick={() => navigate("/home")} className="mt-4 text-brand underline">
             回到首頁
           </button>
@@ -70,7 +70,7 @@ export function RequestDetailPage() {
   if (!detail) {
     return (
       <>
-        <main className="mx-auto min-h-dvh max-w-md bg-canvas px-5 pb-32 pt-16 text-gray-400">
+        <main className="mx-auto min-h-dvh max-w-md bg-canvas px-5 pb-32 pt-16 text-[var(--color-muted-foreground)]">
           正在載入案件資料…
         </main>
         <ButlerLauncher currentPageId="request_detail" />
@@ -95,8 +95,8 @@ export function RequestDetailPage() {
   return (
     <>
       <main className="mx-auto max-w-md bg-canvas pb-32">
-        <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-5 py-4.5">
-          <button type="button" onClick={() => navigate("/my-services")} className="text-gray-500">
+        <header className="flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4.5">
+          <button type="button" onClick={() => navigate("/my-services")} className="text-[var(--color-muted-foreground)]">
             <ServiceIcon type="back" size={22} />
           </button>
           <div className="text-base font-black">案件明細</div>
@@ -112,19 +112,19 @@ export function RequestDetailPage() {
               <div className="mt-1.5">
                 <StatusBadge status={detail.status} label={detail.status_label} />
               </div>
-              <div className="mt-1 font-mono text-xs text-gray-400">{detail.request_id}</div>
+              <div className="mt-1 font-mono text-xs text-[var(--color-muted-foreground)]">{detail.request_id}</div>
             </div>
           </div>
 
-        <div className="rounded-3xl border border-gray-200 bg-white px-5">
+        <div className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5">
           {Object.entries(detail.form_data).map(([key, value]) => {
             const isImage = typeof value === "string" && value.startsWith("data:image/");
 
             if (isImage) {
               return (
-                <div key={key} className="border-b border-gray-100 py-3.5 last:border-b-0">
-                  <span className="text-gray-500">{fieldLabel(key)}</span>
-                  <div className="mt-3 overflow-hidden rounded-2xl border border-gray-200">
+                <div key={key} className="border-b border-[var(--color-border)] py-3.5 last:border-b-0">
+                  <span className="text-[var(--color-muted-foreground)]">{fieldLabel(key)}</span>
+                  <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--color-border)]">
                     <img src={value} alt={fieldLabel(key)} className="h-56 w-full object-cover" />
                   </div>
                 </div>
@@ -132,21 +132,21 @@ export function RequestDetailPage() {
             }
 
             return (
-              <div key={key} className="flex justify-between gap-3 border-b border-gray-100 py-3.5 last:border-b-0">
-                <span className="text-gray-500">{fieldLabel(key)}</span>
+              <div key={key} className="flex justify-between gap-3 border-b border-[var(--color-border)] py-3.5 last:border-b-0">
+                <span className="text-[var(--color-muted-foreground)]">{fieldLabel(key)}</span>
                 <span className="text-right font-bold">{formatFieldValue(value)}</span>
               </div>
             );
           })}
             {detail.estimated_fee_min !== undefined && (
-              <div className="flex justify-between gap-3 border-b border-gray-100 py-3.5 last:border-b-0">
-                <span className="text-gray-500">預估運費</span>
+              <div className="flex justify-between gap-3 border-b border-[var(--color-border)] py-3.5 last:border-b-0">
+                <span className="text-[var(--color-muted-foreground)]">預估運費</span>
                 <span className="text-right font-bold">
                   NT${detail.estimated_fee_min}–{detail.estimated_fee_max}
                 </span>
               </div>
             )}
-            <div className="border-t border-dashed border-gray-200 py-3.5 text-sm text-gray-400">
+            <div className="border-t border-dashed border-[var(--color-border)] py-3.5 text-sm text-[var(--color-muted-foreground)]">
               建立時間：{new Date(detail.created_at).toLocaleString("zh-TW")}
               <br />
               最後更新：{new Date(detail.updated_at).toLocaleString("zh-TW")}
@@ -154,7 +154,7 @@ export function RequestDetailPage() {
           </div>
 
           {detail.events.length > 0 && (
-            <div className="rounded-3xl border border-gray-200 bg-white p-5">
+            <div className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <div className="mb-3.5 flex items-center gap-2 text-base font-extrabold">
                 <ServiceIcon type="chat" size={18} className="text-brand" />
                 對話紀錄
@@ -175,12 +175,12 @@ export function RequestDetailPage() {
                   value={followUp}
                   onChange={(e) => setFollowUp(e.target.value)}
                   placeholder="補充訊息給這筆案件"
-                  className="min-w-0 flex-1 rounded-xl border-2 border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand"
+                  className="min-w-0 flex-1 rounded-xl border-2 border-[var(--color-border)] px-3.5 py-2.5 text-sm outline-none focus:border-brand"
                 />
                 <button
                   type="submit"
                   disabled={sendingFollowUp || !followUp.trim()}
-                  className="rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+                  className="rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-[var(--color-on-primary)] disabled:opacity-40"
                 >
                   送出
                 </button>
@@ -193,7 +193,7 @@ export function RequestDetailPage() {
               <button
                 type="button"
                 onClick={() => setConfirmCancelOpen(true)}
-                className="flex-1 rounded-2xl border-2 border-red-200 bg-white px-4.5 py-4 text-sm font-bold text-danger"
+                className="flex-1 rounded-2xl border-2 border-[var(--color-danger)] bg-[var(--color-surface)] px-4.5 py-4 text-sm font-bold text-danger"
               >
                 取消案件
               </button>
@@ -201,14 +201,14 @@ export function RequestDetailPage() {
             <button
               type="button"
               onClick={() => setToastText("目前尚未開放直接編輯案件，請用補充訊息或重新建立需求。")}
-              className="flex-1 rounded-2xl border-2 border-brand bg-white px-4.5 py-4 text-sm font-bold text-brand"
+              className="flex-1 rounded-2xl border-2 border-brand bg-[var(--color-surface)] px-4.5 py-4 text-sm font-bold text-brand"
             >
               修改內容
             </button>
             <button
               type="button"
               onClick={() => navigate("/new", { state: { autoMessage: detail.service_name } })}
-              className="flex-1 rounded-2xl bg-brand px-4.5 py-4 text-sm font-bold text-white"
+              className="flex-1 rounded-2xl bg-brand px-4.5 py-4 text-sm font-bold text-[var(--color-on-primary)]"
             >
               再建一筆相同服務
             </button>

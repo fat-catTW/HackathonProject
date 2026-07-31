@@ -16,4 +16,4 @@ def test_lambda_handler_filters_by_store_id():
 def test_lambda_handler_returns_all_products_without_filter():
     result = lambda_handler({}, None)
     assert result["success"] is True
-    assert len(result["products"]) == 13
+    assert len(result["products"]) == 19

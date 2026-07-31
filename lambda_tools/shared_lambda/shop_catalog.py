@@ -222,7 +222,7 @@ def get_store(store_id: str) -> dict | None:
     return next((s for s in SHOP_STORES if s["id"] == store_id), None)
 
 
-def list_products(category_id: str | None = None, store_id: str | None = None) -> list[dict]:
+def list_products(*, category_id: str | None = None, store_id: str | None = None) -> list[dict]:
     products = SHOP_PRODUCTS
     if category_id is not None:
         products = [p for p in products if p["category_id"] == category_id]

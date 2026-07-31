@@ -1,3 +1,5 @@
+import pytest
+
 from backend.app.services import shop_catalog
 
 
@@ -96,3 +98,8 @@ def test_list_products_includes_store_name():
     product = shop_catalog.list_products()[0]
     store = shop_catalog.get_store(product["store_id"])
     assert product["store_name"] == store["name"]
+
+
+def test_list_products_rejects_positional_arguments():
+    with pytest.raises(TypeError):
+        shop_catalog.list_products("some_id")

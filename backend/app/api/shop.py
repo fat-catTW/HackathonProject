@@ -37,6 +37,14 @@ def get_shop_product(product_id: str) -> dict:
     return product
 
 
+@router.get("/api/shop/compare/{group_id}")
+def get_shop_compare_group(group_id: str) -> dict:
+    offers = shop_catalog.list_compare_offers(group_id)
+    if not offers:
+        _raise_api_error(404, "COMPARE_GROUP_NOT_FOUND", "找不到這組比價商品")
+    return {"group_id": group_id, "category_id": offers[0]["category_id"], "offers": offers}
+
+
 @router.get("/api/shop/points")
 def get_my_shop_points(user: CurrentUser = Depends(get_current_user)) -> dict:
     return {"balance": STORE.get_user_points(user.sub)}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { createServiceRequest } from "../api/services";
@@ -488,22 +488,22 @@ export function ServiceFormPage() {
     return (
       <label
         key={field.id}
-        className="block rounded-[24px] border border-slate-100 bg-slate-50/80 p-4"
+        className="block rounded-[24px] border border-[var(--color-border)] bg-[var(--color-canvas)] p-4"
       >
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand shadow-sm">
+          <span className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--color-surface)] text-brand shadow-sm">
             <ServiceIcon type={field.inputIcon ?? "info"} size={20} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-base font-black text-slate-900">{field.label}</span>
+              <span className="text-base font-black text-[var(--color-foreground)]">{field.label}</span>
               {field.required && (
                 <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-bold text-brand">
                   必填
                 </span>
               )}
             </div>
-            {field.hint && <p className="mt-1 text-sm leading-6 text-slate-500">{field.hint}</p>}
+            {field.hint && <p className="mt-1 text-sm leading-6 text-[var(--color-muted-foreground)]">{field.hint}</p>}
 
             <div className="mt-3">
               {field.type === "address" ? (
@@ -515,7 +515,7 @@ export function ServiceFormPage() {
                       onChange={(e) =>
                         updateAddressValue(field.id, { county: e.target.value, district: "" })
                       }
-                      className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
+                      className="w-full rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-[var(--color-foreground)] outline-none transition focus:border-brand"
                     >
                       <option value="">請選擇縣市</option>
                       {counties.map((county) => (
@@ -529,7 +529,7 @@ export function ServiceFormPage() {
                       value={districtValue}
                       disabled={!countyValue}
                       onChange={(e) => updateAddressValue(field.id, { district: e.target.value })}
-                      className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand disabled:bg-slate-100 disabled:text-slate-400"
+                      className="w-full rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-[var(--color-foreground)] outline-none transition focus:border-brand disabled:bg-[var(--color-canvas)] disabled:text-[var(--color-muted-foreground)]"
                     >
                       <option value="">{countyValue ? "請選擇鄉鎮市區" : "請先選擇縣市"}</option>
                       {districtOptions.map((district) => (
@@ -545,7 +545,7 @@ export function ServiceFormPage() {
                     value={detailValue}
                     onChange={(e) => updateAddressValue(field.id, { detail: e.target.value })}
                     placeholder="例如：大學路一段 168 號 1 樓"
-                    className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
+                    className="w-full rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-[var(--color-foreground)] outline-none transition focus:border-brand"
                   />
                 </div>
               ) : field.type === "select" ? (
@@ -553,7 +553,7 @@ export function ServiceFormPage() {
                   aria-label={field.label}
                   value={value}
                   onChange={(e) => updateValue(field.id, e.target.value)}
-                  className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
+                  className="w-full rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-[var(--color-foreground)] outline-none transition focus:border-brand"
                 >
                   <option value="">請選擇</option>
                   {(field.options ?? []).map((option) => (
@@ -567,7 +567,7 @@ export function ServiceFormPage() {
                   aria-label={field.label}
                   value={value}
                   onChange={(e) => updateValue(field.id, e.target.value)}
-                  className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
+                  className="w-full rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-[var(--color-foreground)] outline-none transition focus:border-brand"
                 >
                   <option value="">請選擇</option>
                   {buildTimeOptions(field).map((option) => (
@@ -583,17 +583,17 @@ export function ServiceFormPage() {
                     aria-label={field.label}
                     accept={field.accept}
                     onChange={(e) => void handleFileChange(field.id, e.target.files?.[0] ?? null)}
-                    className="block w-full rounded-2xl border-2 border-white bg-white px-4 py-3 text-sm text-slate-600 file:mr-4 file:rounded-full file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:font-bold file:text-brand"
+                    className="block w-full rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-muted-foreground)] file:mr-4 file:rounded-full file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:font-bold file:text-brand"
                   />
                   {value && (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                    <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
                       <img src={value} alt={`${field.label}預覽`} className="h-48 w-full object-cover" />
                       <div className="flex items-center justify-between gap-3 px-4 py-3">
-                        <p className="text-sm text-slate-500">已選擇現場照片，可送出前再次更換。</p>
+                        <p className="text-sm text-[var(--color-muted-foreground)]">已選擇現場照片，可送出前再次更換。</p>
                         <button
                           type="button"
                           onClick={() => updateValue(field.id, "")}
-                          className="rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-500"
+                          className="rounded-full border border-[var(--color-border)] px-3 py-1 text-sm font-semibold text-[var(--color-muted-foreground)]"
                         >
                           移除
                         </button>
@@ -608,7 +608,7 @@ export function ServiceFormPage() {
                   onChange={(e) => updateValue(field.id, e.target.value)}
                   rows={field.rows ?? 4}
                   placeholder={field.placeholder ?? `請填寫${field.label}`}
-                  className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
+                  className="w-full rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-[var(--color-foreground)] outline-none transition focus:border-brand"
                 />
               ) : (
                 <input
@@ -644,12 +644,12 @@ export function ServiceFormPage() {
                       ? field.placeholder ?? `請填寫${field.label}`
                       : undefined
                   }
-                  className="w-full rounded-2xl border-2 border-white bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-brand"
+                  className="w-full rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-[var(--color-foreground)] outline-none transition focus:border-brand"
                 />
               )}
             </div>
 
-            {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
+            {error && <p className="mt-2 text-sm font-medium text-[var(--color-danger)]">{error}</p>}
           </div>
         </div>
       </label>
@@ -660,7 +660,7 @@ export function ServiceFormPage() {
     return (
       <>
         <main className="mx-auto min-h-dvh max-w-md bg-canvas px-5 pb-32 pt-16 text-center">
-          <p className="text-red-600">找不到這個服務表單。</p>
+          <p className="text-[var(--color-danger)]">找不到這個服務表單。</p>
           <button
             type="button"
             onClick={() => navigate("/home")}
@@ -676,54 +676,58 @@ export function ServiceFormPage() {
 
   return (
     <>
-      <main className="mx-auto min-h-dvh max-w-md bg-[linear-gradient(180deg,var(--color-brand-soft)_0%,var(--color-canvas)_100%)] px-5 pb-32 pt-6">
+      <main className="mx-auto min-h-dvh max-w-md bg-[linear-gradient(180deg,var(--color-primary-soft)_0%,var(--color-canvas)_100%)] px-5 pb-32 pt-6">
         <header className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => navigate("/home")}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm transition hover:text-brand"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface)] text-[var(--color-muted-foreground)] shadow-sm transition hover:text-brand"
           >
             <ServiceIcon type="back" size={20} />
           </button>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-brand">服務表單</p>
-            <h1 className="truncate text-2xl font-black text-slate-900">{schema.title}</h1>
+            <h1 className="truncate text-2xl font-black text-[var(--color-foreground)]">{schema.title}</h1>
           </div>
         </header>
 
-        <section className="mt-6 overflow-hidden rounded-[30px] bg-gradient-to-br from-brand to-brand-dark p-6 text-white shadow-[0_24px_60px_rgba(15,76,129,0.22)]">
+        {/*
+          頂部服務資訊卡改吃 `.bg-brand-gradient`（Requirement 13.4）；
+          下方表單欄位群組維持不透明實色卡片，不套玻璃擬態（Requirement 15.2）。
+        */}
+        <section className="bg-brand-gradient mt-6 overflow-hidden rounded-[30px] p-6 text-[var(--color-on-primary)] shadow-[0_24px_60px_-18px_var(--color-primary)]">
           <div className="flex items-start gap-4">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/12">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-surface-glass)]">
               <ServiceIcon type={schema.icon} size={30} />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold tracking-wide text-white/75">到府服務需求</p>
+              <p className="text-sm font-semibold tracking-wide text-[var(--color-on-primary)] opacity-80">到府服務需求</p>
               <h2 className="mt-1 text-2xl font-black">{schema.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-white/80">{schema.description}</p>
+              <p className="mt-3 text-sm leading-7 text-[var(--color-on-primary)] opacity-80">{schema.description}</p>
             </div>
           </div>
 
           <div className="mt-5 grid grid-cols-3 gap-3">
-            <div className="rounded-2xl bg-white/10 px-3 py-3">
-              <p className="text-[11px] font-semibold text-white/70">步驟 1</p>
+            <div className="rounded-2xl bg-[var(--color-surface-glass)] px-3 py-3">
+              <p className="text-[11px] font-semibold text-[var(--color-on-primary)] opacity-80">步驟 1</p>
               <p className="mt-1 text-sm font-bold">填寫需求</p>
             </div>
-            <div className="rounded-2xl bg-white/10 px-3 py-3">
-              <p className="text-[11px] font-semibold text-white/70">步驟 2</p>
+            <div className="rounded-2xl bg-[var(--color-surface-glass)] px-3 py-3">
+              <p className="text-[11px] font-semibold text-[var(--color-on-primary)] opacity-80">步驟 2</p>
               <p className="mt-1 text-sm font-bold">送出表單</p>
             </div>
-            <div className="rounded-2xl bg-white/10 px-3 py-3">
-              <p className="text-[11px] font-semibold text-white/70">步驟 3</p>
+            <div className="rounded-2xl bg-[var(--color-surface-glass)] px-3 py-3">
+              <p className="text-[11px] font-semibold text-[var(--color-on-primary)] opacity-80">步驟 3</p>
               <p className="mt-1 text-sm font-bold">等待確認</p>
             </div>
           </div>
         </section>
 
-        <section className="mt-6 rounded-[28px] bg-white p-5 shadow-sm">
+        <section className="mt-6 rounded-[28px] bg-[var(--color-surface)] p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-brand">填寫進度</p>
-              <h2 className="mt-1 text-lg font-black text-slate-900">
+              <h2 className="mt-1 text-lg font-black text-[var(--color-foreground)]">
                 已完成 {completedCount} / {requiredFieldCount} 項
               </h2>
             </div>
@@ -731,7 +735,7 @@ export function ServiceFormPage() {
               本地表單
             </span>
           </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--color-canvas)]">
             <div
               className="h-full rounded-full bg-brand transition-all"
               style={{ width: `${(completedCount / Math.max(requiredFieldCount, 1)) * 100}%` }}
@@ -740,19 +744,19 @@ export function ServiceFormPage() {
         </section>
 
         {supportContextItems.length > 0 && (
-          <section className="mt-6 rounded-[28px] border border-brand/10 bg-white p-5 shadow-sm">
+          <section className="mt-6 rounded-[28px] border border-brand/10 bg-[var(--color-surface)] p-5 shadow-sm">
             <div className="mb-4">
               <p className="text-sm font-semibold text-brand">已自動帶入</p>
-              <h3 className="mt-1 text-lg font-black text-slate-900">客服可直接看到這些上下文</h3>
+              <h3 className="mt-1 text-lg font-black text-[var(--color-foreground)]">客服可直接看到這些上下文</h3>
             </div>
             <div className="space-y-3">
               {supportContextItems.map((item) => (
                 <div
                   key={item.label}
-                  className="flex items-start justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3"
+                  className="flex items-start justify-between gap-4 rounded-2xl bg-[var(--color-canvas)] px-4 py-3"
                 >
-                  <span className="text-sm text-slate-500">{item.label}</span>
-                  <span className="text-right text-sm font-bold text-slate-900">{item.value}</span>
+                  <span className="text-sm text-[var(--color-muted-foreground)]">{item.label}</span>
+                  <span className="text-right text-sm font-bold text-[var(--color-foreground)]">{item.value}</span>
                 </div>
               ))}
             </div>
@@ -761,10 +765,10 @@ export function ServiceFormPage() {
 
         <section className="mt-6 space-y-5">
           {groupedFields.map((group) => (
-            <div key={group.title} className="rounded-[28px] bg-white p-5 shadow-sm">
+            <div key={group.title} className="rounded-[28px] bg-[var(--color-surface)] p-5 shadow-sm">
               <div className="mb-4">
                 <p className="text-sm font-semibold text-brand">{group.title}</p>
-                <h3 className="mt-1 text-lg font-black text-slate-900">請完成這一區資料</h3>
+                <h3 className="mt-1 text-lg font-black text-[var(--color-foreground)]">請完成這一區資料</h3>
               </div>
               <div className="space-y-4">{group.fields.map(renderField)}</div>
             </div>
@@ -772,36 +776,36 @@ export function ServiceFormPage() {
         </section>
 
         {airconEstimate && (
-          <section className="mt-6 rounded-[28px] bg-white p-5 shadow-sm">
+          <section className="mt-6 rounded-[28px] bg-[var(--color-surface)] p-5 shadow-sm">
             <div className="mb-4">
               <p className="text-sm font-semibold text-brand">目前估價</p>
-              <h3 className="mt-1 text-lg font-black text-slate-900">依照目前選項試算最低費用</h3>
+              <h3 className="mt-1 text-lg font-black text-[var(--color-foreground)]">依照目前選項試算最低費用</h3>
             </div>
 
             {!airconEstimate.ready && airconEstimate.baseQuantity === 0 ? (
-              <p className="text-sm leading-7 text-slate-500">
+              <p className="text-sm leading-7 text-[var(--color-muted-foreground)]">
                 請先填寫有效的冷氣數量，系統就會顯示目前服務的最低估價。
               </p>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
-                  <span className="text-sm text-slate-500">
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-[var(--color-canvas)] px-4 py-3">
+                  <span className="text-sm text-[var(--color-muted-foreground)]">
                     冷氣清潔 {airconEstimate.baseQuantity} 台 x {formatPrice(AIRCON_BASE_PRICE)} 元
                   </span>
-                  <span className="font-bold text-slate-900">
+                  <span className="font-bold text-[var(--color-foreground)]">
                     {formatPrice(airconEstimate.baseSubtotal)} 元起
                   </span>
                 </div>
 
                 {values.antibacterial_film_addon === "YES" && (
-                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
-                    <span className="text-sm text-slate-500">
+                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-[var(--color-canvas)] px-4 py-3">
+                    <span className="text-sm text-[var(--color-muted-foreground)]">
                       日本抗菌膜{" "}
                       {airconEstimate.addonQuantity > 0
                         ? `${airconEstimate.addonQuantity} 個 x ${formatPrice(ANTIBACTERIAL_FILM_PRICE)} 元`
                         : "尚未填寫數量"}
                     </span>
-                    <span className="font-bold text-slate-900">
+                    <span className="font-bold text-[var(--color-foreground)]">
                       {airconEstimate.addonQuantity > 0
                         ? `${formatPrice(airconEstimate.addonSubtotal)} 元`
                         : "待補數量"}
@@ -810,16 +814,16 @@ export function ServiceFormPage() {
                 )}
 
                 {airconEstimate.needsAddonQuantity ? (
-                  <p className="text-sm leading-7 text-amber-600">
+                  <p className="text-sm leading-7 text-[var(--color-warning)]">
                     已選擇加購日本抗菌膜，請填寫有效數量後才會完成完整估價。
                   </p>
                 ) : (
                   <div className="rounded-[24px] bg-brand-soft px-4 py-4">
                     <p className="text-sm font-semibold text-brand">最低估價</p>
-                    <p className="mt-1 text-2xl font-black text-slate-900">
+                    <p className="mt-1 text-2xl font-black text-[var(--color-foreground)]">
                       {formatPrice(airconEstimate.total)} 元起
                     </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-muted-foreground)]">
                       例如：冷氣清潔 2 台 + 日本抗菌膜 2 個 = 6,600 元起
                     </p>
                   </div>
@@ -830,38 +834,38 @@ export function ServiceFormPage() {
         )}
 
         {washerEstimate && (
-          <section className="mt-6 rounded-[28px] bg-white p-5 shadow-sm">
+          <section className="mt-6 rounded-[28px] bg-[var(--color-surface)] p-5 shadow-sm">
             <div className="mb-4">
               <p className="text-sm font-semibold text-brand">目前估價</p>
-              <h3 className="mt-1 text-lg font-black text-slate-900">依照目前選項試算最低費用</h3>
+              <h3 className="mt-1 text-lg font-black text-[var(--color-foreground)]">依照目前選項試算最低費用</h3>
             </div>
 
             {!washerEstimate.quantity ? (
-              <p className="text-sm leading-7 text-slate-500">
+              <p className="text-sm leading-7 text-[var(--color-muted-foreground)]">
                 請先填寫有效的洗衣機數量，系統就會顯示目前服務的最低估價。
               </p>
             ) : !washerEstimate.ready ? (
-              <p className="text-sm leading-7 text-slate-500">
+              <p className="text-sm leading-7 text-[var(--color-muted-foreground)]">
                 請先選擇洗衣機類型，系統就會顯示目前服務的最低估價。
               </p>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
-                  <span className="text-sm text-slate-500">
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-[var(--color-canvas)] px-4 py-3">
+                  <span className="text-sm text-[var(--color-muted-foreground)]">
                     {fieldValueLabel(washerEstimate.machineType)}洗衣機 {washerEstimate.quantity} 台 x{" "}
                     {formatPrice(washerEstimate.unitPrice)} 元
                   </span>
-                  <span className="font-bold text-slate-900">
+                  <span className="font-bold text-[var(--color-foreground)]">
                     {formatPrice(washerEstimate.total)} 元起
                   </span>
                 </div>
 
                 <div className="rounded-[24px] bg-brand-soft px-4 py-4">
                   <p className="text-sm font-semibold text-brand">最低估價</p>
-                  <p className="mt-1 text-2xl font-black text-slate-900">
+                  <p className="mt-1 text-2xl font-black text-[var(--color-foreground)]">
                     {formatPrice(washerEstimate.total)} 元起
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                  <p className="mt-2 text-sm leading-6 text-[var(--color-muted-foreground)]">
                     直立式洗衣機 1 台 2,200 元起，滾筒式洗衣機 1 台 3,800 元起。
                   </p>
                 </div>
@@ -871,23 +875,23 @@ export function ServiceFormPage() {
         )}
 
         {homeCleaningEstimate && (
-          <section className="mt-6 rounded-[28px] bg-white p-5 shadow-sm">
+          <section className="mt-6 rounded-[28px] bg-[var(--color-surface)] p-5 shadow-sm">
             <div className="mb-4">
               <p className="text-sm font-semibold text-brand">目前估價</p>
-              <h3 className="mt-1 text-lg font-black text-slate-900">依照目前選項試算最低費用</h3>
+              <h3 className="mt-1 text-lg font-black text-[var(--color-foreground)]">依照目前選項試算最低費用</h3>
             </div>
 
             {!homeCleaningEstimate.selectedOption || !homeCleaningEstimate.estimate ? (
-              <p className="text-sm leading-7 text-slate-500">
+              <p className="text-sm leading-7 text-[var(--color-muted-foreground)]">
                 請先選擇服務選項，系統就會顯示目前服務的常見估價。
               </p>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
-                  <span className="text-sm text-slate-500">
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-[var(--color-canvas)] px-4 py-3">
+                  <span className="text-sm text-[var(--color-muted-foreground)]">
                     {homeCleaningEstimate.selectedOption}
                   </span>
-                  <span className="font-bold text-slate-900">
+                  <span className="font-bold text-[var(--color-foreground)]">
                     {formatPrice(homeCleaningEstimate.estimate.price)} 元
                     {homeCleaningEstimate.estimate.unit ?? ""}起
                   </span>
@@ -895,11 +899,11 @@ export function ServiceFormPage() {
 
                 <div className="rounded-[24px] bg-brand-soft px-4 py-4">
                   <p className="text-sm font-semibold text-brand">最低估價</p>
-                  <p className="mt-1 text-2xl font-black text-slate-900">
+                  <p className="mt-1 text-2xl font-black text-[var(--color-foreground)]">
                     {formatPrice(homeCleaningEstimate.estimate.price)} 元
                     {homeCleaningEstimate.estimate.unit ?? ""}起
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                  <p className="mt-2 text-sm leading-6 text-[var(--color-muted-foreground)]">
                     {homeCleaningEstimate.estimate.note}
                   </p>
                 </div>
@@ -908,10 +912,10 @@ export function ServiceFormPage() {
           </section>
         )}
 
-        <section className="mt-6 rounded-[28px] border border-white/80 bg-white/96 p-4 shadow-[0_24px_60px_rgba(30,41,59,0.14)]">
+        <section className="mt-6 rounded-[28px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_24px_60px_rgba(30,41,59,0.14)]">
           <div className="mb-3">
             <p className="text-sm font-semibold text-brand">送出前提醒</p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
               缺漏欄位會在送出時提示，你也可以改用 AI 管家協助整理需求。
             </p>
           </div>
@@ -920,14 +924,14 @@ export function ServiceFormPage() {
               type="button"
               onClick={() => void handleSubmit()}
               disabled={submitting}
-              className="w-full rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-[0_16px_34px_rgba(15,76,129,0.22)] disabled:opacity-50"
+              className="w-full rounded-2xl bg-brand py-4 text-base font-bold text-[var(--color-on-primary)] shadow-[0_16px_34px_rgba(15,76,129,0.22)] disabled:opacity-50"
             >
               {submitting ? "送出中..." : "送出服務需求"}
             </button>
             <button
               type="button"
               onClick={() => navigate("/home")}
-              className="w-full rounded-2xl border-2 border-gray-200 bg-white py-4 text-base font-bold text-gray-500"
+              className="w-full rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] py-4 text-base font-bold text-[var(--color-muted-foreground)]"
             >
               返回服務首頁
             </button>
@@ -936,16 +940,17 @@ export function ServiceFormPage() {
       </main>
 
       {createdRequestId && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(8,15,30,0.55)] px-6 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-[32px] bg-white p-8 text-center shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand shadow-[0_0_0_12px_rgba(234,241,252,0.9)]">
-              <ServiceIcon type="check" size={34} className="text-white" />
+        // 遮罩改用 --color-scrim（Requirement 16.7）
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[var(--color-scrim)] px-6 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[32px] bg-[var(--color-surface)] p-8 text-center shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand shadow-[0_0_0_12px_var(--color-primary-soft)]">
+              <ServiceIcon type="check" size={34} className="text-[var(--color-on-primary)]" />
             </div>
             <p className="mt-6 text-sm font-semibold uppercase tracking-[0.24em] text-brand">
               Success
             </p>
-            <h2 className="mt-2 text-2xl font-black text-slate-900">需求已成功送出</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-500">
+            <h2 className="mt-2 text-2xl font-black text-[var(--color-foreground)]">需求已成功送出</h2>
+            <p className="mt-3 text-sm leading-7 text-[var(--color-muted-foreground)]">
               我們正在為你建立案件，接下來會自動帶你前往服務詳情頁查看進度。
             </p>
           </div>

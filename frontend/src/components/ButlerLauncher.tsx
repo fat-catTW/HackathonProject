@@ -38,10 +38,11 @@ export function ButlerLauncher({
           <button
             type="button"
             onClick={() => setAssistantOpen(true)}
-            className="inline-flex items-center gap-3 rounded-full bg-brand px-6 py-4 text-base font-black text-white shadow-[0_24px_60px_rgba(15,76,129,0.32)] transition hover:bg-brand-dark"
+            className="bg-brand-gradient inline-flex items-center gap-3 rounded-full px-6 py-4 text-base font-black text-[var(--color-on-primary)] shadow-[0_24px_60px_-18px_var(--color-primary)] transition hover:opacity-90"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/14">
-              <Mascot size={28} />
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface-glass)]">
+              {/* 漂浮按鈕底為品牌漸層，Mascot 用 inverted 白色系維持對比 */}
+              <Mascot size={28} tone="inverted" />
             </span>
             AI 管家
           </button>
@@ -51,7 +52,7 @@ export function ButlerLauncher({
             aria-label="開啟客服中心"
             title="客服中心"
             onClick={() => setSupportOpen(true)}
-            className="absolute left-full top-1/2 ml-3 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-brand shadow-[0_18px_44px_rgba(15,76,129,0.18)] ring-1 ring-brand/12 transition hover:bg-brand-soft"
+            className="absolute left-full top-1/2 ml-3 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--color-surface)] text-[var(--color-primary)] shadow-lg ring-1 ring-[var(--color-border)] transition hover:bg-[var(--color-primary-soft)]"
           >
             <ServiceIcon type="chat" size={18} />
           </button>
@@ -59,7 +60,8 @@ export function ButlerLauncher({
       </div>
 
       {assistantOpen && (
-        <div className="fixed inset-0 z-50 bg-black/68 backdrop-blur-[3px]">
+        // 遮罩改用 --color-scrim（兩模式各 50% / 60% 深色，Requirement 16.7）
+        <div className="fixed inset-0 z-50 bg-[var(--color-scrim)] backdrop-blur-[3px]">
           <button
             type="button"
             aria-label="關閉 AI 管家"
@@ -78,7 +80,7 @@ export function ButlerLauncher({
       )}
 
       {supportOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/50 px-4 py-6 backdrop-blur-[2px] sm:px-6 sm:py-8">
+        <div className="fixed inset-0 z-50 bg-[var(--color-scrim)] px-4 py-6 backdrop-blur-[2px] sm:px-6 sm:py-8">
           <button
             type="button"
             aria-label="關閉客服視窗"

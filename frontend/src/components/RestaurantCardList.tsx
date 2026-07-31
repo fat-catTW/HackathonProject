@@ -19,13 +19,16 @@ export function RestaurantCardList({ restaurants, selectedId, onSelect, onNeedHe
           onSelect={() => onSelect(restaurant.id)}
         />
       ))}
+      {/* 客服媒合入口：與餐廳卡同為不透明實色（Requirement 15.2），以虛線邊框區隔語意 */}
       <button
         type="button"
         onClick={onNeedHelp}
-        className="min-h-[44px] w-64 flex-none snap-start rounded-2xl border-2 border-dashed border-gray-300 bg-white p-4 text-left text-base font-bold text-brand"
+        className="min-h-[44px] w-64 flex-none snap-start rounded-2xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left text-base font-bold text-[var(--color-primary)]"
       >
         客服協助媒合
-        <p className="mt-1 text-sm font-normal leading-relaxed text-slate-500">留下需求，由客服為您安排。</p>
+        <p className="mt-1 text-sm font-normal leading-relaxed text-[var(--color-muted-foreground)]">
+          留下需求，由客服為您安排。
+        </p>
       </button>
     </div>
   );

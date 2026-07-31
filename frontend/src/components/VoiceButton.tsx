@@ -6,7 +6,15 @@ interface Props {
   size?: "lg" | "md";
 }
 
-/** 招牌元素：大型語音按鈕，聆聽時脈動。 */
+/**
+ * 招牌元素：大型語音按鈕，聆聽時脈動。
+ *
+ * 配色改用語意色 Token（Requirement 6.6）：待機為 `--color-primary`、聆聽中為
+ * `--color-danger`，文字/圖示一律用 `--color-on-primary`（Dark 模式為近黑，
+ * 避免提亮後的填色配白字對比不足）。聆聽狀態除了顏色，另以 aria-label 文字與
+ * 脈動動畫表達（Requirement 16.5）；脈動在 prefers-reduced-motion 下由
+ * index.css 的全域規則停用（Requirement 15.5）。
+ */
 export function VoiceButton({ listening, supported, onStart, onStop, size = "md" }: Props) {
   if (!supported) return null;
   const dims = size === "lg" ? "h-24 w-24" : "h-14 w-14";
@@ -15,12 +23,14 @@ export function VoiceButton({ listening, supported, onStart, onStop, size = "md"
       type="button"
       aria-label={listening ? "停止聆聽" : "點擊並說出需求"}
       onClick={listening ? onStop : onStart}
-      className={`relative inline-flex ${dims} items-center justify-center rounded-full text-white shadow-lg transition focus-visible:outline focus-visible:outline-4 focus-visible:outline-brand-soft ${
-        listening ? "bg-red-500" : "bg-brand hover:bg-brand-dark"
+      className={`relative inline-flex ${dims} items-center justify-center rounded-full text-[var(--color-on-primary)] shadow-lg transition focus-visible:outline focus-visible:outline-4 focus-visible:outline-[var(--color-primary-soft)] ${
+        listening
+          ? "bg-[var(--color-danger)]"
+          : "bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)]"
       }`}
     >
       {listening && (
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-danger)] opacity-60" />
       )}
       <svg
         viewBox="0 0 24 24"

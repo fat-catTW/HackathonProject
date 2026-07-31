@@ -17,7 +17,17 @@ function timesFor(slot: Slot): string[] {
   return times;
 }
 
+/** 選項按鈕的選取／未選取樣式，一律引用語意色 Token（Requirement 6.6）。 */
+const SELECTED = "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[var(--color-primary)]";
+const UNSELECTED = "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]";
+
+/**
+ * 時段與具體時間選擇。選取狀態同時以 `aria-pressed`、邊框與底色表達（Requirement 16.5）；
+ * 所有按鈕觸控區維持 min-h-[44px]（Requirement 16.4）。具體時間為資料型文字，
+ * 改用 `--font-mono` 使數字等寬對齊（Requirement 7.3）。
+ */
 export function TimeSlotSelector({ slot, specificTime, onSlotChange, onTimeChange }: Props) {
+  const slotButton = "min-h-[44px] rounded-2xl border-2 px-4 py-3 text-base font-bold";
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
@@ -25,9 +35,7 @@ export function TimeSlotSelector({ slot, specificTime, onSlotChange, onTimeChang
           type="button"
           aria-pressed={slot === "LUNCH"}
           onClick={() => onSlotChange("LUNCH")}
-          className={`min-h-[44px] rounded-2xl border-2 px-4 py-3 text-base font-bold ${
-            slot === "LUNCH" ? "border-brand bg-brand-soft text-brand" : "border-gray-200 bg-white text-slate-700"
-          }`}
+          className={`${slotButton} ${slot === "LUNCH" ? SELECTED : UNSELECTED}`}
         >
           午餐（11:00–14:00）
         </button>
@@ -35,9 +43,7 @@ export function TimeSlotSelector({ slot, specificTime, onSlotChange, onTimeChang
           type="button"
           aria-pressed={slot === "DINNER"}
           onClick={() => onSlotChange("DINNER")}
-          className={`min-h-[44px] rounded-2xl border-2 px-4 py-3 text-base font-bold ${
-            slot === "DINNER" ? "border-brand bg-brand-soft text-brand" : "border-gray-200 bg-white text-slate-700"
-          }`}
+          className={`${slotButton} ${slot === "DINNER" ? SELECTED : UNSELECTED}`}
         >
           晚餐（17:00–21:00）
         </button>
@@ -51,8 +57,8 @@ export function TimeSlotSelector({ slot, specificTime, onSlotChange, onTimeChang
               type="button"
               aria-pressed={specificTime === time}
               onClick={() => onTimeChange(time)}
-              className={`min-h-[44px] rounded-xl border-2 text-sm font-bold ${
-                specificTime === time ? "border-brand bg-brand-soft text-brand" : "border-gray-200 bg-white text-slate-600"
+              className={`min-h-[44px] rounded-xl border-2 font-[family-name:var(--font-mono)] text-sm font-bold ${
+                specificTime === time ? SELECTED : UNSELECTED
               }`}
             >
               {time}

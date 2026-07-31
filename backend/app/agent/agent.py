@@ -15,6 +15,7 @@ from .page_help import (
     is_voice_filling_question,
     looks_like_page_question,
 )
+from .page_catalog import is_navigation_query
 
 DECIMAL_NUMBER_RE = re.compile(r"\d+\.\d+")
 SERVICE_TIME_MIN = "08:30"
@@ -22,6 +23,20 @@ SERVICE_TIME_MAX = "18:00"
 
 CONFIRM_WORDS = ("確認", "確定", "好", "可以", "沒問題", "送出", "ok", "OK", "yes", "Yes")
 DENY_WORDS = ("不要", "不用", "取消", "改一下", "先不要", "no", "No")
+ORDER_HISTORY_MEMORY_HINTS = (
+    "我的服務",
+    "我的訂單",
+    "訂單",
+    "下訂",
+    "已下訂",
+    "已經下訂",
+    "查訂單",
+    "查看訂單",
+    "服務列表",
+    "訂單列表",
+    "案件進度",
+    "訂單進度",
+)
 
 SERVICE_DISPLAY_NAMES = {
     "plumbing_repair": "水電修繕",
@@ -69,9 +84,9 @@ SELECT_ALIASES = {
     "YES": ("YES", "要", "需要", "加購"),
     "NO": ("NO", "不要", "不需要", "不用"),
     "壁掛式": ("壁掛式", "壁掛", "掛壁"),
-    "天花板嵌入式": ("天花板嵌入式", "嵌入式", "天花板式"),
-    "四方吹業務型": ("四方吹業務型", "四方吹", "業務型"),
-    "地板清潔": ("地板清潔",),
+    "天花板嵌入式": ("天花板嵌入式", "嵌入式", "天花板式", "天花板的", "吊隱式", "吊隱"),
+    "四方吹業務型": ("四方吹業務型", "四方吹", "業務型", "四方吹的"),
+    "地板清潔": ("地板清潔", "地板清理", "清地板"),
     "石材地板研磨 晶化 拋光": ("石材地板研磨 晶化 拋光", "石材地板研磨", "晶化", "拋光"),
     "地毯清潔": ("地毯清潔",),
     "玻璃清潔": ("玻璃清潔",),
@@ -108,11 +123,53 @@ RULE_SERVICE_KEYWORDS = (
 # （store_id 沒有靜態 options 所以本來就猜不中；goods 是清單型別，讓 LLM
 #  猜測容易產生格式不符的字串，直接排除避免污染 collected_fields）。
 _LLM_EXCLUDED_FIELDS = {"store_id", "goods"}
+FREE_TEXT_FIELD_IDS = {"issue_description", "notes", "note", "issue_details"}
+
+
+def _reset_debug_trace(state: dict, message: str) -> None:
+    state["debug_trace"] = {
+        "message": message,
+        "llm_available": llm.is_available(),
+        "turn_router": None,
+        "form_router": None,
+        "field_sources": [],
+        "fallbacks": [],
+    }
+
+
+def _trace_field_source(state: dict, field_id: str, source: str) -> None:
+    trace = state.setdefault("debug_trace", {})
+    trace.setdefault("field_sources", []).append({"field_id": field_id, "source": source})
+
+
+def _trace_fallback(state: dict, reason: str) -> None:
+    trace = state.setdefault("debug_trace", {})
+    trace.setdefault("fallbacks", []).append(reason)
+
+
+def _trace_llm_debug(state: dict, key: str) -> None:
+    info = llm.consume_debug_info()
+    if info:
+        state.setdefault("debug_trace", {})[key] = info
 
 
 def _is_yes(text: str) -> bool:
     normalized = text.strip()
-    return any(normalized == word or normalized.startswith(word) for word in CONFIRM_WORDS) and not _is_no(normalized)
+    reuse_hints = (
+        "沿用",
+        "用上次的",
+        "沿用上次的",
+        "沿用上次",
+        "就用上次的",
+        "就用上次",
+        "用上次",
+        "照上次",
+        "跟上次一樣",
+    )
+    return (
+        any(normalized == word or normalized.startswith(word) for word in CONFIRM_WORDS)
+        or any(hint in normalized for hint in reuse_hints)
+    ) and not _is_no(normalized)
 
 
 def _is_no(text: str) -> bool:
@@ -122,7 +179,7 @@ def _is_no(text: str) -> bool:
 
 def _judge_reply(question: str, text: str) -> str:
     verdict = llm.interpret_yes_no(question, text)
-    if verdict is not None:
+    if verdict in {"yes", "no"}:
         return verdict
     if _is_yes(text):
         return "yes"
@@ -328,10 +385,12 @@ def _is_supported_service_time(value: str) -> bool:
 
 
 def _looks_like_memory_question(text: str) -> bool:
+    if any(hint in text for hint in ORDER_HISTORY_MEMORY_HINTS):
+        return False
+
     hints = (
         "記得",
         "記住",
-        "之前",
         "上次",
         "上一次",
         "上一個",
@@ -605,7 +664,7 @@ def _detect_service(text: str, services: list[dict], short_term_context: str, lo
         short_term_memory=short_term_context,
         long_term_memory=long_term_context,
     )
-    if llm_choice in valid_ids and _message_matches_service(text, llm_choice, services):
+    if llm_choice in valid_ids:
         return llm_choice
 
     for service_id, keywords in RULE_SERVICE_KEYWORDS:
@@ -634,18 +693,114 @@ def _extract_fields(actor_id: str, state: dict, text: str, events: list[dict] | 
         short_term_memory=short_term_context,
         long_term_memory=long_term_context,
     )
+    _trace_llm_debug(state, "llm_extract_fields_debug")
 
+    found.update(_normalize_candidate_fields(state, llm_fields, text, found, source="llm_extract_fields"))
+
+    heuristic_fields = nlu.extract_fields(
+        state["service_id"],
+        fields,
+        text,
+        state["collected_fields"] | found,
+    )
+    found.update(_normalize_candidate_fields(state, heuristic_fields, text, found, source="rule_extract_fields"))
+
+    free_text_field = _capture_active_free_text_field(state, text, found)
+    if free_text_field:
+        field_id, value = free_text_field
+        found[field_id] = value
+        _trace_field_source(state, field_id, "free_text_capture")
+
+    return found
+
+
+def _normalize_candidate_fields(
+    state: dict,
+    raw_fields: dict,
+    original_text: str,
+    found: dict | None = None,
+    *,
+    source: str,
+) -> dict:
+    if not isinstance(raw_fields, dict):
+        return {}
+
+    fields = state["service_schema"]["fields"]
+    normalized_found = dict(found or {})
+    additions: dict = {}
     for field in fields:
         field_id = field["id"]
         if field_id in _LLM_EXCLUDED_FIELDS:
             continue
-        if field_id not in llm_fields:
+        if field_id in normalized_found or field_id not in raw_fields:
             continue
-        normalized = _normalize_field_value(field, llm_fields[field_id], text)
+        if not _field_is_visible(field, state["collected_fields"] | normalized_found | additions):
+            continue
+        normalized = _normalize_field_value(field, raw_fields[field_id], original_text)
         if normalized is not None:
-            found[field_id] = normalized
+            additions[field_id] = normalized
+            _trace_field_source(state, field_id, source)
+    return additions
 
-    return found
+
+def _capture_active_free_text_field(state: dict, text: str, found: dict) -> tuple[str, str] | None:
+    active_field_id = current_active_field(state)
+    if not active_field_id or active_field_id in found:
+        return None
+    if active_field_id not in FREE_TEXT_FIELD_IDS:
+        return None
+    field = next((item for item in state["service_schema"]["fields"] if item["id"] == active_field_id), None)
+    if not field or field.get("type") != "textarea":
+        return None
+
+    normalized = text.strip()
+    if len(normalized) < 3:
+        return None
+    if _is_yes(normalized) or _is_no(normalized):
+        return None
+    if _looks_like_restart_service_request(normalized):
+        return None
+    if _should_prioritize_page_help(normalized):
+        return None
+    if _looks_like_memory_question(normalized):
+        return None
+    return active_field_id, normalized
+
+
+def _prepend_reply(result: dict, prefix: str | None) -> dict:
+    if prefix:
+        base_reply = result.get("reply", "")
+        result["reply"] = f"{prefix}\n{base_reply}" if base_reply else prefix
+    return result
+
+
+def _apply_found_fields_and_continue(
+    actor_id: str,
+    state: dict,
+    text: str,
+    events: list[dict] | None,
+    found: dict,
+    *,
+    reply_prefix: str | None = None,
+) -> dict:
+    if state.get("service_id") == "package_shipping" and "item_description" in found:
+        matched = shipping.contains_prohibited_keywords(found["item_description"])
+        if matched:
+            state["pending_prohibited_item"] = found.pop("item_description")
+            state["collected_fields"].update(found)
+            _recompute_missing(state)
+            categories = "、".join(matched)
+            result = _reply(
+                state,
+                f"你提到的內容物可能屬於「{categories}」類別，這類物品寄送有限制。"
+                "請問已詳讀寄送規範，確認可以寄送嗎？如果不確定，也可以直接重新描述內容物。",
+            )
+            return _prepend_reply(result, reply_prefix)
+
+    state["collected_fields"].update(found)
+    _recompute_missing(state)
+    result = _continue_collection(actor_id, state, latest_user_message=text, events=events)
+    return _prepend_reply(result, reply_prefix)
 
 
 def _fallback_reply(state: dict, phase: str, **kwargs) -> str:
@@ -686,6 +841,7 @@ def _fallback_reply(state: dict, phase: str, **kwargs) -> str:
 
 def _model_reply(actor_id: str, state: dict, phase: str, latest_user_message: str = "", **kwargs) -> str:
     if not llm.is_available():
+        _trace_fallback(state, f"model_reply:{phase}:llm_unavailable")
         return _fallback_reply(state, phase, **kwargs)
 
     fields = (state.get("service_schema") or {}).get("fields", [])
@@ -718,7 +874,14 @@ def _model_reply(actor_id: str, state: dict, phase: str, latest_user_message: st
         short_term_memory=short_term_memory,
         long_term_memory=long_term_memory,
     )
-    return reply or _fallback_reply(state, phase, **kwargs)
+    _trace_llm_debug(state, "llm_compose_reply_debug")
+    if reply:
+        trace = state.setdefault("debug_trace", {})
+        trace["model_reply_phase"] = phase
+        trace["model_reply_source"] = "llm_compose_reply"
+        return reply
+    _trace_fallback(state, f"model_reply:{phase}:empty_reply")
+    return _fallback_reply(state, phase, **kwargs)
 
 
 def new_state() -> dict:
@@ -745,6 +908,7 @@ def new_state() -> dict:
         # while keeping this list around so a same-session follow-up naming one
         # of the recommended products can be answered with its nutrition info.
         "health_last_recommendations": [],
+        "debug_trace": {},
     }
 
 
@@ -775,9 +939,54 @@ def _looks_like_new_service_request(text: str) -> bool:
     return any(hint in text for hint in hints)
 
 
+def _looks_like_restart_service_request(text: str) -> bool:
+    return bool(
+        re.search(r"(我要|我想|想要|需要|幫我|請幫我)", text)
+        and re.search(r"(服務|預約|申請|安排|清洗|清潔|維修|修繕|訂位|外送|叫修)", text)
+    )
+
+
+def _explicit_service_request_id(text: str, services: list[dict]) -> str | None:
+    scores: list[tuple[int, str]] = []
+    for service in services:
+        score = 0
+        keywords = list(service.get("keywords", []))
+        full_service = catalog.get_service(service["id"]) or {}
+        keywords.extend(full_service.get("keywords", []))
+        name = str(service.get("name") or full_service.get("name") or "")
+        description = str(service.get("description") or full_service.get("description") or "")
+        keywords.extend(part for part in re.split(r"[、，。\s與和]+", description) if len(part) >= 2)
+
+        for keyword in keywords:
+            if keyword and keyword in text:
+                score += len(keyword)
+        if name and name in text:
+            score += len(name) + 2
+        if score:
+            scores.append((score, service["id"]))
+    scores.sort(reverse=True)
+    return scores[0][1] if scores else None
+
+
 _PAGE_ID_REDIRECT_ROUTES = {
     "service_form_shop_purchase": "/services/shop_purchase",
 }
+
+
+def _fallback_page_help_reply(
+    text: str,
+    current_page_id: str | None,
+    auth_token: str | None,
+) -> tuple[str | None, str | None]:
+    if not looks_like_page_question(text, current_page_id=current_page_id):
+        return None, None
+    return _page_help_reply(text, current_page_id=current_page_id, auth_token=auth_token)
+
+
+def _should_prioritize_page_help(text: str, current_page_id: str | None = None) -> bool:
+    return looks_like_page_question(text, current_page_id=current_page_id) and (
+        is_navigation_query(text) or "哪裡訂" in text or "去哪裡訂" in text
+    )
 
 
 def _page_help_reply(
@@ -846,14 +1055,7 @@ def handle_message(
     auth_token: str | None = None,
 ) -> dict:
     text = message.strip()
-
-    page_reply, page_redirect_path = (
-        _page_help_reply(text, current_page_id=current_page_id, auth_token=auth_token)
-        if looks_like_page_question(text, current_page_id=current_page_id)
-        else (None, None)
-    )
-    if page_reply:
-        return _reply(state, page_reply, redirect_path=page_redirect_path)
+    _reset_debug_trace(state, text)
 
     if state.get("request_id"):
         services = _available_services(auth_token)
@@ -866,6 +1068,13 @@ def handle_message(
             if service_id:
                 state = new_state()
             else:
+                page_reply, page_redirect_path = _fallback_page_help_reply(
+                    text,
+                    current_page_id=current_page_id,
+                    auth_token=auth_token,
+                )
+                if page_reply:
+                    return _reply(state, page_reply, redirect_path=page_redirect_path)
                 return _reply(
                     state,
                     _model_reply(
@@ -877,7 +1086,21 @@ def handle_message(
                     ),
                 )
         else:
+            page_reply, page_redirect_path = _fallback_page_help_reply(
+                text,
+                current_page_id=current_page_id,
+                auth_token=auth_token,
+            )
+            if page_reply:
+                return _reply(state, page_reply, redirect_path=page_redirect_path)
             return _reply(state, _model_reply(actor_id, state, "completed", latest_user_message=text))
+
+    if state.get("service_id") and _looks_like_restart_service_request(text):
+        services = _available_services(auth_token)
+        if services is not None:
+            restarted_service_id = _explicit_service_request_id(text, services)
+            if restarted_service_id:
+                state = new_state()
 
     if state.get("pending_delivery_field"):
         return _handle_delivery_pending_reply(actor_id, state, text, events)
@@ -892,7 +1115,10 @@ def handle_message(
         if verdict == "yes":
             state["collected_fields"][field_id] = state["pending_pref_value"]
         else:
-            state["collected_fields"].update(_extract_fields(actor_id, state, text, events))
+            found = _extract_fields(actor_id, state, text, events)
+            if verdict == "unclear" and not found:
+                return _reply(state, question)
+            state["collected_fields"].update(found)
         state["pending_pref_field"] = None
         state["pending_pref_value"] = None
         state["pending_pref_question"] = None
@@ -931,18 +1157,73 @@ def handle_message(
             if health_followup_reply:
                 return _reply(state, health_followup_reply)
 
-        if _looks_like_memory_question(text):
-            memory_reply = _reply_from_memory(actor_id)
-            if memory_reply:
-                return _reply(state, memory_reply)
-
-        services = _available_services(auth_token)
-        if services is None:
-            return _reply(state, _model_reply(actor_id, state, "service_catalog_error", latest_user_message=text))
         short_term_context = _short_term_context(state, events, text)
         long_term_context = _long_term_memory_context(actor_id, text)
-        service_id = _detect_service(text, services, short_term_context, long_term_context)
+        services = _available_services(auth_token) or []
+        planned_service_id: str | None = None
+
+        if llm.is_available():
+            turn_plan = llm.plan_turn(
+                message=text,
+                services=services,
+                current_page_id=current_page_id or "",
+                short_term_memory=short_term_context,
+                long_term_memory=long_term_context,
+            )
+            _trace_llm_debug(state, "turn_router_debug")
+            if turn_plan:
+                state["debug_trace"]["turn_router"] = turn_plan
+                if turn_plan["mode"] == "chat" and turn_plan.get("reply"):
+                    return _reply(state, turn_plan["reply"])
+                if turn_plan["mode"] == "memory_query":
+                    memory_reply = _reply_from_memory(actor_id)
+                    if memory_reply:
+                        return _reply(state, memory_reply)
+                    if turn_plan.get("reply"):
+                        return _reply(state, turn_plan["reply"])
+                if turn_plan["mode"] == "page_help":
+                    page_reply, page_redirect_path = _fallback_page_help_reply(
+                        text,
+                        current_page_id=current_page_id,
+                        auth_token=auth_token,
+                    )
+                    if page_reply:
+                        return _reply(state, page_reply, redirect_path=page_redirect_path)
+                    if turn_plan.get("reply"):
+                        return _reply(state, turn_plan["reply"])
+                if turn_plan["mode"] == "service_request":
+                    planned_service_id = turn_plan.get("service_id")
+            else:
+                _trace_fallback(state, "turn_router:no_plan")
+
+        if _should_prioritize_page_help(text, current_page_id=current_page_id):
+            page_reply, page_redirect_path = _fallback_page_help_reply(
+                text,
+                current_page_id=current_page_id,
+                auth_token=auth_token,
+            )
+            if page_reply:
+                return _reply(state, page_reply, redirect_path=page_redirect_path)
+
+        if not planned_service_id and _looks_like_memory_question(text):
+            memory_reply = _reply_from_memory(actor_id)
+            if memory_reply:
+                state["debug_trace"]["turn_router"] = {"mode": "memory_query", "source": "rule_memory_question"}
+                return _reply(state, memory_reply)
+
+        if not services:
+            return _reply(state, _model_reply(actor_id, state, "service_catalog_error", latest_user_message=text))
+
+        service_id = planned_service_id or _detect_service(text, services, short_term_context, long_term_context)
         if not service_id:
+            _trace_fallback(state, "service_detection:unresolved")
+            page_reply, page_redirect_path = _fallback_page_help_reply(
+                text,
+                current_page_id=current_page_id,
+                auth_token=auth_token,
+            )
+            if page_reply:
+                return _reply(state, page_reply, redirect_path=page_redirect_path)
             return _reply(
                 state,
                 _model_reply(
@@ -1007,22 +1288,46 @@ def handle_message(
                 redirect_requires_confirmation=redirect_path is not None,
             )
 
-    found = _extract_fields(actor_id, state, text, events)
-    if state.get("service_id") == "package_shipping" and "item_description" in found:
-        matched = shipping.contains_prohibited_keywords(found["item_description"])
-        if matched:
-            state["pending_prohibited_item"] = found.pop("item_description")
-            state["collected_fields"].update(found)
-            _recompute_missing(state)
-            categories = "、".join(matched)
-            return _reply(
+    if llm.is_available():
+        active_field = current_active_field(state) or ""
+        form_plan = llm.plan_form_turn(
+            message=text,
+            service_name=_display_service_name(state["service_id"], state["service_name"]),
+            fields=state["service_schema"]["fields"],
+            collected_fields=state["collected_fields"],
+            form_schema=build_form_schema(state),
+            form_draft=build_form_draft(state),
+            active_field=active_field,
+            short_term_memory=_short_term_context(state, events, text),
+            long_term_memory=_long_term_memory_context(actor_id, text),
+        )
+        _trace_llm_debug(state, "form_router_debug")
+        if form_plan:
+            state["debug_trace"]["form_router"] = form_plan
+            planned_found = _normalize_candidate_fields(
                 state,
-                f"你提到的內容物可能屬於「{categories}」類別，這類物品寄送有限制。"
-                "請問已詳讀寄送規範，確認可以寄送嗎？如果不確定，也可以直接重新描述內容物。",
+                form_plan.get("fields", {}),
+                text,
+                source="llm_form_turn",
             )
-    state["collected_fields"].update(found)
-    _recompute_missing(state)
-    return _continue_collection(actor_id, state, latest_user_message=text, events=events)
+            if planned_found:
+                return _apply_found_fields_and_continue(
+                    actor_id,
+                    state,
+                    text,
+                    events,
+                    planned_found,
+                    reply_prefix=form_plan.get("reply"),
+                )
+            if form_plan.get("mode") == "reply" and form_plan.get("reply"):
+                return _reply(state, form_plan["reply"])
+        else:
+            _trace_fallback(state, "form_router:no_plan")
+
+    found = _extract_fields(actor_id, state, text, events)
+    if not found:
+        _trace_fallback(state, "field_extraction:empty")
+    return _apply_found_fields_and_continue(actor_id, state, text, events, found)
 
 
 def _continue_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
@@ -1374,19 +1679,6 @@ def _answer_health_recommendation(state: dict, query: str, auth_token: str | Non
     return _format_health_recommendation_reply(result)
 
 
-def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str | None]:
-    result = tools.call("compare_product_prices", {"query": query}, auth_token=auth_token)
-    if not result.get("success"):
-        return f"抱歉，沒有找到「{query}」的比價資訊，要不要換個商品名稱再試一次？", None
-    offers = result["offers"]
-    lines = [f"「{result['product_name']}」目前有 {len(offers)} 家店販售："]
-    for index, offer in enumerate(offers):
-        tag = "（最便宜）" if index == 0 else ""
-        lines.append(f"　{offer['store_name']} NT${offer['unit_price']}{tag}")
-    lines.append("我幫你打開比價頁面，可以直接選店家下單。")
-    return "\n".join(lines), f"/services/shop_purchase?compare={result['group_id']}"
-
-
 def _format_health_nutrition_reply(product: dict) -> str:
     lines = [
         f"{product.get('name', '')} 的營養資訊：",
@@ -1472,4 +1764,5 @@ def _reply(
         "state": state,
         "redirect_path": redirect_path,
         "redirect_requires_confirmation": redirect_requires_confirmation,
+        "debug_trace": state.get("debug_trace", {}),
     }

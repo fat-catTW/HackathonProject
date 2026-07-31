@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from datetime import date
 from functools import lru_cache
 
@@ -21,6 +22,21 @@ _SERVICE_SYSTEM = (
     "Return JSON only in the format {\"service_id\": string|null}."
 )
 
+_TURN_SYSTEM = (
+    "You are the first-turn router for a Taiwanese home services assistant speaking Traditional Chinese. "
+    "Decide whether the latest user message should be handled as one of: "
+    "\"chat\", \"service_request\", \"page_help\", \"memory_query\", or \"unknown\". "
+    "Use \"chat\" for greetings, identity/capability questions, small talk, or short direct conversational replies. "
+    "Use \"service_request\" when the user wants to book/apply/arrange a supported service. "
+    "Use \"page_help\" when the user is asking where something is in the app, what the current page does, or how to navigate. "
+    "Use \"memory_query\" when the user is asking about previously used address/phone/service/order details. "
+    "If mode is \"chat\", include a natural direct reply in Traditional Chinese. "
+    "If mode is \"service_request\" and a service is clear, include the best matching service_id from the provided list; otherwise use null. "
+    "Do not invent unsupported services. "
+    "Return JSON only in the format "
+    "{\"mode\":\"chat|service_request|page_help|memory_query|unknown\",\"reply\":string|null,\"service_id\":string|null}."
+)
+
 _FIELD_SYSTEM = (
     "You fill a JSON booking form for a Taiwanese home services assistant. "
     "Use only the provided field ids from the current form schema. "
@@ -32,6 +48,22 @@ _FIELD_SYSTEM = (
     "Do not overwrite an existing value unless the user clearly changes it. "
     "Do not answer questions or explain anything outside the JSON. "
     "Return JSON only in the format {\"fields\": { ... }}."
+)
+
+_FORM_TURN_SYSTEM = (
+    "You are the active-form orchestrator for a Taiwanese home services assistant speaking Traditional Chinese. "
+    "The assistant is already collecting a booking form for one known service. "
+    "Decide whether the latest user message should: "
+    "\"reply\" (just answer conversationally), "
+    "\"update_fields\" (update form fields), "
+    "\"reply_and_update\" (do both), "
+    "or \"unknown\". "
+    "Use only provided field ids. For select fields, prefer exact option values. "
+    "If the user is chatting, frustrated, asking what you can do, or saying something that should receive a direct answer without changing the form, use \"reply\". "
+    "If the user provides or corrects form values, use \"update_fields\" or \"reply_and_update\". "
+    "Do not invent unsupported fields or services. "
+    "Return JSON only in the format "
+    "{\"mode\":\"reply|update_fields|reply_and_update|unknown\",\"reply\":string|null,\"fields\":{...}}."
 )
 
 _REPLY_SYSTEM = (
@@ -55,6 +87,18 @@ _PAGE_HELP_SYSTEM = (
     "Do not mention internal relevance scores or backend logic. "
     "Return JSON only in the format {\"target_page_id\": string|null, \"reply\": string}."
 )
+
+_DEBUG_STATE = threading.local()
+
+
+def _set_debug_info(**kwargs) -> None:
+    _DEBUG_STATE.info = kwargs
+
+
+def consume_debug_info() -> dict:
+    info = getattr(_DEBUG_STATE, "info", {}) or {}
+    _DEBUG_STATE.info = {}
+    return info
 
 
 def _strip_fences(text: str) -> str:
@@ -102,6 +146,7 @@ def is_available() -> bool:
 def _converse_json(system: str, prompt: str, *, max_tokens: int = 512) -> dict | None:
     client = _get_client()
     if client is None:
+        _set_debug_info(stage="client", status="unavailable")
         return None
 
     settings = get_settings()
@@ -112,8 +157,15 @@ def _converse_json(system: str, prompt: str, *, max_tokens: int = 512) -> dict |
             messages=[{"role": "user", "content": [{"text": prompt}]}],
             inferenceConfig={"maxTokens": max_tokens, "temperature": 0},
         )
-        return _parse_json_text(_extract_text(response))
-    except Exception:
+        text = _extract_text(response)
+        payload = _parse_json_text(text)
+        if payload is None:
+            _set_debug_info(stage="parse", status="invalid_json", raw_text=text[:800])
+            return None
+        _set_debug_info(stage="converse", status="ok")
+        return payload
+    except Exception as exc:
+        _set_debug_info(stage="converse", status="exception", error_type=type(exc).__name__, error_message=str(exc))
         return None
 
 
@@ -151,6 +203,40 @@ def choose_service(
     return service_id if service_id in valid_ids else None
 
 
+def plan_turn(
+    *,
+    message: str,
+    services: list[dict],
+    current_page_id: str = "",
+    short_term_memory: str = "",
+    long_term_memory: str = "",
+) -> dict | None:
+    prompt = (
+        f"Today is {date.today().isoformat()}.\n"
+        f"Current page id: {current_page_id or 'None'}\n\n"
+        f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
+        f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
+        f"Available services:\n{json.dumps(services, ensure_ascii=False, indent=2)}\n\n"
+        f"Latest user message:\n{message}"
+    )
+    payload = _converse_json(_TURN_SYSTEM, prompt, max_tokens=320)
+    if not payload:
+        return None
+    mode = payload.get("mode")
+    if mode not in {"chat", "service_request", "page_help", "memory_query", "unknown"}:
+        return None
+    service_id = payload.get("service_id")
+    valid_ids = {service["id"] for service in services}
+    normalized_service_id = service_id if service_id in valid_ids else None
+    reply = payload.get("reply")
+    normalized_reply = reply.strip() if isinstance(reply, str) and reply.strip() else None
+    return {
+        "mode": mode,
+        "reply": normalized_reply,
+        "service_id": normalized_service_id,
+    }
+
+
 def extract_fields(
     *,
     message: str,
@@ -176,6 +262,46 @@ def extract_fields(
     if not payload or not isinstance(payload.get("fields"), dict):
         return {}
     return payload["fields"]
+
+
+def plan_form_turn(
+    *,
+    message: str,
+    service_name: str,
+    fields: list[dict],
+    collected_fields: dict,
+    form_schema: dict | None = None,
+    form_draft: dict | None = None,
+    active_field: str = "",
+    short_term_memory: str = "",
+    long_term_memory: str = "",
+) -> dict | None:
+    prompt = (
+        f"Today is {date.today().isoformat()}.\n"
+        f"Service name: {service_name}\n"
+        f"Active field: {active_field or 'None'}\n"
+        f"Form schema:\n{json.dumps(form_schema or {'fields': fields}, ensure_ascii=False, indent=2)}\n\n"
+        f"Current form draft:\n{json.dumps(form_draft or {'fields': collected_fields}, ensure_ascii=False, indent=2)}\n\n"
+        f"Already collected:\n{json.dumps(collected_fields, ensure_ascii=False, indent=2)}\n\n"
+        f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
+        f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
+        f"Latest user message:\n{message}"
+    )
+    payload = _converse_json(_FORM_TURN_SYSTEM, prompt, max_tokens=512)
+    if not payload:
+        return None
+    mode = payload.get("mode")
+    if mode not in {"reply", "update_fields", "reply_and_update", "unknown"}:
+        return None
+    reply = payload.get("reply")
+    normalized_reply = reply.strip() if isinstance(reply, str) and reply.strip() else None
+    raw_fields = payload.get("fields")
+    normalized_fields = raw_fields if isinstance(raw_fields, dict) else {}
+    return {
+        "mode": mode,
+        "reply": normalized_reply,
+        "fields": normalized_fields,
+    }
 
 
 def compose_reply(

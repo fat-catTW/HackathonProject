@@ -308,6 +308,9 @@ def _invoke_lambda(tool_name: str, params: dict) -> dict:
         "search_pages": settings.search_pages_lambda_name,
         "recommend_products_by_health_need": settings.recommend_products_by_health_need_lambda_name,
         "get_product_nutrition": settings.get_product_nutrition_lambda_name,
+        "list_shop_stores": settings.list_shop_stores_lambda_name,
+        "get_shop_products": settings.get_shop_products_lambda_name,
+        "get_user_points": settings.get_user_points_lambda_name,
     }
     function_name = function_names.get(tool_name)
     if not function_name:
@@ -363,6 +366,9 @@ def _gateway_tool_name(tool_name: str) -> str:
         "search_pages": settings.mcp_search_pages_tool_name,
         "recommend_products_by_health_need": settings.mcp_recommend_products_by_health_need_tool_name,
         "get_product_nutrition": settings.mcp_get_product_nutrition_tool_name,
+        "list_shop_stores": settings.mcp_list_shop_stores_tool_name,
+        "get_shop_products": settings.mcp_get_shop_products_tool_name,
+        "get_user_points": settings.mcp_get_user_points_tool_name,
     }
     return names.get(tool_name, tool_name)
 

@@ -22,7 +22,7 @@ This lets the backend use AWS for persistence while still accepting the existing
    - `BEDROCK_MODEL_ID`
    - `DYNAMODB_TABLE_NAME`
    - `ALLOW_DEMO_AUTH=true`
-- `AGENT_TOOL_MODE=embedded`
+   - `AGENT_TOOL_MODE=embedded`
 3. Install backend dependencies:
 
 ```bash
@@ -67,20 +67,13 @@ Stored items use these patterns:
 - `USER#<actor_id>` / `SESSION#<session_id>`
 - `USER#<actor_id>` / `REQUEST#<request_id>`
 - `USER#<actor_id>` / `PREFERENCES`
-- `USER#<actor_id>` / `PROFILE` — account profile (sub, email, name)
-- `AUTH#EMAIL#<email>` / `CREDENTIAL` — login credential (PBKDF2 salt + hash, base64)
-- `AUTH#TOKEN#<token>` / `SESSION` — issued bearer token → actor, 30-day expiry
+- `USER#<actor_id>` / `PROFILE`
+- `AUTH#EMAIL#<email>` / `CREDENTIAL`
+- `AUTH#TOKEN#<token>` / `SESSION`
 
-Enable TTL on the `ttl` attribute so expired tokens are removed automatically
-(`python scripts/bootstrap_aws.py` does this). Items without a `ttl` attribute
-are never touched by TTL.
+Enable TTL on the `ttl` attribute so expired tokens are removed automatically. `python scripts/bootstrap_aws.py` sets this up. Items without a `ttl` attribute are never touched by TTL.
 
-**Accounts only persist when `USE_MOCK=false`.** `USE_MOCK` defaults to `true`,
-which selects the in-memory store — registered accounts and issued tokens are
-then lost on every restart. Set `USE_MOCK=false` in `.env` for any environment
-where logins must survive a restart.
-
-If you use `AGENT_TOOL_MODE=dynamodb`, also seed service catalog items like:
+If you use `AGENT_TOOL_MODE=dynamodb`, also seed service catalog items such as:
 
 - `SERVICE#air_conditioner_cleaning` / `METADATA`
 
@@ -94,6 +87,11 @@ If you already deploy the functions under `lambda_tools/`, set:
 - `SUBMIT_SERVICE_REQUEST_LAMBDA_NAME`
 - `GET_PAGE_CONTEXT_LAMBDA_NAME`
 - `SEARCH_PAGES_LAMBDA_NAME`
+- `RECOMMEND_PRODUCTS_BY_HEALTH_NEED_LAMBDA_NAME`
+- `GET_PRODUCT_NUTRITION_LAMBDA_NAME`
+- `LIST_SHOP_STORES_LAMBDA_NAME`
+- `GET_SHOP_PRODUCTS_LAMBDA_NAME`
+- `GET_USER_POINTS_LAMBDA_NAME`
 
 The backend will invoke Lambda directly with boto3.
 
@@ -113,10 +111,15 @@ Optional settings:
 - `MCP_SUBMIT_SERVICE_REQUEST_TOOL_NAME`
 - `MCP_GET_PAGE_CONTEXT_TOOL_NAME`
 - `MCP_SEARCH_PAGES_TOOL_NAME`
+- `MCP_RECOMMEND_PRODUCTS_BY_HEALTH_NEED_TOOL_NAME`
+- `MCP_GET_PRODUCT_NUTRITION_TOOL_NAME`
+- `MCP_LIST_SHOP_STORES_TOOL_NAME`
+- `MCP_GET_SHOP_PRODUCTS_TOOL_NAME`
+- `MCP_GET_USER_POINTS_TOOL_NAME`
 
 Notes:
 
 - The backend posts JSON-RPC `tools/call` requests to `${AGENTCORE_GATEWAY_URL}/mcp`.
 - If the incoming user already has a bearer token, the backend forwards that token to the gateway first.
 - If no incoming token is available for the gateway, the backend falls back to `AGENTCORE_GATEWAY_AUTH_TOKEN`.
-- If your gateway exposes tool names with target prefixes, set the three `MCP_*_TOOL_NAME` values to the exact exposed names.
+- If your Gateway exposes tool names with target prefixes, set each `MCP_*_TOOL_NAME` value to the exact exposed name.

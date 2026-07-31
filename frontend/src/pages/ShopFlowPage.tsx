@@ -29,6 +29,11 @@ interface CartEntry {
   productType: "PHYSICAL" | "SERIAL_CODE";
 }
 
+interface ProductGroup {
+  groupKey: string;
+  offers: (ShopProduct & { min_unit_price: number })[];
+}
+
 export function ShopFlowPage() {
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
@@ -38,6 +43,7 @@ export function ShopFlowPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [activeProduct, setActiveProduct] = useState<ShopProduct | null>(null);
+  const [comparingGroupId, setComparingGroupId] = useState<string | null>(null);
   const [selectedSpecs, setSelectedSpecs] = useState<Record<string, string>>({});
 
   const [cart, setCart] = useState<CartEntry[]>([]);
@@ -87,6 +93,26 @@ export function ShopFlowPage() {
       Object.entries(sku.attributes).every(([name, value]) => selectedSpecs[name] === value),
     ) ?? (activeProduct.specs.length === 0 ? activeProduct.skus[0] : null);
   }, [activeProduct, selectedSpecs]);
+
+  const productGroups = useMemo<ProductGroup[]>(() => {
+    const groups = new Map<string, (ShopProduct & { min_unit_price: number })[]>();
+    for (const product of products) {
+      const withPrice = { ...product, min_unit_price: Math.min(...product.skus.map((s) => s.unit_price)) };
+      const key = product.compare_group_id ?? product.id;
+      const existing = groups.get(key);
+      if (existing) existing.push(withPrice);
+      else groups.set(key, [withPrice]);
+    }
+    return Array.from(groups.entries()).map(([groupKey, offers]) => ({
+      groupKey,
+      offers: offers.sort((a, b) => a.min_unit_price - b.min_unit_price),
+    }));
+  }, [products]);
+
+  const comparingOffers = useMemo(() => {
+    if (!comparingGroupId) return [];
+    return productGroups.find((g) => g.groupKey === comparingGroupId)?.offers ?? [];
+  }, [productGroups, comparingGroupId]);
 
   const [pendingQuantity, setPendingQuantity] = useState(1);
 
@@ -222,6 +248,7 @@ export function ShopFlowPage() {
                   type="button"
                   onClick={() => {
                     setSelectedCategoryId(category.id);
+                    setComparingGroupId(null);
                     goNext();
                   }}
                   className="rounded-2xl border-2 border-[var(--color-border)] p-4 text-left transition hover:border-[var(--color-primary)]"
@@ -238,27 +265,98 @@ export function ShopFlowPage() {
           <section className="flex flex-col gap-4">
             <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">請選擇商品</p>
             <div className="flex flex-col gap-3">
-              {products.map((product) => (
-                <button
-                  key={product.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveProduct(product);
-                    setSelectedSpecs({});
-                    setPendingQuantity(1);
-                  }}
-                  className={`rounded-2xl border-2 p-4 text-left transition ${
-                    activeProduct?.id === product.id
-                      ? "border-brand bg-brand/5"
-                      : "border-[var(--color-border)] hover:border-[var(--color-primary)]"
-                  }`}
-                >
-                  <p className="text-base font-bold text-[var(--color-foreground)]">{product.name}</p>
-                  <p className="text-sm text-[var(--color-muted-foreground)]">NT${product.skus[0]?.unit_price}</p>
-                  <p className="text-xs text-[var(--color-muted-foreground)]">{product.store_name}</p>
-                </button>
-              ))}
+              {productGroups.map((group) => {
+                if (group.offers.length > 1) {
+                  const prices = group.offers.map((o) => o.min_unit_price);
+                  return (
+                    <button
+                      key={group.groupKey}
+                      type="button"
+                      onClick={() => {
+                        setComparingGroupId(group.groupKey);
+                        setActiveProduct(null);
+                        setSelectedSpecs({});
+                        setPendingQuantity(1);
+                      }}
+                      className="rounded-2xl border-2 border-[var(--color-border)] p-4 text-left transition hover:border-[var(--color-primary)]"
+                    >
+                      <p className="text-base font-bold text-[var(--color-foreground)]">{group.offers[0].name}</p>
+                      <p className="text-sm text-[var(--color-muted-foreground)]">
+                        NT${Math.min(...prices)}~{Math.max(...prices)}
+                      </p>
+                      <p className="text-xs text-[var(--color-muted-foreground)]">共 {group.offers.length} 家店販售</p>
+                    </button>
+                  );
+                }
+                const product = group.offers[0];
+                return (
+                  <button
+                    key={group.groupKey}
+                    type="button"
+                    onClick={() => {
+                      setActiveProduct(product);
+                      setComparingGroupId(null);
+                      setSelectedSpecs({});
+                      setPendingQuantity(1);
+                    }}
+                    className={`rounded-2xl border-2 p-4 text-left transition ${
+                      activeProduct?.id === product.id
+                        ? "border-brand bg-brand/5"
+                        : "border-[var(--color-border)] hover:border-[var(--color-primary)]"
+                    }`}
+                  >
+                    <p className="text-base font-bold text-[var(--color-foreground)]">{product.name}</p>
+                    <p className="text-sm text-[var(--color-muted-foreground)]">NT${product.skus[0]?.unit_price}</p>
+                    <p className="text-xs text-[var(--color-muted-foreground)]">{product.store_name}</p>
+                  </button>
+                );
+              })}
             </div>
+
+            {comparingGroupId && (
+              <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border)] p-4">
+                <p className="text-base font-bold text-[var(--color-foreground)]">
+                  {comparingOffers[0]?.name} 比價
+                </p>
+                {comparingOffers.map((offer, index) => (
+                  <div
+                    key={offer.id}
+                    className="flex items-center justify-between rounded-xl border border-[var(--color-border)] px-4 py-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-[var(--color-foreground)]">{offer.store_name}</span>
+                      {index === 0 && (
+                        <span className="rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-xs font-bold text-[var(--color-success)]">
+                          最便宜
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-[var(--color-foreground)]">NT${offer.min_unit_price}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveProduct(offer);
+                          setComparingGroupId(null);
+                          setSelectedSpecs({});
+                          setPendingQuantity(1);
+                        }}
+                        className="min-h-[44px] rounded-full bg-brand px-4 py-2 text-sm font-bold text-[var(--color-on-primary)]"
+                      >
+                        選這家
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setComparingGroupId(null)}
+                  className="text-sm text-[var(--color-muted-foreground)] underline"
+                >
+                  返回商品列表
+                </button>
+              </div>
+            )}
 
             {activeProduct && (
               <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border)] p-4">
@@ -322,7 +420,10 @@ export function ShopFlowPage() {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={goBack}
+                onClick={() => {
+                  goBack();
+                  setComparingGroupId(null);
+                }}
                 className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand"
               >
                 返回選品類

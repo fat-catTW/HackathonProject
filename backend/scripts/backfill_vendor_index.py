@@ -56,7 +56,10 @@ def index_item(request: dict, vendor_id: int) -> dict:
         "status": request.get("status", ""),
         # 廠商後台接單／拒單要帶回版本比對，索引跟著鏡射（舊案件沒有就是 0）。
         "version": int(request.get("version") or 0),
+        # 聯絡欄位的密文與遮罩對照表一起鏡射（Milestone 15）。少了 form_data_masked，
+        # 廠商清單只能就地遮罩，而密文遮不出東西，摘要就會變成一排 ***。
         "form_data": request.get("form_data", {}),
+        "form_data_masked": request.get("form_data_masked", {}),
         "created_at": request.get("created_at", ""),
         "updated_at": request.get("updated_at", request.get("created_at", "")),
     }

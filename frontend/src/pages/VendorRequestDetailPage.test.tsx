@@ -3,13 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../api/client";
-import { actOnVendorRequest, getVendorRequest } from "../api/vendor";
+import { actOnVendorRequest, getVendorRequest, revealVendorContact } from "../api/vendor";
 import type { VendorRequestDetail } from "../types/vendor";
 import { VendorRequestDetailPage } from "./VendorRequestDetailPage";
 
 vi.mock("../api/vendor", () => ({
   getVendorRequest: vi.fn(),
   actOnVendorRequest: vi.fn(),
+  revealVendorContact: vi.fn(),
 }));
 
 const PENDING: VendorRequestDetail = {
@@ -21,7 +22,12 @@ const PENDING: VendorRequestDetail = {
   customer_name: "Vincent",
   version: 1,
   available_actions: ["accept", "reject"],
-  fields: [{ id: "phone", label: "聯絡電話", value: "0912345678" }],
+  fields: [
+    { id: "preferred_date", label: "希望到府日期", value: "2026-08-01", masked: false },
+    { id: "phone", label: "聯絡電話", value: "0912***678", masked: true },
+  ],
+  has_contact: true,
+  contact_access_log: [],
   created_at: "2026-08-01T09:00:00+08:00",
   updated_at: "2026-08-01T09:00:00+08:00",
 };
@@ -48,6 +54,7 @@ describe("VendorRequestDetailPage 接單／拒單", () => {
   beforeEach(() => {
     vi.mocked(getVendorRequest).mockResolvedValue(PENDING);
     vi.mocked(actOnVendorRequest).mockReset();
+    vi.mocked(revealVendorContact).mockReset();
   });
 
   it("接單時帶上畫面看到的版本，成功後換成新狀態並收掉按鈕", async () => {
@@ -103,5 +110,63 @@ describe("VendorRequestDetailPage 接單／拒單", () => {
     expect(await screen.findByText("案件目前是「已取消」，無法接單。")).toBeInTheDocument();
     expect(screen.getByText("已取消")).toBeInTheDocument();
     expect(screen.queryByText("接下這張單")).not.toBeInTheDocument();
+  });
+});
+
+describe("VendorRequestDetailPage 聯絡資訊", () => {
+  beforeEach(() => {
+    vi.mocked(getVendorRequest).mockResolvedValue(PENDING);
+    vi.mocked(actOnVendorRequest).mockReset();
+    vi.mocked(revealVendorContact).mockReset();
+  });
+
+  it("預設只顯示遮罩值，解密後換成完整內容並列出存取紀錄", async () => {
+    const user = userEvent.setup();
+    vi.mocked(revealVendorContact).mockResolvedValue({
+      success: true,
+      request_id: PENDING.request_id,
+      contact: [{ id: "phone", label: "聯絡電話", value: "0912345678" }],
+      contact_access_log: [
+        { at: "2026-08-01T10:30:00+08:00", viewer_name: "潔家家事服務", fields: ["聯絡電話"] },
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByText("0912***678")).toBeInTheDocument();
+    expect(screen.queryByText("0912345678")).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("顯示完整聯絡資訊"));
+
+    expect(revealVendorContact).toHaveBeenCalledWith(PENDING.request_id);
+    expect(await screen.findByText("0912345678")).toBeInTheDocument();
+    expect(screen.queryByText("0912***678")).not.toBeInTheDocument();
+    // 解鎖後按鈕收起來，並把這次檢視列進存取紀錄。
+    expect(screen.queryByText("顯示完整聯絡資訊")).not.toBeInTheDocument();
+    expect(screen.getByText(/潔家家事服務 檢視了/)).toBeInTheDocument();
+  });
+
+  it("解密失敗時保留遮罩並顯示錯誤", async () => {
+    const user = userEvent.setup();
+    vi.mocked(revealVendorContact).mockRejectedValue(
+      new ApiError("CONTACT_LOG_UNAVAILABLE", "無法寫入存取紀錄，請稍後再試。"),
+    );
+    renderPage();
+
+    await user.click(await screen.findByText("顯示完整聯絡資訊"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("無法寫入存取紀錄，請稍後再試。");
+    expect(screen.getByText("0912***678")).toBeInTheDocument();
+  });
+
+  it("沒有聯絡欄位的案件不顯示聯絡資訊區塊", async () => {
+    vi.mocked(getVendorRequest).mockResolvedValue({
+      ...PENDING,
+      fields: PENDING.fields.filter((f) => !f.masked),
+      has_contact: false,
+    });
+    renderPage();
+
+    expect(await screen.findByText("服務內容")).toBeInTheDocument();
+    expect(screen.queryByText("聯絡資訊")).not.toBeInTheDocument();
   });
 });

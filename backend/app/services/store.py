@@ -10,7 +10,7 @@ from pathlib import Path
 from time import monotonic
 
 from ..config import get_settings
-from . import catalog
+from . import catalog, contact_privacy
 from .aws import get_aws_resource
 
 TZ = timezone(timedelta(hours=8))
@@ -103,25 +103,65 @@ class BaseStore:
         request["updated_at"] = now_iso()
         request["version"] = version_of(request) + 1
 
+    def _for_storage(self, request: dict) -> dict:
+        """把聯絡欄位換成密文，並附上遮罩對照表（Milestone 15）。
+
+        加密只在這個出口做，所有 save_request 的呼叫端（送單、外送、訂位、商城…）
+        就都不必記得這件事，也不會有人漏掉。回傳副本而非就地修改：呼叫端手上的
+        dict 還要拿來組回應、扣庫存，換成密文只會讓它們讀到亂碼。
+        """
+        form_data = request.get("form_data")
+        if not isinstance(form_data, dict) or not form_data:
+            return request
+        if contact_privacy.is_fully_encrypted(form_data) and "form_data_masked" in request:
+            # 已經是儲存後的樣子（例如廠商後台只改狀態就原樣寫回），不必重跑一次
+            # 加密——密文每次都不同，重算只是徒增寫入量與 KMS 呼叫。
+            return request
+        plain = contact_privacy.decrypt_form_data(form_data)
+        return dict(request) | {
+            "form_data": contact_privacy.encrypt_form_data(plain),
+            "form_data_masked": contact_privacy.masked_form_data(plain),
+        }
+
+    @staticmethod
+    def _decrypted(request: dict | None) -> dict | None:
+        """住戶讀自己的案件：聯絡資訊是他本人填的，直接還原成明文。"""
+        if not request or not isinstance(request.get("form_data"), dict):
+            return request
+        return dict(request) | {
+            "form_data": contact_privacy.decrypt_form_data(request["form_data"])
+        }
+
     def save_request(self, actor_id: str, request: dict) -> None:
         self._stamp_request(actor_id, request)
-        self.put_item(request)
-        self._save_vendor_index(actor_id, request)
+        stored = self._for_storage(request)
+        self.put_item(stored)
+        self._save_vendor_index(actor_id, stored)
 
     def save_request_if_version(self, actor_id: str, request: dict, expected_version: int) -> bool:
         """樂觀鎖版本的 save_request；案件已被其他人改過時回 False，不覆寫。"""
         self._stamp_request(actor_id, request)
-        if not self.put_item_if_version(request, expected_version):
+        stored = self._for_storage(request)
+        if not self.put_item_if_version(stored, expected_version):
             return False
-        self._save_vendor_index(actor_id, request)
+        self._save_vendor_index(actor_id, stored)
         return True
 
     def get_request(self, actor_id: str, request_id: str) -> dict | None:
+        return self._decrypted(self.get_stored_request(actor_id, request_id))
+
+    def get_stored_request(self, actor_id: str, request_id: str) -> dict | None:
+        """原封不動的案件（聯絡欄位仍是密文）。
+
+        廠商後台走這條：它要的是狀態與版本，聯絡資訊只給遮罩值，真的要看得另外走
+        會留下存取紀錄的解密端點。
+        """
         return self.get_item(f"USER#{actor_id}", f"REQUEST#{request_id}")
 
     def list_requests(self, actor_id: str) -> list[dict]:
         items = self.query_prefix(f"USER#{actor_id}", "REQUEST#")
-        return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
+        ordered = sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
+        return [self._decrypted(item) for item in ordered]
 
     # ---- Vendor view: requests mirrored under a vendor partition key ----
     def _save_vendor_index(self, actor_id: str, request: dict) -> None:
@@ -147,7 +187,9 @@ class BaseStore:
                     "status": request.get("status", ""),
                     # 廠商後台改狀態時要帶回這個版本，因此索引也要跟著鏡射。
                     "version": version_of(request),
+                    # 密文與遮罩一起鏡射；廠商清單只讀 form_data_masked。
                     "form_data": request.get("form_data", {}),
+                    "form_data_masked": request.get("form_data_masked", {}),
                     "estimated_fee_min": request.get("estimated_fee_min"),
                     "estimated_fee_max": request.get("estimated_fee_max"),
                     "created_at": request.get("created_at", ""),
@@ -163,6 +205,31 @@ class BaseStore:
 
     def get_vendor_request(self, vendor_id: int, request_id: str) -> dict | None:
         return self.get_item(f"VENDOR#{vendor_id}", f"REQUEST#{request_id}")
+
+    # ---- 聯絡資訊存取軌跡（Milestone 15）----
+    def log_contact_access(self, request_id: str, entry: dict) -> dict:
+        """記一筆「誰在什麼時候解密了哪些欄位」。
+
+        寫在案件自己的 `REQUEST#{id}` 分區而不是廠商分區：紀錄是為了讓住戶與稽核
+        能追一張單被誰看過，跟著案件走才查得到完整的一串。SK 用時間戳排序，尾巴
+        補亂數避免同一秒的兩次存取互相覆蓋。
+        """
+        record = dict(entry) | {
+            "PK": f"REQUEST#{request_id}",
+            "SK": f"ACCESS#{now_iso()}#{uuid.uuid4().hex[:6]}",
+            "entity_type": "CONTACT_ACCESS_LOG",
+            "request_id": request_id,
+            "at": entry.get("at") or now_iso(),
+        }
+        self.put_item(record)
+        return record
+
+    def list_contact_access(self, request_id: str, vendor_id: int | None = None) -> list[dict]:
+        """存取紀錄，新的在前；帶 vendor_id 就只回那家廠商自己的紀錄。"""
+        items = self.query_prefix(f"REQUEST#{request_id}", "ACCESS#")
+        if vendor_id is not None:
+            items = [i for i in items if int(i.get("vendor_id") or 0) == vendor_id]
+        return sorted(items, key=lambda x: x.get("at", ""), reverse=True)
 
     def save_session(self, actor_id: str, session: dict) -> None:
         session["PK"] = f"USER#{actor_id}"

@@ -89,6 +89,11 @@ class Settings:
     cognito_user_pool_id: str = os.getenv("COGNITO_USER_POOL_ID", "")
     cognito_client_id: str = os.getenv("COGNITO_CLIENT_ID", "")
 
+    # 聯絡資訊欄位級加密（Milestone 15）。兩者皆未設定時退回內建開發金鑰，
+    # 詳見 services/contact_privacy.py。
+    contact_encryption_key: str = os.getenv("CONTACT_ENCRYPTION_KEY", "")
+    contact_kms_key_id: str = os.getenv("CONTACT_KMS_KEY_ID", "")
+
     bedrock_model_id: str = os.getenv(
         "BEDROCK_MODEL_ID",
         "apac.amazon.nova-pro-v1:0",

@@ -1,4 +1,4 @@
-"""廠商後台 API（Milestone 3／4）：諮詢單／訂單清單與接單、拒單。
+"""廠商後台 API（Milestone 3／4／15）：諮詢單／訂單清單、接單拒單、聯絡資訊檢視。
 
 廠商只看得到自己 service_vendor_id 的案件——清單一律從 token 帶出的 vendor_id
 查詢（app.auth.cognito.get_current_vendor），路徑或查詢字串都不接受 vendor_id，
@@ -7,6 +7,10 @@
 接單／拒單走兩道檢查：狀態機（app.services.statuses.VENDOR_TRANSITIONS）決定這個
 狀態能不能做這個動作，樂觀鎖（case 版本號）確保切換是基於廠商當下看到的那一版，
 兩者任一不過就回 409，不會把別人剛寫進去的狀態蓋掉。
+
+聯絡資訊（姓名／電話／地址）在儲存層就是密文（app.services.contact_privacy），
+清單與明細一律只給遮罩值；要看完整內容得另外呼叫 POST /requests/{id}/contact，
+每次呼叫都會留下一筆存取紀錄，紀錄寫不進去就不解密。
 """
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
@@ -15,7 +19,7 @@ from ..auth.cognito import CurrentUser, get_current_vendor
 from ..auth.users import UserError
 from ..auth.vendors import demo_accounts, login as vendor_login
 from ..config import get_settings
-from ..services import catalog
+from ..services import catalog, contact_privacy
 from ..services.statuses import (
     VENDOR_CLOSED_STATUSES,
     VENDOR_ORDER_STATUSES,
@@ -76,6 +80,13 @@ def _display_value(value) -> str:
     return catalog.SELECT_LABELS.get(str(value), str(value))
 
 
+def _masked_form(item: dict) -> dict:
+    """案件內容，但聯絡欄位換成遮罩值——廠商清單與明細一律經過這裡。"""
+    return contact_privacy.mask_for_display(
+        item.get("form_data") or {}, item.get("form_data_masked") or {}
+    )
+
+
 def _summary(form_data: dict) -> str:
     parts = [_display_value(form_data.get(f)) for f in _SUMMARY_FIELDS]
     return " ".join(p for p in parts if p)
@@ -87,7 +98,7 @@ def _available_actions(status: str) -> list[str]:
 
 
 def _to_list_item(item: dict) -> dict:
-    form_data = item.get("form_data") or {}
+    form_data = _masked_form(item)
     status = item.get("status", "")
     return {
         "request_id": item["request_id"],
@@ -104,26 +115,47 @@ def _to_list_item(item: dict) -> dict:
     }
 
 
-def _to_fields(service_id: str, form_data: dict) -> list[dict]:
-    """依服務 schema 的欄位順序輸出 label／值，前端不必重複一份表單定義。"""
+def _field_labels(service_id: str) -> dict[str, str]:
     schema = catalog.get_service_schema(service_id) or {"fields": []}
-    known = [
+    return {field["id"]: field["label"] for field in schema["fields"]}
+
+
+def _to_fields(service_id: str, form_data: dict) -> list[dict]:
+    """依服務 schema 的欄位順序輸出 label／值，前端不必重複一份表單定義。
+
+    `masked=True` 的欄位拿到的是遮罩值，前端據此把它們歸到「聯絡資訊」區塊並顯示
+    解鎖按鈕，不必自己維護一份聯絡欄位清單。
+    """
+    labels = _field_labels(service_id)
+    ordered = [key for key in labels if key in form_data] + [
+        # schema 之後改版時，仍把舊案件多出來的欄位原樣列出，不要默默吃掉。
+        key
+        for key in form_data
+        if key not in labels
+    ]
+    return [
         {
-            "id": field["id"],
-            "label": field["label"],
-            "value": _display_value(form_data.get(field["id"])),
+            "id": key,
+            "label": labels.get(key, key),
+            "value": _display_value(form_data[key]),
+            "masked": key in contact_privacy.CONTACT_FIELDS,
         }
-        for field in schema["fields"]
-        if form_data.get(field["id"]) not in (None, "")
+        for key in ordered
+        if form_data.get(key) not in (None, "")
     ]
-    known_ids = {field["id"] for field in schema["fields"]}
-    # schema 之後改版時，仍把舊案件多出來的欄位原樣列出，不要默默吃掉。
-    extra = [
-        {"id": key, "label": key, "value": _display_value(value)}
-        for key, value in form_data.items()
-        if key not in known_ids and value not in (None, "")
+
+
+def _access_log(request_id: str, vendor_id: int, service_id: str) -> list[dict]:
+    """這家廠商對這張單的聯絡資訊存取紀錄，新的在前。"""
+    labels = _field_labels(service_id)
+    return [
+        {
+            "at": entry.get("at", ""),
+            "viewer_name": entry.get("vendor_name", ""),
+            "fields": [labels.get(f, f) for f in entry.get("fields", [])],
+        }
+        for entry in STORE.list_contact_access(request_id, vendor_id)
     ]
-    return known + extra
 
 
 @router.post("/login")
@@ -174,7 +206,9 @@ def _load_case_or_404(vendor_id: int, request_id: str) -> tuple[str, dict]:
     """
     index = STORE.get_vendor_request(vendor_id, request_id)
     owner_id = str((index or {}).get("owner_id") or "")
-    request = STORE.get_request(owner_id, request_id) if owner_id else None
+    # get_stored_request 而非 get_request：廠商拿到的案件聯絡欄位要保持密文，解密
+    # 只發生在會留下存取紀錄的 /contact。
+    request = STORE.get_stored_request(owner_id, request_id) if owner_id else None
     if (
         not request
         or vendor_id_of(request) != vendor_id
@@ -184,18 +218,23 @@ def _load_case_or_404(vendor_id: int, request_id: str) -> tuple[str, dict]:
     return owner_id, request
 
 
-def _detail_payload(owner_id: str, request: dict) -> dict:
+def _detail_payload(owner_id: str, request: dict, vendor_id: int) -> dict:
     status = request.get("status", "")
+    service_id = request.get("service_id", "")
+    fields = _to_fields(service_id, _masked_form(request))
     payload = {
         "request_id": request["request_id"],
-        "service_id": request.get("service_id", ""),
+        "service_id": service_id,
         "service_name": request.get("service_name", ""),
         "status": status,
         "status_label": status_label(status),
         "customer_name": _customer_name(owner_id),
         "version": version_of(request),
         "available_actions": _available_actions(status),
-        "fields": _to_fields(request.get("service_id", ""), request.get("form_data") or {}),
+        "fields": fields,
+        # 有遮罩欄位才需要顯示「檢視完整聯絡資訊」；純商品訂單沒有就不用。
+        "has_contact": any(field["masked"] for field in fields),
+        "contact_access_log": _access_log(request["request_id"], vendor_id, service_id),
         "created_at": request.get("created_at", ""),
         "updated_at": request.get("updated_at", ""),
     }
@@ -208,7 +247,55 @@ def _detail_payload(owner_id: str, request: dict) -> dict:
 @router.get("/requests/{request_id}")
 def get_vendor_request(request_id: str, vendor: CurrentUser = Depends(get_current_vendor)):
     owner_id, request = _load_case_or_404(vendor.vendor_id, request_id)
-    return _detail_payload(owner_id, request)
+    return _detail_payload(owner_id, request, vendor.vendor_id)
+
+
+# 這條要排在 /{action} 前面：路徑樣板一樣，FastAPI 依宣告順序比對，排在後面的話
+# "contact" 會先被當成 action 而卡在 422。
+@router.post("/requests/{request_id}/contact")
+def reveal_contact(request_id: str, vendor: CurrentUser = Depends(get_current_vendor)):
+    """解密顯示聯絡人資料，並留下一筆存取紀錄。
+
+    紀錄寫不進去就不給資料（回 503）：存取軌跡是這條 API 存在的前提，先吐出電話再
+    去記錄，記錄失敗時就成了一次查不到的存取。
+    """
+    owner_id, request = _load_case_or_404(vendor.vendor_id, request_id)
+    plain = contact_privacy.decrypt_form_data(request.get("form_data") or {})
+    labels = _field_labels(request.get("service_id", ""))
+    contact = [
+        {
+            "id": key,
+            "label": labels.get(key, key),
+            # 解不開的欄位（金鑰換過）照實說，不要把密文當成電話號碼顯示出去。
+            "value": "（無法解密）" if contact_privacy.is_encrypted(value) else str(value),
+        }
+        for key, value in plain.items()
+        if key in contact_privacy.CONTACT_FIELDS and value not in (None, "")
+    ]
+    if not contact:
+        raise _fail(404, "CONTACT_NOT_FOUND", "這筆案件沒有聯絡資訊。")
+
+    try:
+        STORE.log_contact_access(
+            request_id,
+            {
+                "vendor_id": vendor.vendor_id,
+                "vendor_name": vendor.name,
+                "owner_id": owner_id,
+                "fields": [item["id"] for item in contact],
+            },
+        )
+    except Exception:  # noqa: BLE001
+        raise _fail(503, "CONTACT_LOG_UNAVAILABLE", "無法寫入存取紀錄，請稍後再試。")
+
+    return {
+        "success": True,
+        "request_id": request_id,
+        "contact": contact,
+        "contact_access_log": _access_log(
+            request_id, vendor.vendor_id, request.get("service_id", "")
+        ),
+    }
 
 
 @router.post("/requests/{request_id}/{action}")
@@ -229,7 +316,7 @@ def act_on_vendor_request(
             409,
             "REQUEST_STATUS_CONFLICT",
             f"案件目前是「{status_label(status)}」，無法{transition.label}。",
-            _detail_payload(owner_id, request),
+            _detail_payload(owner_id, request, vendor.vendor_id),
         )
 
     updated = dict(request) | {"status": transition.target}
@@ -240,6 +327,6 @@ def act_on_vendor_request(
             409,
             "REQUEST_VERSION_CONFLICT",
             "案件已被更新，請重新整理後再操作。",
-            _detail_payload(owner_id, current),
+            _detail_payload(owner_id, current, vendor.vendor_id),
         )
-    return {"success": True, **_detail_payload(owner_id, updated)}
+    return {"success": True, **_detail_payload(owner_id, updated, vendor.vendor_id)}

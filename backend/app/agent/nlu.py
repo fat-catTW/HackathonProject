@@ -276,7 +276,9 @@ def detect_service(text: str) -> tuple[str | None, list[dict]]:
         if not s["enabled"]:
             continue
         score = 0
-        for kw in s["keywords"]:
+        # 沒列 keywords 的服務不參與關鍵字比對（例如 customer_support，只從 FAQ
+        # 升級流程建立，不該被「我想…」這類自由輸入誤觸）。
+        for kw in s.get("keywords", ()):
             if kw in text:
                 score += len(kw)
         if score:

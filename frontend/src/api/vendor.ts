@@ -1,6 +1,7 @@
 import type {
   VendorAction,
   VendorActionResult,
+  VendorContactReveal,
   VendorDemoAccount,
   VendorLoginResult,
   VendorProfile,
@@ -32,6 +33,16 @@ export function listVendorRequests(scope: VendorScope) {
 
 export function getVendorRequest(requestId: string) {
   return vendorApi<VendorRequestDetail>(`/api/vendor/requests/${requestId}`);
+}
+
+/**
+ * 解密顯示完整聯絡資訊。用 POST 是因為它有副作用：後端每次呼叫都會寫一筆存取
+ * 紀錄，回傳的 contact_access_log 已經含這一筆。
+ */
+export function revealVendorContact(requestId: string) {
+  return vendorApi<VendorContactReveal>(`/api/vendor/requests/${requestId}/contact`, {
+    method: "POST",
+  });
 }
 
 /**

@@ -37,7 +37,7 @@ npm run dev                          # http://localhost:5173
 - 案件 CRUD、狀態流轉（含 Demo 模擬廠商確認／完工）
 - 多使用者資料隔離（PK=USER#actorId）
 
-## 廠商後台（Milestone 3／4）
+## 廠商後台（Milestone 3／4／15）
 `/vendor/login` 登入後於 `/vendor/requests` 查看自家 `service_vendor_id` 的諮詢單與訂單
 （待確認／已接訂單／全部三個分頁），開啟案件明細可看表單內容與聯絡資訊，並直接接單或婉拒。
 
@@ -57,6 +57,30 @@ npm run dev                          # http://localhost:5173
 - 內建示範帳號：`vendor1@demo.local`（潔家家事服務，vendor 1）、
   `vendor11@demo.local`（安心水電工程行，vendor 11），密碼皆為 `vendor1234`。
 - 住戶 token 打廠商 API 回 403，廠商 token 打住戶 API 也回 403，兩邊登入狀態分開存放。
+
+### 聯絡資訊：加密保存、解密留痕（Milestone 15）
+住戶填的姓名／電話／地址（`app/services/contact_privacy.py` 的 `CONTACT_FIELDS`）
+在儲存層就是密文，廠商後台平常只看得到遮罩值，要看完整內容得另外解鎖，而且每次
+解鎖都會留紀錄。
+
+- **寫入即加密**：`save_request` 是所有案件寫入的唯一出口，聯絡欄位在這裡換成
+  `enc:` 開頭的密文，同時算好遮罩值存進 `form_data_masked`；`VENDOR#` 索引鏡射的
+  也是密文。金鑰預設由 `CONTACT_ENCRYPTION_KEY` 導出（本地 AES-GCM），設定
+  `CONTACT_KMS_KEY_ID` 則改用 KMS；兩種密文前綴不同，換金鑰來源不會讓舊資料變亂碼。
+  兩者都沒設時退回內建開發金鑰，僅供本機 Demo。
+- **平常只給遮罩**：清單摘要與明細一律走 `form_data_masked`，例如
+  `0912***678`、`台北市信義區…`、`王○明`。遮罩夠廠商判斷服務範圍與辨識客戶，
+  但撥不出電話、找不到門牌。這條路徑不解密，因此不會產生存取紀錄。
+- **解密要留痕**：`POST /api/vendor/requests/{id}/contact` 才回傳完整內容，並在
+  `PK=REQUEST#{id}, SK=ACCESS#{時間}` 寫一筆 `CONTACT_ACCESS_LOG`（誰、什麼時候、
+  看了哪些欄位）。紀錄寫不進去就不解密，回 503 `CONTACT_LOG_UNAVAILABLE`——先吐出
+  電話再記錄，記錄失敗時就成了一次查不到的存取。案件明細會把該廠商自己的存取紀錄
+  一併帶回；別家廠商的紀錄不外流。
+- **住戶端不受影響**：`get_request`／`list_requests` 會自動解密，住戶看自己的案件
+  還是明文。解不開的欄位保留密文而非換成錯誤字串，避免下次寫回時把原始資料蓋掉。
+- Milestone 15 之前存的明文案件仍會被就地遮罩（顯示層安全），但資料庫裡還是明文；
+  跑一次 `python backend/scripts/backfill_encrypt_contacts.py` 補加密（支援
+  `--dry-run`，寫回時比對 `version`，期間被改過的案件會略過而不是覆蓋）。
 
 ## 專案結構
 ```

@@ -120,30 +120,50 @@ export function HealthRecommendationPage() {
                 這次是用關鍵字比對挑選的，僅供參考。
               </p>
             )}
-            {recommendations.map((rec) => (
-              <button
-                key={rec.product_id}
-                type="button"
-                onClick={() => void viewProduct(rec.product_id)}
-                disabled={loadingProductId === rec.product_id}
-                className="min-h-[44px] rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition hover:border-brand disabled:opacity-60"
-              >
-                <p className="text-base font-black text-[var(--color-foreground)]">{rec.name}</p>
-                <p className="mt-1 text-sm leading-6 text-[var(--color-muted-foreground)]">{rec.reason}</p>
-                {rec.match_tags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {rec.match_tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-bold text-brand"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+            {recommendations.map((rec) => {
+              const hasDetails = rec.source === undefined || rec.source === "internal";
+              const cardContent = (
+                <>
+                  <p className="text-base font-black text-[var(--color-foreground)]">{rec.name}</p>
+                  <p className="mt-1 text-sm leading-6 text-[var(--color-muted-foreground)]">{rec.reason}</p>
+                  {rec.match_tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {rec.match_tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-bold text-brand"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+
+              if (!hasDetails) {
+                return (
+                  <div
+                    key={rec.product_id}
+                    className="rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+                  >
+                    {cardContent}
                   </div>
-                )}
-              </button>
-            ))}
+                );
+              }
+
+              return (
+                <button
+                  key={rec.product_id}
+                  type="button"
+                  onClick={() => void viewProduct(rec.product_id)}
+                  disabled={loadingProductId === rec.product_id}
+                  className="min-h-[44px] rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition hover:border-brand disabled:opacity-60"
+                >
+                  {cardContent}
+                </button>
+              );
+            })}
           </section>
         )}
 

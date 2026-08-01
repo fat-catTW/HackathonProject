@@ -1,11 +1,14 @@
 """廠商後台：資料隔離、清單可見性，以及接單／拒單的狀態機與樂觀鎖。"""
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app.services.store import STORE, now_iso
+from backend.app.services import store as store_module, reservation
+from backend.app.api import vendor as vendor_module
 
 RESIDENT_TOKEN = "demo-token-vincent"
 VENDOR_CLEANING = ("vendor1@demo.local", "vendor1234")  # service_vendor_id = 1
@@ -355,7 +358,13 @@ def test_verify_action_is_only_available_for_restaurant_reservation(client):
     assert verify.json()["detail"]["error"]["code"] == "REQUEST_STATUS_CONFLICT"
 
 
-def test_reservation_vendor_can_verify_after_completion(client):
+def test_reservation_vendor_can_verify_after_completion(client, monkeypatch, tmp_path):
+    # Isolate this test from shared STORE to avoid duplicate reservation pollution
+    test_store = store_module.MemoryStore(storage_path=tmp_path / "store.json")
+    monkeypatch.setattr(store_module, "STORE", test_store)
+    monkeypatch.setattr(reservation, "STORE", test_store)
+    monkeypatch.setattr(vendor_module, "STORE", test_store)
+
     submitted = client.post(
         "/api/reservations/submit",
         json={

@@ -1670,6 +1670,19 @@ def _format_health_recommendation_reply(result: dict) -> str:
     return "\n".join(lines)
 
 
+def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str | None]:
+    result = tools.call("compare_product_prices", {"query": query}, auth_token=auth_token)
+    if not result.get("success"):
+        return f"抱歉，沒有找到「{query}」的比價資訊，要不要換個商品名稱再試一次？", None
+    offers = result["offers"]
+    lines = [f"「{result['product_name']}」目前有 {len(offers)} 家店販售："]
+    for index, offer in enumerate(offers):
+        tag = "（最便宜）" if index == 0 else ""
+        lines.append(f"　{offer['store_name']} NT${offer['unit_price']}{tag}")
+    lines.append("我幫你打開比價頁面，可以直接選店家下單。")
+    return "\n".join(lines), f"/services/shop_purchase?compare={result['group_id']}"
+
+
 def _answer_health_recommendation(state: dict, query: str, auth_token: str | None) -> str:
     result = tools.call("recommend_products_by_health_need", {"query": query}, auth_token=auth_token)
     if not result.get("success"):

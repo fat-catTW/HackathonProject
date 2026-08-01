@@ -30,6 +30,8 @@ class VendorTransition(NamedTuple):
     sources: frozenset[str]
     target: str
     label: str
+    # None 代表所有服務都適用；非 None 時只有列出的 service_id 能做這個動作。
+    applicable_services: frozenset[str] | None = None
 
 
 # 廠商端的狀態機：只有列在這裡的 (動作, 來源狀態) 組合可以切換，其餘一律 409。
@@ -37,6 +39,12 @@ class VendorTransition(NamedTuple):
 VENDOR_TRANSITIONS: dict[str, VendorTransition] = {
     "accept": VendorTransition(frozenset(VENDOR_PENDING_STATUSES), "CONFIRMED", "接單"),
     "reject": VendorTransition(frozenset(VENDOR_PENDING_STATUSES), "REJECTED", "拒單"),
+    "start": VendorTransition(frozenset({"CONFIRMED"}), "IN_PROGRESS", "開始服務"),
+    "complete": VendorTransition(frozenset({"IN_PROGRESS"}), "COMPLETED", "完成服務"),
+    # 核銷只有餐廳訂位有意義（現場核對已到店用餐），其餘服務完工即結案，不會變成 VERIFIED。
+    "verify": VendorTransition(
+        frozenset({"COMPLETED"}), "VERIFIED", "核銷", frozenset({"restaurant_reservation"})
+    ),
 }
 
 

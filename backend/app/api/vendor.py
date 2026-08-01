@@ -27,7 +27,7 @@ from ..services.statuses import (
     VENDOR_TRANSITIONS,
     status_label,
 )
-from ..services.store import STORE, vendor_id_of, version_of
+from ..services.store import STORE, now_iso, vendor_id_of, version_of
 
 router = APIRouter(prefix="/api/vendor")
 
@@ -92,9 +92,13 @@ def _summary(form_data: dict) -> str:
     return " ".join(p for p in parts if p)
 
 
-def _available_actions(status: str) -> list[str]:
+def _available_actions(status: str, service_id: str) -> list[str]:
     """這個狀態現在可以做的動作；前端不必自己複製一份狀態機。"""
-    return [name for name, t in VENDOR_TRANSITIONS.items() if status in t.sources]
+    return [
+        name
+        for name, t in VENDOR_TRANSITIONS.items()
+        if status in t.sources and (t.applicable_services is None or service_id in t.applicable_services)
+    ]
 
 
 def _to_list_item(item: dict) -> dict:
@@ -109,7 +113,7 @@ def _to_list_item(item: dict) -> dict:
         "customer_name": _customer_name(item.get("owner_id", "")),
         "summary": _summary(form_data),
         "version": version_of(item),
-        "available_actions": _available_actions(status),
+        "available_actions": _available_actions(status, item.get("service_id", "")),
         "created_at": item.get("created_at", ""),
         "updated_at": item.get("updated_at", ""),
     }
@@ -230,7 +234,7 @@ def _detail_payload(owner_id: str, request: dict, vendor_id: int) -> dict:
         "status_label": status_label(status),
         "customer_name": _customer_name(owner_id),
         "version": version_of(request),
-        "available_actions": _available_actions(status),
+        "available_actions": _available_actions(status, request.get("service_id", "")),
         "fields": fields,
         # 有遮罩欄位才需要顯示「檢視完整聯絡資訊」；純商品訂單沒有就不用。
         "has_contact": any(field["masked"] for field in fields),
@@ -302,16 +306,20 @@ def reveal_contact(request_id: str, vendor: CurrentUser = Depends(get_current_ve
 def act_on_vendor_request(
     body: VendorActionIn,
     request_id: str,
-    action: str = Path(pattern="^(accept|reject)$"),
+    action: str = Path(pattern="^(accept|reject|start|complete|verify)$"),
     vendor: CurrentUser = Depends(get_current_vendor),
 ):
-    """接單／拒單：狀態機決定能不能切，樂觀鎖確保沒有人搶先改過。"""
+    """接單／拒單／開始／完成／核銷：狀態機決定能不能切，樂觀鎖確保沒有人搶先改過。"""
     owner_id, request = _load_case_or_404(vendor.vendor_id, request_id)
     transition = VENDOR_TRANSITIONS[action]
     status = request.get("status", "")
+    service_id = request.get("service_id", "")
+    eligible = status in transition.sources and (
+        transition.applicable_services is None or service_id in transition.applicable_services
+    )
 
-    if status not in transition.sources:
-        # 例如住戶已取消、或另一位同事剛按過接單——案件現在的狀態不允許這個動作。
+    if not eligible:
+        # 例如住戶已取消、另一位同事剛按過接單、或這個服務根本沒有核銷這個動作。
         raise _fail(
             409,
             "REQUEST_STATUS_CONFLICT",
@@ -320,6 +328,16 @@ def act_on_vendor_request(
         )
 
     updated = dict(request) | {"status": transition.target}
+    if "order_items" in updated:
+        # 餐廳訂位案件另外維護一份兩位數 order_status／歷程，要跟 status 同步推進，
+        # 否則住戶端看到的 order_status 會卡在舊狀態（沿用原本 simulate 端點的邏輯）。
+        from ..services.reservation import TEXT_TO_ORDER_STATUS
+
+        order_status = TEXT_TO_ORDER_STATUS.get(transition.target)
+        if order_status:
+            updated["order_status"] = order_status
+            updated.setdefault("status_history", []).append({"status": order_status, "at": now_iso()})
+
     if not STORE.save_request_if_version(owner_id, updated, body.version):
         # 版本對不上：狀態檢查到寫入之間有人改過，或這是重複送出的同一個按鈕。
         _, current = _load_case_or_404(vendor.vendor_id, request_id)

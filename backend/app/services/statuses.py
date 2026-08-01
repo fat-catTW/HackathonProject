@@ -20,8 +20,9 @@ STATUS_LABELS = {
 # （草稿、等待使用者確認）住戶還沒送出，廠商看不到。
 VENDOR_PENDING_STATUSES = ("SUBMITTED", "PENDING_PROVIDER", "AWAITING_QUOTE")
 VENDOR_ORDER_STATUSES = ("CONFIRMED", "IN_PROGRESS", "COMPLETED")
-# 廠商婉拒後案件就結束了，跟取消一樣不進「已接訂單」。
-VENDOR_CLOSED_STATUSES = ("CANCELLED", "REJECTED", "FAILED")
+# 廠商婉拒後案件就結束了，跟取消一樣不進「已接訂單」；已核銷（餐廳訂位專屬的
+# 終態）也要留在廠商看得到的範圍，否則核銷成功的當下案件就從清單消失。
+VENDOR_CLOSED_STATUSES = ("CANCELLED", "REJECTED", "FAILED", "VERIFIED")
 
 
 class VendorTransition(NamedTuple):

@@ -390,6 +390,15 @@ def test_reservation_vendor_can_verify_after_completion(client, monkeypatch, tmp
     verify = vendor_act(client, token, request_id, "verify", version)
     assert verify.status_code == 200, verify.text
     assert verify.json()["status"] == "VERIFIED"
+
+    # Regression check: a verified case must stay visible to the vendor (Critical
+    # finding from the final whole-branch review — VERIFIED wasn't in any vendor
+    # visibility set, so the case 404'd immediately after a successful verify).
+    still_visible = vendor_detail(client, token, request_id)
+    assert still_visible["status"] == "VERIFIED"
+
+    listed = client.get("/api/vendor/requests?scope=all", headers=auth(token)).json()
+    assert request_id in [item["request_id"] for item in listed["items"]]
     assert verify.json()["available_actions"] == []
 
     order = client.get(f"/api/reservations/{request_id}", headers=auth(RESIDENT_TOKEN)).json()

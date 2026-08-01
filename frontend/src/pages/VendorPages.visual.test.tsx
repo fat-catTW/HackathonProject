@@ -33,8 +33,24 @@ vi.mock("../api/vendor", () => ({
     available_actions: [],
     updated_at: LIST_ITEM.updated_at,
   })),
+  actOnVendorRequest: vi.fn(),
+  revealVendorContact: vi.fn(),
   vendorLogin: vi.fn(),
   fetchVendorDemoAccounts: vi.fn(async () => ({ accounts: [] })),
+}));
+
+vi.mock("../api/vendorDelivery", () => ({
+  listVendorDeliveryOrders: vi.fn(),
+  getVendorDeliveryOrder: vi.fn(),
+  actOnVendorDeliveryOrder: vi.fn(),
+  revealVendorDeliveryContact: vi.fn(),
+}));
+
+vi.mock("../api/vendorShop", () => ({
+  listVendorShopOrders: vi.fn(),
+  getVendorShopOrder: vi.fn(),
+  actOnVendorShopOrder: vi.fn(),
+  revealVendorShopContact: vi.fn(),
 }));
 
 import { VendorRequestsPage } from "./VendorRequestsPage";

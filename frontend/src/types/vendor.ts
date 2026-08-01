@@ -91,3 +91,15 @@ export interface VendorProfile {
   name: string;
   service_ids: string[];
 }
+
+export type VendorKind = "generic" | "delivery" | "shop";
+
+const DELIVERY_VENDOR_ID = 30;
+const SHOP_VENDOR_ID = 40;
+
+/** 依登入的 vendor_id 判斷這個帳號屬於哪種案件——沿用 catalog.py 裡「一個服務線一個廠商帳號」的慣例。 */
+export function vendorKindOf(vendorId: number | null): VendorKind {
+  if (vendorId === DELIVERY_VENDOR_ID) return "delivery";
+  if (vendorId === SHOP_VENDOR_ID) return "shop";
+  return "generic";
+}

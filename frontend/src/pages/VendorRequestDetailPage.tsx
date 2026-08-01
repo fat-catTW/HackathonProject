@@ -1,7 +1,9 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { actOnVendorRequest, getVendorRequest, revealVendorContact } from "../api/vendor";
+import { getVendorApiForKind } from "../api/vendorRouting";
+import { vendorKindOf } from "../types/vendor";
+import { useVendorAuth } from "../hooks/useVendorAuth";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { StatusBadge } from "../components/StatusBadge";
@@ -57,6 +59,8 @@ function formatTime(value: string) {
 export function VendorRequestDetailPage() {
   const { requestId = "" } = useParams();
   const navigate = useNavigate();
+  const { vendorId } = useVendorAuth();
+  const vendorApiSet = getVendorApiForKind(vendorKindOf(vendorId));
   const [detail, setDetail] = useState<VendorRequestDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -74,7 +78,8 @@ export function VendorRequestDetailPage() {
 
   useEffect(() => {
     setLoading(true);
-    getVendorRequest(requestId)
+    vendorApiSet
+      .get(requestId)
       .then(setDetail)
       .catch((e) => {
         if (e instanceof ApiError && e.code === "UNAUTHORIZED") {
@@ -84,13 +89,14 @@ export function VendorRequestDetailPage() {
         setError(e instanceof ApiError ? e.message : "載入失敗，請稍後再試");
       })
       .finally(() => setLoading(false));
-  }, [navigate, requestId]);
+  }, [navigate, requestId, vendorApiSet]);
 
   const revealContact = () => {
     if (revealing) return;
     setRevealing(true);
     setContactError("");
-    revealVendorContact(requestId)
+    vendorApiSet
+      .reveal(requestId)
       .then((result) => {
         setContact(Object.fromEntries(result.contact.map((c) => [c.id, c.value])));
         // 這次檢視也會出現在紀錄裡，直接換上後端回傳的完整清單。
@@ -112,7 +118,8 @@ export function VendorRequestDetailPage() {
     if (!detail || acting) return;
     setActing(action);
     setNotice(null);
-    actOnVendorRequest(requestId, action, detail.version)
+    vendorApiSet
+      .act(requestId, action, detail.version)
       .then((result) => {
         setDetail(result);
         setNotice({ tone: "ok", text: DONE_MESSAGES[action] });

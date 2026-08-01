@@ -1,12 +1,17 @@
-﻿import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { listVendorRequests } from "../api/vendor";
 import { ServiceIcon } from "../components/ServiceIcon";
+import { SearchAndCategoryFilter } from "../components/SearchAndCategoryFilter";
 import { StatusBadge } from "../components/StatusBadge";
 import { useVendorAuth } from "../hooks/useVendorAuth";
+import { SERVICES } from "../data/services";
 import type { VendorRequestItem, VendorScope } from "../types/vendor";
 import { serviceIconType } from "../utils/serviceIcons";
+
+/** 服務在目錄中的顯示順序，用來排序分類 chip；不在目錄裡的服務排到最後。 */
+const SERVICE_ORDER = new Map(SERVICES.map((service, index) => [service.service_id, index]));
 
 const TABS: { scope: VendorScope; label: string }[] = [
   { scope: "pending", label: "待確認諮詢單" },
@@ -36,6 +41,8 @@ export function VendorRequestsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
 
   const load = useCallback(
     (next: VendorScope) => {
@@ -61,6 +68,40 @@ export function VendorRequestsPage() {
   useEffect(() => {
     load(scope);
   }, [load, scope]);
+
+  const categories = useMemo(() => {
+    const ids = [...new Set(items.map((item) => item.service_id))].sort(
+      (a, b) => (SERVICE_ORDER.get(a) ?? 999) - (SERVICE_ORDER.get(b) ?? 999),
+    );
+    return [
+      { id: "all", label: "全部", count: items.length },
+      ...ids.map((id) => {
+        const label = items.find((item) => item.service_id === id)?.service_name ?? id;
+        return { id, label, count: items.filter((item) => item.service_id === id).length };
+      }),
+    ];
+  }, [items]);
+
+  // 切換狀態分頁後資料會換一批，若原本選的分類在新資料裡已經不存在，回到「全部」避免空列表。
+  useEffect(() => {
+    if (activeCategory === "all") return;
+    if (!categories.some((category) => category.id === activeCategory)) {
+      setActiveCategory("all");
+    }
+  }, [categories, activeCategory]);
+
+  const filteredItems = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return items.filter((item) => {
+      const matchesCategory = activeCategory === "all" || item.service_id === activeCategory;
+      const matchesSearch =
+        !keyword ||
+        item.service_name.toLowerCase().includes(keyword) ||
+        item.customer_name.toLowerCase().includes(keyword) ||
+        item.request_id.toLowerCase().includes(keyword);
+      return matchesCategory && matchesSearch;
+    });
+  }, [items, search, activeCategory]);
 
   return (
     <main className="mx-auto min-h-dvh max-w-4xl bg-canvas px-5 pb-16 pt-8 sm:px-8">
@@ -121,6 +162,21 @@ export function VendorRequestsPage() {
         ))}
       </nav>
 
+      {!loading && !error && items.length > 0 && (
+        <section className="mt-5">
+          <SearchAndCategoryFilter
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchLabel="搜尋案件編號、客戶或服務"
+            searchPlaceholder="搜尋案件編號、客戶或服務"
+            categoryGroupLabel="服務種類篩選"
+            categories={categories}
+            activeCategory={activeCategory}
+            onCategoryChange={setActiveCategory}
+          />
+        </section>
+      )}
+
       <section className="mt-5 space-y-3">
         {loading && (
           <p className="rounded-2xl bg-[var(--color-surface)] p-6 text-center text-[var(--color-muted-foreground)] shadow-sm">
@@ -135,9 +191,14 @@ export function VendorRequestsPage() {
             這個分頁目前沒有案件。
           </p>
         )}
+        {!loading && !error && items.length > 0 && filteredItems.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center text-[var(--color-muted-foreground)]">
+            找不到符合的案件，換個關鍵字看看。
+          </p>
+        )}
         {!loading &&
           !error &&
-          items.map((item) => (
+          filteredItems.map((item) => (
             <Link
               key={item.request_id}
               to={`/vendor/requests/${item.request_id}`}

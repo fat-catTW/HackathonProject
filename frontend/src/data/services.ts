@@ -387,6 +387,14 @@ export const SERVICES: ServiceDefinition[] = [
     fields: [],
   },
   {
+    service_id: "clinic_appointment",
+    title: "診所掛號",
+    subtitle: "描述症狀，AI 幫您找附近診所並掛號",
+    description: "說出哪裡不舒服，AI 會建議科別、推薦附近真實診所，並協助掛號、加購對症商品。",
+    icon: "health",
+    fields: [],
+  },
+  {
     service_id: "restaurant_reservation",
     title: "餐廳訂位",
     subtitle: "22世紀風味館 精選餐廳訂位服務",

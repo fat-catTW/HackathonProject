@@ -10,6 +10,12 @@ describe("fieldLabel", () => {
     expect(fieldLabel("faq_reference")).toBe("參考 FAQ");
     expect(fieldLabel("issue_details")).toBe("問題說明");
     expect(fieldLabel("pickup_method")).toBe("取件方式");
+    expect(fieldLabel("clinic_name")).toBe("診所名稱");
+    expect(fieldLabel("clinic_address")).toBe("診所地址");
+    expect(fieldLabel("clinic_phone")).toBe("診所電話");
+    expect(fieldLabel("appointment_date")).toBe("看診日期");
+    expect(fieldLabel("appointment_time")).toBe("看診時間");
+    expect(fieldLabel("symptom_note")).toBe("症狀描述");
   });
 
   it("falls back to the raw key when unknown", () => {

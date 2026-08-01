@@ -1,5 +1,8 @@
+import { useState } from "react";
+import type { ClinicChatRecommendation } from "../types/clinic";
 import type { ChatEvent } from "../types/request";
 import { ChatRestaurantCardList } from "./ChatRestaurantCardList";
+import { ClinicCardList } from "./ClinicCardList";
 import { Mascot } from "./Mascot";
 import { ShareWithFamilyButton } from "./ShareWithFamilyButton";
 import { TaskCardList } from "./TaskCardList";
@@ -17,12 +20,19 @@ export function ChatMessage({
   event,
   onRedirectClick,
   onRestaurantSelect,
+  onClinicContinue,
 }: {
   event: ChatEvent;
   onRedirectClick?: (path: string) => void;
   onRestaurantSelect?: (name: string) => void;
+  onClinicContinue?: (recommendation: ClinicChatRecommendation, clinicId: string) => void;
 }) {
   const isUser = event.role === "USER";
+  const recommendation = event.clinicRecommendation;
+  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(
+    recommendation?.recommended_clinic_id ?? recommendation?.clinics[0]?.id ?? null,
+  );
+
   return (
     <div className={`flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && (
@@ -57,6 +67,25 @@ export function ChatMessage({
           >
             查看完整比價 →
           </button>
+        )}
+        {recommendation && (
+          <div className="mt-3">
+            <ClinicCardList
+              clinics={recommendation.clinics}
+              selectedId={selectedClinicId}
+              recommendedId={recommendation.recommended_clinic_id}
+              recommendReason={recommendation.recommend_reason}
+              onSelect={setSelectedClinicId}
+            />
+            <button
+              type="button"
+              disabled={!selectedClinicId}
+              onClick={() => selectedClinicId && onClinicContinue?.(recommendation, selectedClinicId)}
+              className="mt-3 block min-h-[44px] w-full rounded-2xl bg-[var(--color-primary)] px-4 py-2.5 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
+            >
+              選這間，繼續掛號 →
+            </button>
+          </div>
         )}
       </div>
     </div>

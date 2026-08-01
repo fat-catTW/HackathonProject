@@ -31,6 +31,7 @@ const BASE_RESPONSE: ChatResponse = {
   task_cards: null,
   restaurant_cards: null,
   share_text: null,
+  clinic_recommendation: null,
 };
 
 function buildController(): FormAgentController {

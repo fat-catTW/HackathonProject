@@ -5,8 +5,15 @@ import re
 from datetime import date
 
 from ..config import get_settings
-from ..services import catalog, clock
-from ..services import delivery, delivery_catalog, quick_purchase, reservation, restaurant_search, shipping
+from ..services import catalog, clinic_catalog, clock
+from ..services import (
+    delivery,
+    delivery_catalog,
+    quick_purchase,
+    reservation,
+    restaurant_search,
+    shipping,
+)
 from ..services.conversation_memory import MEMORY
 from . import form_autopilot, llm, nlu, tools
 from .page_catalog import search_pages
@@ -21,6 +28,11 @@ from .page_catalog import is_navigation_query
 DECIMAL_NUMBER_RE = re.compile(r"\d+\.\d+")
 SERVICE_TIME_MIN = "08:30"
 SERVICE_TIME_MAX = "18:00"
+
+# 對話中描述症狀時沒有地區可問（不像手動掛號頁面有縣市/鄉鎮選單），
+# 先以這個預設地區查詢，使用者仍可在導頁後的掛號頁面換地區重新查詢。
+CLINIC_DEFAULT_CITY = "台中市"
+CLINIC_DEFAULT_DISTRICT = "西屯區"
 
 CONFIRM_WORDS = ("確認", "確定", "好", "可以", "沒問題", "送出", "ok", "OK", "yes", "Yes")
 DENY_WORDS = ("不要", "不用", "取消", "改一下", "先不要", "no", "No")
@@ -119,6 +131,29 @@ RULE_SERVICE_KEYWORDS = (
     ("washing_machine_cleaning", ("洗衣機", "清洗", "滾筒式", "直立式", "內槽")),
     ("air_conditioner_cleaning", ("冷氣", "清洗", "保養", "壁掛式", "室內機")),
     ("home_cleaning", ("清潔", "居家", "打掃", "整理", "到府")),
+    (
+        "clinic_appointment",
+        (
+            "掛號",
+            "看醫生",
+            "診所",
+            "看診",
+            "身體不舒服",
+            "門診",
+            "咳嗽",
+            "喉嚨痛",
+            "肚子痛",
+            "頭痛",
+            "腰痛",
+            "背痛",
+            "膝蓋痛",
+            "發燒",
+            "拉肚子",
+            "很痛",
+            "會痛",
+            "不舒服",
+        ),
+    ),
 )
 
 # goods/store_id 一律透過下方的購物車收集子流程取得，不透過 LLM 猜測
@@ -1166,9 +1201,10 @@ def _handle_one_shot_service(
 ) -> dict | None:
     """一次性問答／導頁服務的共用邏輯。
 
-    health_product_recommendation / shop_purchase / shop_price_compare 都沒有表單欄位收集
-    流程：前兩者是直接回答的 query-and-answer 服務，shop_purchase 則是導頁到專屬頁面。
-    這三種在單一服務流程與多任務佇列（_start_next_multi_task）都要套用同一套特例，
+    health_product_recommendation / shop_purchase / shop_price_compare / clinic_appointment
+    都沒有表單欄位收集流程：前兩者（含 clinic_appointment）是直接回答的
+    query-and-answer 服務，shop_purchase 則是導頁到專屬頁面。
+    這幾種在單一服務流程與多任務佇列（_start_next_multi_task）都要套用同一套特例，
     避免多任務佇列把它們誤導進通用的欄位收集流程（進而可能呼叫通用的
     submit_service_request 建立一筆不該存在的案件）。
 
@@ -1217,6 +1253,28 @@ def _handle_one_shot_service(
             reply,
             redirect_path=redirect_path,
             redirect_requires_confirmation=redirect_path is not None,
+        )
+
+    if service_id == "clinic_appointment":
+        # One-shot query-and-answer (like health_product_recommendation):
+        # the triggering message is itself the symptom description, so
+        # run the same Bedrock triage + clinic recommendation the manual
+        # flow page uses and answer immediately instead of collecting a form.
+        # The clinic list renders as cards in the chat panel (not text);
+        # only redirect straight to the manual page when there's nothing
+        # to show a card for (no candidates in the detected district).
+        reply, clinic_recommendation = _answer_clinic_recommendation(text, auth_token)
+        state["service_id"] = None
+        state["service_name"] = None
+        state["service_schema"] = None
+        state["collected_fields"] = {}
+        state["missing_fields"] = []
+        return _reply(
+            state,
+            reply,
+            redirect_path="/services/clinic_appointment" if clinic_recommendation is None else None,
+            redirect_requires_confirmation=clinic_recommendation is None,
+            clinic_recommendation=clinic_recommendation,
         )
 
     return None
@@ -2622,17 +2680,35 @@ def _answer_health_recommendation(state: dict, query: str, auth_token: str | Non
     return _format_health_recommendation_reply(result)
 
 
-def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str | None]:
-    result = tools.call("compare_product_prices", {"query": query}, auth_token=auth_token)
-    if not result.get("success"):
-        return f"抱歉，沒有找到「{query}」的比價資訊，要不要換個商品名稱再試一次？", None
-    offers = result["offers"]
-    lines = [f"「{result['product_name']}」目前有 {len(offers)} 家店販售："]
-    for index, offer in enumerate(offers):
-        tag = "（最便宜）" if index == 0 else ""
-        lines.append(f"　{offer['store_name']} NT${offer['unit_price']}{tag}")
-    lines.append("我幫你打開比價頁面，可以直接選店家下單。")
-    return "\n".join(lines), f"/services/shop_purchase?compare={result['group_id']}"
+def _answer_clinic_recommendation(symptom_text: str, auth_token: str | None) -> tuple[str, dict | None]:
+    """回傳 (聊天室文字回覆, 卡片資料)。
+
+    卡片資料是 None 時代表這個地區查無診所，前端這時改用文字回覆裡的說明，
+    並讓使用者到手動掛號頁換地區重查（呼叫端會補上 redirect_path）。
+    """
+    city, district = nlu.parse_city_district(symptom_text) or (CLINIC_DEFAULT_CITY, CLINIC_DEFAULT_DISTRICT)
+    triage = llm.triage_symptom(symptom_text)
+    candidates = clinic_catalog.list_clinics(city, district, triage["specialty"])
+    if not candidates:
+        return (
+            f"{triage['advisory']}\n目前在{city}{district}沒有找到符合的診所，"
+            "我幫你打開診所掛號頁面，你可以在那邊換個地區查詢。",
+            None,
+        )
+
+    recommendation = llm.recommend_clinic(symptom_text, candidates)
+    reply = f"{triage['advisory']}\n幫你找了附近的診所，可以直接選一間繼續掛號："
+    clinic_recommendation = {
+        "specialty": triage["specialty"],
+        "advisory": triage["advisory"],
+        "city": city,
+        "district": district,
+        "symptom_note": symptom_text,
+        "clinics": candidates,
+        "recommended_clinic_id": recommendation["id"] if recommendation else None,
+        "recommend_reason": recommendation["reason"] if recommendation else None,
+    }
+    return reply, clinic_recommendation
 
 
 def _format_health_nutrition_reply(product: dict) -> str:
@@ -2717,12 +2793,14 @@ def _reply(
     task_cards: list[dict] | None = None,
     restaurant_cards: list[dict] | None = None,
     share_text: str | None = None,
+    clinic_recommendation: dict | None = None,
 ) -> dict:
     return {
         "reply": reply,
         "state": state,
         "redirect_path": redirect_path,
         "redirect_requires_confirmation": redirect_requires_confirmation,
+        "clinic_recommendation": clinic_recommendation,
         "debug_trace": state.get("debug_trace", {}),
         "task_cards": task_cards,
         "restaurant_cards": restaurant_cards,

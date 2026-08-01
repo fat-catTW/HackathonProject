@@ -53,6 +53,7 @@ class ChatResponse(BaseModel):
     status: str = "COLLECTING_INFORMATION"
     redirect_path: str | None = None
     redirect_requires_confirmation: bool = False
+    clinic_recommendation: dict | None = None
     debug_trace: dict = {}
     task_cards: list[dict] | None = None
     restaurant_cards: list[dict] | None = None

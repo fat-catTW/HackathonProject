@@ -94,6 +94,12 @@ SERVICE_FORM_ALIASES = {
         "低鈉",
         "推薦",
     ),
+    "service_form_clinic_appointment": (
+        "掛號",
+        "看醫生",
+        "診所",
+        "看診",
+    ),
 }
 
 

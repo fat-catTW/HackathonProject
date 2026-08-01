@@ -7,6 +7,7 @@ import { ServiceIcon } from "../components/ServiceIcon";
 import { BottomNav } from "../components/BottomNav";
 import { AppearanceMenu } from "../components/AppearanceMenu";
 import { SupportPanel } from "../components/SupportPanel";
+import { WeatherGreetingCard } from "../components/WeatherGreetingCard";
 import { SERVICES } from "../data/services";
 import { SERVICE_TONES } from "../utils/serviceTones";
 import { useAccessibilityMode } from "../hooks/useAccessibilityMode";
@@ -229,6 +230,8 @@ export function HomePage() {
             <span className="text-sm font-extrabold text-[var(--color-foreground)]">行事曆</span>
           </button>
         </section>
+
+        <WeatherGreetingCard userName={name} />
 
         {/*
           「我的服務」／「客服中心」改成彩色插畫卡（參考稿：色塊卡右下角探出一隻大隻的

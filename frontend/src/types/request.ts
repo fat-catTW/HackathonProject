@@ -1,3 +1,4 @@
+import type { ClinicChatRecommendation } from "./clinic";
 import type { CollectedFieldValue } from "../utils/fieldLabels";
 
 export type RequestStatus =
@@ -38,6 +39,7 @@ export interface ChatEvent {
   taskCards?: { service_id: string; service_name: string }[];
   restaurantCards?: ChatRestaurantCard[];
   shareText?: string;
+  clinicRecommendation?: ClinicChatRecommendation;
 }
 
 export interface RequestDetail extends RequestListItem {
@@ -83,4 +85,5 @@ export interface ChatResponse {
   task_cards: { service_id: string; service_name: string }[] | null;
   restaurant_cards: ChatRestaurantCard[] | null;
   share_text: string | null;
+  clinic_recommendation: ClinicChatRecommendation | null;
 }

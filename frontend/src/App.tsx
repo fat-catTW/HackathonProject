@@ -14,6 +14,7 @@ import { ReservationFlowPage } from "./pages/ReservationFlowPage";
 import { DeliveryFlowPage } from "./pages/DeliveryFlowPage";
 import { ShopFlowPage } from "./pages/ShopFlowPage";
 import { HealthRecommendationPage } from "./pages/HealthRecommendationPage";
+import { ClinicConsultFlowPage } from "./pages/ClinicConsultFlowPage";
 import { ServiceFormPage } from "./pages/ServiceFormPage";
 import { VendorLoginPage } from "./pages/VendorLoginPage";
 import { VendorRequestDetailPage } from "./pages/VendorRequestDetailPage";
@@ -66,6 +67,10 @@ export default function App() {
         <Route
           path="/services/health_product_recommendation"
           element={<Protected><HealthRecommendationPage /></Protected>}
+        />
+        <Route
+          path="/services/clinic_appointment"
+          element={<Protected><ClinicConsultFlowPage /></Protected>}
         />
         <Route
           path="/services/shop_purchase"

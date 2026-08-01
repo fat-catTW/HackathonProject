@@ -164,10 +164,10 @@ SHOP_REVIEWS: dict[str, list[dict]] = {
         {"review_id": "rev_asus_rog_02", "author": "小美", "rating": 4, "comment": "剪片跑轉檔速度明顯比舊筆電快很多，重量偏重外出攜帶要考慮。", "created_at": "2026-06-04", "verified_purchase": True},
         {"review_id": "rev_asus_rog_03", "author": "春嬌", "rating": 4, "comment": "曜岩黑質感很好，風扇全速時聲音有點明顯。", "created_at": "2026-06-21", "verified_purchase": False},
     ],
-    "prod_keyboard_logitech_g913": [
-        {"review_id": "rev_logitech_g913_01", "author": "阿豪", "rating": 5, "comment": "低軸體打字手感很輕盈，無線延遲完全感覺不出來。", "created_at": "2026-05-07", "verified_purchase": True},
-        {"review_id": "rev_logitech_g913_02", "author": "詩涵", "rating": 5, "comment": "RGB燈效可以自訂分區，配色跟電競桌面很搭。", "created_at": "2026-05-29", "verified_purchase": True},
-        {"review_id": "rev_logitech_g913_03", "author": "冠廷", "rating": 3, "comment": "手感偏軟，喜歡段落感的人可能不習慣，但打字很安靜。", "created_at": "2026-06-16", "verified_purchase": True},
+    "prod_keyboard_keychron_k8pro": [
+        {"review_id": "rev_keychron_k8pro_01", "author": "阿豪", "rating": 5, "comment": "低軸體打字手感很輕盈，無線延遲完全感覺不出來。", "created_at": "2026-05-07", "verified_purchase": True},
+        {"review_id": "rev_keychron_k8pro_02", "author": "詩涵", "rating": 5, "comment": "RGB燈效可以自訂分區，配色跟電競桌面很搭。", "created_at": "2026-05-29", "verified_purchase": True},
+        {"review_id": "rev_keychron_k8pro_03", "author": "冠廷", "rating": 3, "comment": "手感偏軟，喜歡段落感的人可能不習慣，但打字很安靜。", "created_at": "2026-06-16", "verified_purchase": True},
     ],
     "prod_headphone_sony_xm6": [
         {"review_id": "rev_sony_xm6_01", "author": "品妤", "rating": 5, "comment": "降噪效果真的是業界標竿，搭高鐵通勤整個世界都安靜了。", "created_at": "2026-05-13", "verified_purchase": True},

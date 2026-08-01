@@ -42,6 +42,7 @@ SHOP_STORES: list[dict] = [
     {"id": "store_msi_tw", "name": "微星 MSI 台灣旗艦店", "category": "3C影音", "image": None},
     {"id": "store_asus_tw", "name": "華碩 ASUS 台灣旗艦店", "category": "3C影音", "image": None},
     {"id": "store_sony_tw", "name": "SONY 台灣官方旗艦店", "category": "3C影音", "image": None},
+    {"id": "store_keychron_tw", "name": "Keychron 台灣經銷", "category": "3C影音", "image": None},
 ]
 
 SHOP_PRODUCTS: list[dict] = [
@@ -462,15 +463,15 @@ SHOP_PRODUCTS: list[dict] = [
         "tags": ["筆電", "電競筆電", "ROG", "獨立顯卡", "高效能", "剪輯"],
     },
     {
-        "id": "prod_keyboard_logitech_g913",
-        "store_id": "store_logitech_tw",
+        "id": "prod_keyboard_keychron_k8pro",
+        "store_id": "store_keychron_tw",
         "category_id": "cat_electronics",
-        "name": "羅技 G913 TKL 無線機械鍵盤",
-        "description": "低軸體超薄機械鍵盤，LIGHTSPEED 無線技術幾乎零延遲，RGB 背光，電競與文書皆宜。",
+        "name": "Keychron K8 Pro 無線機械鍵盤",
+        "description": "熱插拔機械鍵盤，2.4GHz／藍牙雙模無線切換，RGB 背光，電競與文書皆宜。",
         "product_type": "PHYSICAL",
         "image": None,
         "specs": [],
-        "skus": [{"sku_id": "sku_keyboard_logitech_g913", "attributes": {}, "unit_price": 5490, "unit_points": 549}],
+        "skus": [{"sku_id": "sku_keyboard_keychron_k8pro", "attributes": {}, "unit_price": 5490, "unit_points": 549}],
         "tags": ["鍵盤", "機械鍵盤", "無線", "電競", "RGB", "低延遲"],
     },
     {

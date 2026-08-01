@@ -16,3 +16,5 @@ backend/.local-users.json
 .superpowers/
 .impeccable/
 .worktrees/
+.claude/
+test_results.txt

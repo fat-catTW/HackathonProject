@@ -836,6 +836,21 @@ def _prepend_reply(result: dict, prefix: str | None) -> dict:
     return result
 
 
+def _sync_restaurant_name(actor_id: str, state: dict) -> None:
+    """restaurant_id 是內部代碼或 Google place_id，使用者看不懂；只要有 restaurant_id
+    就順便把可讀的 restaurant_name 也寫進 collected_fields，讓前端「已填寫」欄位卡片
+    顯示店名而不是原始代碼（見 FieldPanel.tsx／fieldLabels.ts 既有的 restaurant_name 標籤）。
+    """
+    if state.get("service_id") != "restaurant_reservation":
+        return
+    restaurant_id = state["collected_fields"].get("restaurant_id")
+    if not restaurant_id or state["collected_fields"].get("restaurant_name"):
+        return
+    resolved = reservation.resolve_restaurant(actor_id, restaurant_id)
+    if resolved:
+        state["collected_fields"]["restaurant_name"] = resolved["name"]
+
+
 def _apply_found_fields_and_continue(
     actor_id: str,
     state: dict,
@@ -852,6 +867,7 @@ def _apply_found_fields_and_continue(
         return _prepend_reply(_reply(state, prohibited_reply), reply_prefix)
 
     state["collected_fields"].update(found)
+    _sync_restaurant_name(actor_id, state)
     _recompute_missing(state)
     result = _continue_collection(actor_id, state, latest_user_message=text, events=events)
     return _prepend_reply(result, reply_prefix)
@@ -2278,6 +2294,7 @@ def _handle_restaurant_search_pending_reply(actor_id: str, state: dict, text: st
         return _reply(state, f"不好意思，我沒聽懂你想選哪一間。{_format_restaurant_options_reply(options)}")
 
     state["collected_fields"]["restaurant_id"] = picked["id"]
+    state["collected_fields"]["restaurant_name"] = picked["name"]
     state["pending_restaurant_options"] = None
     _recompute_missing(state)
     return _continue_collection(actor_id, state, latest_user_message=text, events=events)

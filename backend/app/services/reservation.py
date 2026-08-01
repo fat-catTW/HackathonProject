@@ -49,7 +49,7 @@ def _error(code: str, message: str) -> dict:
     return {"success": False, "error": {"code": code, "message": message}}
 
 
-def _resolve_restaurant(actor_id: str, restaurant_id: str) -> dict | None:
+def resolve_restaurant(actor_id: str, restaurant_id: str) -> dict | None:
     restaurant = restaurant_catalog.get_restaurant(restaurant_id)
     if restaurant:
         return {**restaurant, "source": "internal"}
@@ -71,7 +71,7 @@ def _validate_payload(actor_id: str, payload: dict) -> dict | None:
         if payload.get(field_id) in (None, ""):
             return _error("INVALID_FORM_DATA", f"Missing required field: {field_id}")
 
-    restaurant = _resolve_restaurant(actor_id, payload["restaurant_id"])
+    restaurant = resolve_restaurant(actor_id, payload["restaurant_id"])
     if not restaurant:
         return _error("RESTAURANT_NOT_FOUND", "找不到指定的餐廳。")
 
@@ -122,7 +122,7 @@ def create_reservation_order(actor_id: str, payload: dict) -> dict:
     if validation_error:
         return validation_error
 
-    restaurant = _resolve_restaurant(actor_id, payload["restaurant_id"])
+    restaurant = resolve_restaurant(actor_id, payload["restaurant_id"])
 
     if check_duplicate(actor_id, payload["restaurant_id"], payload["reserved_date"], payload["time_slot"]):
         return _error("DUPLICATE_RESERVATION", "這筆訂位已經成功送出囉，無需重複提交。")

@@ -90,6 +90,23 @@ describe("buildFieldRows", () => {
       { key: "address", label: "地址", value: "台北市信義區松仁路100號" },
     ]);
   });
+
+  it("hides the raw restaurant_id chip once restaurant_name is available", () => {
+    const rows = buildFieldRows({
+      restaurant_id: "ChIJiffoTF09aTQRCD6E8HhIDPk",
+      restaurant_name: "鴻龍宴 x 活蝦料理",
+      people: 5,
+    });
+    expect(rows).toEqual([
+      { key: "restaurant_name", label: "餐廳", value: "鴻龍宴 x 活蝦料理" },
+      { key: "people", label: "用餐人數", value: "5" },
+    ]);
+  });
+
+  it("still shows the raw restaurant_id when restaurant_name has not resolved yet", () => {
+    const rows = buildFieldRows({ restaurant_id: "r001" });
+    expect(rows).toEqual([{ key: "restaurant_id", label: "餐廳選擇", value: "r001" }]);
+  });
 });
 
 describe("formatFieldValue", () => {

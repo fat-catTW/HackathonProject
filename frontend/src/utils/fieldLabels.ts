@@ -14,6 +14,7 @@ const FIELD_LABELS: Record<string, string> = {
   address: "地址",
   phone: "聯絡電話",
   notes: "備註",
+  restaurant_id: "餐廳選擇",
   restaurant_name: "餐廳",
   reserved_date: "訂位日期",
   time_slot: "用餐時段",
@@ -120,10 +121,21 @@ export interface FieldRow {
   value: string;
 }
 
+// restaurant_id 是內部代碼／Google place_id，使用者看不懂；有 restaurant_name（見
+// backend/app/agent/agent.py 的 _sync_restaurant_name）可以顯示可讀店名時，不重複顯示原始代碼。
+const HIDDEN_WHEN_DISPLAY_NAME_PRESENT: Record<string, string> = {
+  restaurant_id: "restaurant_name",
+};
+
 export function buildFieldRows(collected: Record<string, CollectedFieldValue>): FieldRow[] {
-  return Object.entries(collected).map(([key, value]) => ({
-    key,
-    label: fieldLabel(key),
-    value: formatFieldValue(value),
-  }));
+  return Object.entries(collected)
+    .filter(([key]) => {
+      const displayNameKey = HIDDEN_WHEN_DISPLAY_NAME_PRESENT[key];
+      return !displayNameKey || !(displayNameKey in collected);
+    })
+    .map(([key, value]) => ({
+      key,
+      label: fieldLabel(key),
+      value: formatFieldValue(value),
+    }));
 }

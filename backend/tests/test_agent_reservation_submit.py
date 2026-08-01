@@ -69,6 +69,7 @@ def test_reservation_chat_flow_creates_confirmed_order_end_to_end():
         result = _run_turn(state, "我想訂22世紀風味館 信義旗艦店吃午餐")
         state = result["state"]
         assert state["service_id"] == "restaurant_reservation"
+        assert state["collected_fields"]["restaurant_name"] == "22世紀風味館 信義旗艦店"
 
         result = _run_turn(state, "8月1日")
         state = result["state"]
@@ -165,6 +166,7 @@ def test_reservation_chat_flow_resolves_restaurant_pick_by_number():
     result = _run_turn(state, "2")
 
     assert result["state"]["collected_fields"]["restaurant_id"] == "ChIJ-fake-place-id"
+    assert result["state"]["collected_fields"]["restaurant_name"] == "台中好料理"
     assert result["state"]["pending_restaurant_options"] is None
 
 

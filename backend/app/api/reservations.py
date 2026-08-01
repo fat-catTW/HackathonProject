@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth.cognito import CurrentUser, get_current_user
-from ..services import reservation, restaurant_catalog
+from ..services import reservation, restaurant_catalog, restaurant_search
 
 router = APIRouter()
 
@@ -14,6 +14,15 @@ def _raise_api_error(status_code: int, code: str, message: str):
 @router.get("/api/restaurants")
 def list_restaurants(user: CurrentUser = Depends(get_current_user)):
     return {"restaurants": restaurant_catalog.list_restaurants()}
+
+
+@router.post("/api/restaurants/search")
+def search_restaurants(payload: dict, user: CurrentUser = Depends(get_current_user)):
+    address = str(payload.get("address") or "").strip()
+    if not address:
+        _raise_api_error(400, "INVALID_FORM_DATA", "請提供地址")
+    preference = str(payload.get("preference") or "")
+    return restaurant_search.search_restaurants(user.sub, address, preference)
 
 
 @router.get("/api/restaurants/{restaurant_id}")

@@ -13,6 +13,7 @@ SHOP_CATEGORIES: list[dict] = [
     {"id": "cat_daily", "name": "生活日用品"},
     {"id": "cat_cleaning", "name": "居家清潔用品"},
     {"id": "cat_health", "name": "保健營養品"},
+    {"id": "cat_offering", "name": "祭祀供品"},
 ]
 
 SHOP_STORES: list[dict] = [
@@ -298,6 +299,32 @@ SHOP_PRODUCTS: list[dict] = [
         "skus": [
             {"sku_id": "sku_tumbler_watsons_pink", "attributes": {"顏色": "粉"}, "unit_price": 550, "unit_points": 55},
             {"sku_id": "sku_tumbler_watsons_blue", "attributes": {"顏色": "藍"}, "unit_price": 550, "unit_points": 55},
+        ],
+    },
+    {
+        "id": "prod_fruit_offering_set",
+        "store_id": "store_carrefour",
+        "category_id": "cat_offering",
+        "name": "清明祭祖水果盆",
+        "description": "當季水果組合，附提籃包裝，適合掃墓祭祖使用。",
+        "product_type": "PHYSICAL",
+        "image": None,
+        "specs": [],
+        "skus": [
+            {"sku_id": "sku_fruit_offering_set", "attributes": {}, "unit_price": 599, "unit_points": 59},
+        ],
+    },
+    {
+        "id": "prod_three_sacrifice_set",
+        "store_id": "store_health_mart",
+        "category_id": "cat_offering",
+        "name": "三牲祭祀組合",
+        "description": "雞、魚、豬肉三牲組合，祭祖拜拜適用，冷藏配送。",
+        "product_type": "PHYSICAL",
+        "image": None,
+        "specs": [],
+        "skus": [
+            {"sku_id": "sku_three_sacrifice_set", "attributes": {}, "unit_price": 880, "unit_points": 88},
         ],
     },
 ]

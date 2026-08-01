@@ -317,6 +317,40 @@ SERVICES: list[dict] = [
         },
     },
     {
+        "id": "quick_purchase",
+        "name": "快速下單",
+        "description": "供品、水果等常用組合，說出需求直接下單，不用逛商城",
+        "service_vendor_id": None,
+        "cms_type": None,
+        "enabled": True,
+        "keywords": ["供品", "三牲", "水果盆", "祭拜", "祭祖", "牲禮"],
+        "schema": {
+            "fields": [
+                {
+                    "id": "query",
+                    "label": "想買的東西",
+                    "type": "textarea",
+                    "required": True,
+                    "question": "想買點什麼呢？例如供品或水果。",
+                },
+                {
+                    "id": "address",
+                    "label": "收件地址",
+                    "type": "text",
+                    "required": True,
+                    "question": "請提供收件地址。",
+                },
+                {
+                    "id": "phone",
+                    "label": "聯絡電話",
+                    "type": "text",
+                    "required": True,
+                    "question": "請提供聯絡電話。",
+                },
+            ]
+        },
+    },
+    {
         "id": "health_product_recommendation",
         "name": "健康商品推薦",
         "description": "說出健康或飲食需求，推薦適合的 7-11 商品",

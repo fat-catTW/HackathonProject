@@ -26,6 +26,8 @@ export interface ChatEvent {
   role: "USER" | "ASSISTANT";
   content: string;
   redirectPath?: string;
+  taskCards?: { service_id: string; service_name: string }[];
+  shareText?: string;
 }
 
 export interface RequestDetail extends RequestListItem {
@@ -68,4 +70,6 @@ export interface ChatResponse {
   status: string;
   redirect_path: string | null;
   redirect_requires_confirmation: boolean;
+  task_cards: { service_id: string; service_name: string }[] | null;
+  share_text: string | null;
 }

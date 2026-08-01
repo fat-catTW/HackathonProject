@@ -28,6 +28,8 @@ const BASE_RESPONSE: ChatResponse = {
   status: "COLLECTING_INFORMATION",
   redirect_path: null,
   redirect_requires_confirmation: false,
+  task_cards: null,
+  share_text: null,
 };
 
 function buildController(): FormAgentController {

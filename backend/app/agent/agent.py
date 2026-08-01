@@ -6,7 +6,7 @@ from datetime import date
 
 from ..config import get_settings
 from ..services import catalog, clock
-from ..services import delivery, delivery_catalog, reservation, shipping
+from ..services import delivery, delivery_catalog, quick_purchase, reservation, shipping
 from ..services.conversation_memory import MEMORY
 from . import form_autopilot, llm, nlu, tools
 from .page_catalog import search_pages
@@ -45,6 +45,7 @@ SERVICE_DISPLAY_NAMES = {
     "air_conditioner_cleaning": "冷氣清洗",
     "home_cleaning": "居家清潔",
     "food_delivery": "美食外送",
+    "quick_purchase": "快速下單",
 }
 
 FIELD_DISPLAY_NAMES = {
@@ -124,7 +125,7 @@ RULE_SERVICE_KEYWORDS = (
 # （store_id 沒有靜態 options 所以本來就猜不中；goods 是清單型別，讓 LLM
 #  猜測容易產生格式不符的字串，直接排除避免污染 collected_fields）。
 _LLM_EXCLUDED_FIELDS = {"store_id", "goods"}
-FREE_TEXT_FIELD_IDS = {"issue_description", "notes", "note", "issue_details"}
+FREE_TEXT_FIELD_IDS = {"issue_description", "notes", "note", "issue_details", "query"}
 # 比對「模型填的自由文字是不是使用者剛剛說的」時忽略的標點與空白。
 _GROUNDING_NOISE_RE = re.compile(r"[\s，。、！？!?,.:：；;~～「」『』（）()]+")
 
@@ -197,6 +198,7 @@ def _display_service_name(service_id: str | None, fallback: str | None = None) -
         "washing_machine_cleaning": "洗衣機清洗",
         "air_conditioner_cleaning": "冷氣清洗",
         "home_cleaning": "居家清潔",
+        "quick_purchase": "快速下單",
     }
     if service_id and service_id in names:
         return names[service_id]
@@ -964,6 +966,10 @@ def new_state() -> dict:
         # of the recommended products can be answered with its nutrition info.
         "health_last_recommendations": [],
         "debug_trace": {},
+        "is_multi_task": False,
+        "pending_tasks": [],
+        "awaiting_task_selection": False,
+        "completed_task_summaries": [],
     }
 
 
@@ -1115,6 +1121,67 @@ def _invalid_number_field_message(state: dict, latest_user_message: str) -> str 
         return "數量需要填整數，例如 1 台或 2 台，不能填 0.1 台。"
     if field_id == "antibacterial_film_quantity":
         return "日本抗菌膜數量需要填整數，例如 1 個或 2 個，不能填 0.5 個。"
+    return None
+
+
+def _handle_one_shot_service(
+    service_id: str, state: dict, text: str, auth_token: str | None
+) -> dict | None:
+    """一次性問答／導頁服務的共用邏輯。
+
+    health_product_recommendation / shop_purchase / shop_price_compare 都沒有表單欄位收集
+    流程：前兩者是直接回答的 query-and-answer 服務，shop_purchase 則是導頁到專屬頁面。
+    這三種在單一服務流程與多任務佇列（_start_next_multi_task）都要套用同一套特例，
+    避免多任務佇列把它們誤導進通用的欄位收集流程（進而可能呼叫通用的
+    submit_service_request 建立一筆不該存在的案件）。
+
+    呼叫前提：state["service_id"] / state["service_schema"] 已經是這個 service_id 的資料。
+    若 service_id 屬於這三種特殊服務，回傳完整的回覆 dict 並清空 state 的服務欄位；
+    否則回傳 None，讓呼叫端繼續走一般表單收集流程。
+    """
+    if service_id == "health_product_recommendation":
+        # The message that triggered detection is itself the health/diet
+        # query (single-field, no form to fill) — answer immediately
+        # instead of falling through to the generic field-collection flow.
+        reply = _answer_health_recommendation(state, text, auth_token)
+        state["service_id"] = None
+        state["service_name"] = None
+        state["service_schema"] = None
+        state["collected_fields"] = {}
+        state["missing_fields"] = []
+        return _reply(state, reply)
+
+    if service_id == "shop_purchase":
+        # shop_purchase is a dedicated multi-step flow (store -> product/spec
+        # -> cart -> checkout/points) built for the ShopFlowPage UI, not
+        # conversational field collection — redirect instead of collecting fields.
+        state["service_id"] = None
+        state["service_name"] = None
+        state["service_schema"] = None
+        state["collected_fields"] = {}
+        state["missing_fields"] = []
+        return _reply(
+            state,
+            "商城購物需要挑選商品類型、規格和購物車，這部分請到「商城購物」頁面操作會更方便，我幫你導過去囉！",
+            redirect_path="/services/shop_purchase",
+        )
+
+    if service_id == "shop_price_compare":
+        # One-shot query-and-answer service (like health_product_recommendation):
+        # answer directly with a price summary instead of collecting form fields.
+        reply, redirect_path = _answer_price_compare(text, auth_token)
+        state["service_id"] = None
+        state["service_name"] = None
+        state["service_schema"] = None
+        state["collected_fields"] = {}
+        state["missing_fields"] = []
+        return _reply(
+            state,
+            reply,
+            redirect_path=redirect_path,
+            redirect_requires_confirmation=redirect_path is not None,
+        )
+
     return None
 
 
@@ -1542,6 +1609,8 @@ def _build_form_actions(state: dict, before: dict) -> list[dict]:
     )
 
 
+
+
 def handle_message(
     actor_id: str,
     session_id: str,
@@ -1589,6 +1658,7 @@ def handle_message(
     # 這時就算 collected_fields 有變動也不該回動作，否則前端會莫名關掉面板等一張不存在的表單。
     result["form_actions"] = _build_form_actions(result["state"], before) if plan else []
     return result
+
 
 
 def _dispatch_message(
@@ -1641,7 +1711,15 @@ def _dispatch_message(
                 return _reply(state, page_reply, redirect_path=page_redirect_path)
             return _reply(state, _model_reply(actor_id, state, "completed", latest_user_message=text))
 
-    if state.get("service_id") and _looks_like_restart_service_request(text):
+    if (
+        state.get("service_id")
+        and not state.get("is_multi_task")
+        and _looks_like_restart_service_request(text)
+    ):
+        # During a multi-task queue the active task always has service_id set, so this
+        # trigger must not fire there — it would silently wipe pending_tasks and
+        # completed_task_summaries with zero acknowledgement to the user. Let the
+        # message fall through to normal field extraction for the active task instead.
         services = _available_services(auth_token)
         if services is not None:
             restarted_service_id = _explicit_service_request_id(text, services)
@@ -1671,6 +1749,9 @@ def _dispatch_message(
         _recompute_missing(state)
         return _continue_collection(actor_id, state, latest_user_message=text, events=events)
 
+    if state.get("awaiting_task_selection"):
+        return _handle_task_selection_reply(actor_id, state, text, auth_token)
+
     if state["awaiting_confirmation"]:
         _recompute_missing(state)
         if state["missing_fields"]:
@@ -1680,7 +1761,7 @@ def _dispatch_message(
 
         verdict = _judge_reply("請確認以上內容是否正確，若正確請回覆確認送出。", text)
         if verdict == "yes":
-            return _submit(actor_id, session_id, state, latest_user_message=text, auth_token=auth_token)
+            return _submit_and_continue_multi_task(actor_id, session_id, state, text, auth_token)
 
         override = _extract_fields(actor_id, state, text, events)
         if override:
@@ -1739,6 +1820,28 @@ def _dispatch_message(
                         return _reply(state, turn_plan["reply"])
                 if turn_plan["mode"] == "service_request":
                     planned_service_id = turn_plan.get("service_id")
+                if turn_plan["mode"] == "multi_task":
+                    tasks = llm.plan_multi_task(
+                        message=text,
+                        services=services,
+                        short_term_memory=short_term_context,
+                        long_term_memory=long_term_context,
+                    )
+                    if len(tasks) >= 2:
+                        state["is_multi_task"] = True
+                        state["pending_tasks"] = list(tasks)
+                        state["awaiting_task_selection"] = True
+                        # Reset so a second multi-task run in the same session doesn't
+                        # append onto a previous run's already-completed summaries.
+                        state["completed_task_summaries"] = []
+                        name_by_id = {service["id"]: service.get("name") for service in services}
+                        names = "、".join(
+                            _display_service_name(t["service_id"], name_by_id.get(t["service_id"]))
+                            for t in tasks
+                        )
+                        reply = f"收到！我幫您整理了 {len(tasks)} 個任務：{names}。請問要全部進行，還是先從哪幾項開始呢？"
+                        return _reply(state, reply, task_cards=_task_cards(tasks, services))
+                    # Fewer than 2 real tasks resolved — fall through to normal single-service handling below.
             else:
                 _trace_fallback(state, "turn_router:no_plan")
 
@@ -1791,48 +1894,9 @@ def _dispatch_message(
         state["service_schema"] = {"fields": schema_result["fields"]}
         _recompute_missing(state)
 
-        if service_id == "health_product_recommendation":
-            # The message that triggered detection is itself the health/diet
-            # query (single-field, no form to fill) — answer immediately
-            # instead of falling through to the generic field-collection flow.
-            reply = _answer_health_recommendation(state, text, auth_token)
-            state["service_id"] = None
-            state["service_name"] = None
-            state["service_schema"] = None
-            state["collected_fields"] = {}
-            state["missing_fields"] = []
-            return _reply(state, reply)
-
-        if service_id == "shop_purchase":
-            # shop_purchase is a dedicated multi-step flow (store -> product/spec
-            # -> cart -> checkout/points) built for the ShopFlowPage UI, not
-            # conversational field collection — redirect instead of collecting fields.
-            state["service_id"] = None
-            state["service_name"] = None
-            state["service_schema"] = None
-            state["collected_fields"] = {}
-            state["missing_fields"] = []
-            return _reply(
-                state,
-                "商城購物需要挑選商品類型、規格和購物車，這部分請到「商城購物」頁面操作會更方便，我幫你導過去囉！",
-                redirect_path="/services/shop_purchase",
-            )
-
-        if service_id == "shop_price_compare":
-            # One-shot query-and-answer service (like health_product_recommendation):
-            # answer directly with a price summary instead of collecting form fields.
-            reply, redirect_path = _answer_price_compare(text, auth_token)
-            state["service_id"] = None
-            state["service_name"] = None
-            state["service_schema"] = None
-            state["collected_fields"] = {}
-            state["missing_fields"] = []
-            return _reply(
-                state,
-                reply,
-                redirect_path=redirect_path,
-                redirect_requires_confirmation=redirect_path is not None,
-            )
+        one_shot_result = _handle_one_shot_service(service_id, state, text, auth_token)
+        if one_shot_result is not None:
+            return one_shot_result
 
     if llm.is_available():
         active_field = current_active_field(state) or ""
@@ -1880,6 +1944,179 @@ def _continue_collection(actor_id: str, state: dict, latest_user_message: str = 
     if state.get("service_id") == "food_delivery":
         return _continue_delivery_collection(actor_id, state, latest_user_message, events)
     return _continue_generic_collection(actor_id, state, latest_user_message, events)
+
+
+def _task_cards(tasks: list[dict], services: list[dict]) -> list[dict]:
+    name_by_id = {service["id"]: service.get("name") for service in services}
+    return [
+        {
+            "service_id": task["service_id"],
+            "service_name": _display_service_name(task["service_id"], name_by_id.get(task["service_id"])),
+        }
+        for task in tasks
+    ]
+
+
+_CN_ORDINAL_DIGITS = {"一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 5,
+                      "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+_ORDINAL_COUNT_RE = re.compile(r"(?:前|第)\s*([一二三四五六七八九十兩\d]+)\s*(?:個|項)?")
+
+
+def _parse_ordinal_count(text: str) -> int | None:
+    """解析「前兩個」「前二」「先做第一個」這類序數式回覆，回傳要選取的任務數量。
+    只支援 1-10 的常見中文數字，不做完整 NLP（見設計備註）。"""
+    match = _ORDINAL_COUNT_RE.search(text)
+    if not match:
+        return None
+    token = match.group(1)
+    if token.isdigit():
+        value = int(token)
+    else:
+        value = _CN_ORDINAL_DIGITS.get(token)
+    return value if value and value > 0 else None
+
+
+def _select_multi_tasks(text: str, pending_tasks: list[dict], services: list[dict]) -> dict:
+    """回傳 {"action": "run", "tasks": [...]} | {"action": "cancel"} | {"action": "unclear"}。
+
+    先前的版本在完全無法辨識回覆時一律 fallback 成「全部執行」，導致「不要」「算了」
+    這類明確的取消回覆、或是「先做前兩個」這類序數式回覆都被誤判成全選。這裡改成：
+    明確拒絕 → cancel；序數式回覆 → 依數量取前 N 個；其餘無法辨識 → unclear（讓呼叫端
+    重新詢問一次，而不是用猜的）。
+    """
+    if _is_no(text) or "算了" in text:
+        return {"action": "cancel"}
+
+    if _is_yes(text) or any(word in text for word in ("全部", "都要", "都做", "全都要")):
+        return {"action": "run", "tasks": list(pending_tasks)}
+
+    name_by_id = {service["id"]: service.get("name", "") for service in services}
+    selected = [
+        task
+        for task in pending_tasks
+        if name_by_id.get(task["service_id"]) and name_by_id[task["service_id"]] in text
+    ]
+    if selected:
+        return {"action": "run", "tasks": selected}
+
+    count = _parse_ordinal_count(text)
+    if count is not None:
+        return {"action": "run", "tasks": list(pending_tasks[:count])}
+
+    return {"action": "unclear"}
+
+
+def _start_next_multi_task(
+    actor_id: str,
+    state: dict,
+    auth_token: str | None,
+    transition_prefix: str | None = None,
+) -> dict:
+    if not state["pending_tasks"]:
+        summary = "\n".join(state["completed_task_summaries"])
+        state["is_multi_task"] = False
+        reply = f"任務都完成了！\n{summary}" if summary else "目前沒有任務可以彙總。"
+        result = _reply(state, reply, share_text=summary or None)
+        return _prepend_reply(result, transition_prefix) if transition_prefix else result
+
+    task = state["pending_tasks"].pop(0)
+    schema_result = _service_schema(task["service_id"], auth_token)
+    if not schema_result:
+        # Broken/unavailable service schema — skip this task and try the next one.
+        return _start_next_multi_task(actor_id, state, auth_token, transition_prefix)
+
+    services = _available_services(auth_token) or []
+    service = next((item for item in services if item["id"] == task["service_id"]), None)
+    state["service_id"] = task["service_id"]
+    state["service_name"] = _display_service_name(
+        task["service_id"], (service or {}).get("name") or schema_result.get("title")
+    )
+    state["service_schema"] = {"fields": schema_result["fields"]}
+    state["collected_fields"] = {}
+    _recompute_missing(state)
+
+    hint_fields = task.get("hint_fields") or {}
+    if hint_fields:
+        normalized_hints = _normalize_candidate_fields(state, hint_fields, "", source="multi_task_hint")
+        state["collected_fields"].update(normalized_hints)
+        _recompute_missing(state)
+
+    # health_product_recommendation / shop_purchase / shop_price_compare are one-shot
+    # query-and-answer or redirect services with no form to fill — reuse the same
+    # special-casing the single-service path applies right after schema load, so the
+    # queue never drives them through generic field collection (which could otherwise
+    # create a bogus request via the generic submit_service_request tool call).
+    one_shot_query = str(state["collected_fields"].get("query") or hint_fields.get("query") or "")
+    one_shot_result = _handle_one_shot_service(task["service_id"], state, one_shot_query, auth_token)
+    if one_shot_result is not None:
+        completed_name = _display_service_name(task["service_id"], (service or {}).get("name"))
+        state["completed_task_summaries"].append(f"{completed_name}：{one_shot_result['reply']}")
+        combined_prefix = (
+            f"{transition_prefix}\n{one_shot_result['reply']}" if transition_prefix else one_shot_result["reply"]
+        )
+        return _start_next_multi_task(actor_id, state, auth_token, transition_prefix=combined_prefix)
+
+    result = _continue_collection(actor_id, state, latest_user_message="")
+    return _prepend_reply(result, transition_prefix)
+
+
+def _submit_and_continue_multi_task(
+    actor_id: str,
+    session_id: str,
+    state: dict,
+    text: str,
+    auth_token: str | None,
+) -> dict:
+    result = _submit(actor_id, session_id, state, latest_user_message=text, auth_token=auth_token)
+    if not state.get("is_multi_task"):
+        # Single-service (non-multi-task) path keeps today's retry-in-place behavior:
+        # on failure, awaiting_confirmation/state is left exactly as _submit set it so
+        # the user can retry or correct the active task without losing their place.
+        return result
+
+    completed_name = _display_service_name(state["service_id"], state["service_name"])
+    if state.get("request_id"):
+        state["completed_task_summaries"].append(f"{completed_name}：{result['reply']}")
+    else:
+        # A failed task must not block the rest of the queue (design spec): mark it
+        # 待重試 (pending retry) with the failure reason and move on, instead of
+        # leaving the user stuck retrying a task that may be deterministically doomed
+        # (e.g. quick_purchase BUNDLE_NOT_FOUND can never succeed for the same query,
+        # and there's no way to correct it once awaiting_confirmation is true).
+        state["completed_task_summaries"].append(f"{completed_name}：待重試（{result['reply']}）")
+
+    state["service_id"] = None
+    state["service_name"] = None
+    state["service_schema"] = None
+    state["collected_fields"] = {}
+    state["missing_fields"] = []
+    state["request_id"] = None
+    state["status"] = "COLLECTING_INFORMATION"
+    state["awaiting_confirmation"] = False
+    return _start_next_multi_task(actor_id, state, auth_token, transition_prefix=result["reply"])
+
+
+def _handle_task_selection_reply(actor_id: str, state: dict, text: str, auth_token: str | None) -> dict:
+    services = _available_services(auth_token) or []
+    selection = _select_multi_tasks(text, state["pending_tasks"], services)
+
+    if selection["action"] == "cancel":
+        state["pending_tasks"] = []
+        state["is_multi_task"] = False
+        state["awaiting_task_selection"] = False
+        return _reply(state, "好的，這次先不進行任何任務，如果之後有需要我再幫你安排。")
+
+    if selection["action"] == "unclear":
+        # Prefer re-asking once over guessing "run everything" for an ambiguous reply.
+        return _reply(
+            state,
+            "不好意思，我不太確定你想怎麼安排這些任務，可以直接說「全部」，"
+            "或告訴我想先做哪幾項（例如「先做前兩個」或直接說任務名稱）嗎？",
+        )
+
+    state["pending_tasks"] = selection["tasks"]
+    state["awaiting_task_selection"] = False
+    return _start_next_multi_task(actor_id, state, auth_token)
 
 
 def _menu_text(store: dict) -> str:
@@ -2055,6 +2292,9 @@ def _submit(
     if state["service_id"] == "package_shipping":
         return _submit_package_shipping(actor_id, state, latest_user_message)
 
+    if state["service_id"] == "quick_purchase":
+        return _submit_quick_purchase(actor_id, state, latest_user_message)
+
     result = tools.call(
         "submit_service_request",
         {
@@ -2107,6 +2347,42 @@ def _submit(
             request_id=result["request_id"],
         ),
     )
+
+
+def _submit_quick_purchase(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    collected = state["collected_fields"]
+    result = quick_purchase.create_quick_purchase_order(
+        actor_id,
+        collected.get("query", ""),
+        contact_name="住戶",
+        phone=collected.get("phone", ""),
+        address=collected.get("address", ""),
+    )
+
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "下單失敗")
+        return _reply(
+            state,
+            _model_reply(
+                actor_id,
+                state,
+                "submit_error",
+                latest_user_message=latest_user_message,
+                error_message=message,
+            ),
+        )
+
+    state["request_id"] = result["request_id"]
+    state["status"] = result["status"]
+    state["awaiting_confirmation"] = False
+    reply = _model_reply(
+        actor_id,
+        state,
+        "submit_success",
+        latest_user_message=latest_user_message,
+        request_id=result["request_id"],
+    )
+    return _reply(state, f"{reply}\n已幫您選購「{result.get('bundle_name', '')}」。")
 
 
 def _submit_reservation(actor_id: str, state: dict, latest_user_message: str) -> dict:
@@ -2317,6 +2593,8 @@ def _reply(
     reply: str,
     redirect_path: str | None = None,
     redirect_requires_confirmation: bool = False,
+    task_cards: list[dict] | None = None,
+    share_text: str | None = None,
 ) -> dict:
     return {
         "reply": reply,
@@ -2324,4 +2602,6 @@ def _reply(
         "redirect_path": redirect_path,
         "redirect_requires_confirmation": redirect_requires_confirmation,
         "debug_trace": state.get("debug_trace", {}),
+        "task_cards": task_cards,
+        "share_text": share_text,
     }

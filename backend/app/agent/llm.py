@@ -11,6 +11,16 @@ from ..config import get_settings
 from ..services import clock
 from ..services.aws import get_aws_client, has_aws_credentials
 
+_DIALECT_GLOSSARY = (
+    "The user may speak Taiwanese-Hokkien-influenced Mandarin (台語腔國語), transcribed by a "
+    "Mandarin speech recognizer that may render it imperfectly. Recognize these common patterns: "
+    "\"三牲\" (three-sacrifice ritual offering), \"透天厝\" (a multi-floor townhouse), "
+    "\"逗陣\" (together/along), \"愛\" used to mean \"want/need\" (e.g. \"我愛買\" = \"我要買\"), "
+    "\"甲意\" (like/prefer), \"呷飯\" (to eat a meal), \"歹勢\" (sorry/excuse me), "
+    "and looser word order than standard Mandarin. Interpret the intended meaning, not the literal "
+    "transcription."
+)
+
 _YES_NO_SYSTEM = (
     "You classify whether the user confirmed a booking summary. "
     "Return JSON only in the format {\"intent\":\"yes|no|unclear\"}."
@@ -21,21 +31,40 @@ _SERVICE_SYSTEM = (
     "Choose the best matching service_id from the provided list. "
     "If the user has not clearly chosen a service, return null. "
     "Return JSON only in the format {\"service_id\": string|null}."
+    "\n\n" + _DIALECT_GLOSSARY
 )
 
 _TURN_SYSTEM = (
     "You are the first-turn router for a Taiwanese home services assistant speaking Traditional Chinese. "
     "Decide whether the latest user message should be handled as one of: "
-    "\"chat\", \"service_request\", \"page_help\", \"memory_query\", or \"unknown\". "
+    "\"chat\", \"service_request\", \"page_help\", \"memory_query\", \"multi_task\", or \"unknown\". "
     "Use \"chat\" for greetings, identity/capability questions, small talk, or short direct conversational replies. "
-    "Use \"service_request\" when the user wants to book/apply/arrange a supported service. "
+    "Use \"service_request\" when the user wants to book/apply/arrange exactly one supported service. "
+    "Use \"multi_task\" only when the message clearly asks for two or more distinct, independent services in one "
+    "sentence (for example: buying an item AND booking a restaurant AND booking a cleaning service). "
     "Use \"page_help\" when the user is asking where something is in the app, what the current page does, or how to navigate. "
     "Use \"memory_query\" when the user is asking about previously used address/phone/service/order details. "
     "If mode is \"chat\", include a natural direct reply in Traditional Chinese. "
     "If mode is \"service_request\" and a service is clear, include the best matching service_id from the provided list; otherwise use null. "
+    "If mode is \"multi_task\", leave service_id null — the tasks themselves are resolved separately. "
     "Do not invent unsupported services. "
     "Return JSON only in the format "
-    "{\"mode\":\"chat|service_request|page_help|memory_query|unknown\",\"reply\":string|null,\"service_id\":string|null}."
+    "{\"mode\":\"chat|service_request|page_help|memory_query|multi_task|unknown\",\"reply\":string|null,\"service_id\":string|null}."
+    "\n\n" + _DIALECT_GLOSSARY
+)
+
+_MULTI_TASK_SYSTEM = (
+    "You detect whether a Taiwanese home-services user message contains more than one distinct "
+    "service request in a single sentence (e.g. buying an item, booking a restaurant, and booking "
+    "a cleaning service all in one message). "
+    "Only return tasks when there are genuinely two or more independent service requests; otherwise return an empty list. "
+    "For each task, choose the best matching service_id from the provided list. "
+    "Also extract any field values you can already tell from the message as hint_fields — use only field ids that "
+    "make sense for that service (dates, quantities, addresses, etc.); if unsure, leave hint_fields empty. "
+    "Do not invent unsupported services. "
+    "Return JSON only in the format "
+    "{\"tasks\": [{\"service_id\": string, \"hint_fields\": object}]}."
+    "\n\n" + _DIALECT_GLOSSARY
 )
 
 _FIELD_SYSTEM = (
@@ -51,6 +80,7 @@ _FIELD_SYSTEM = (
     "Do not overwrite an existing value unless the user clearly changes it. "
     "Do not answer questions or explain anything outside the JSON. "
     "Return JSON only in the format {\"fields\": { ... }}."
+    "\n\n" + _DIALECT_GLOSSARY
 )
 
 _FORM_TURN_SYSTEM = (
@@ -226,7 +256,7 @@ def plan_turn(
     if not payload:
         return None
     mode = payload.get("mode")
-    if mode not in {"chat", "service_request", "page_help", "memory_query", "unknown"}:
+    if mode not in {"chat", "service_request", "page_help", "memory_query", "multi_task", "unknown"}:
         return None
     service_id = payload.get("service_id")
     valid_ids = {service["id"] for service in services}
@@ -238,6 +268,40 @@ def plan_turn(
         "reply": normalized_reply,
         "service_id": normalized_service_id,
     }
+
+
+def plan_multi_task(
+    *,
+    message: str,
+    services: list[dict],
+    short_term_memory: str = "",
+    long_term_memory: str = "",
+) -> list[dict]:
+    prompt = (
+        f"Today is {date.today().isoformat()}.\n"
+        f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
+        f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
+        f"Available services:\n{json.dumps(services, ensure_ascii=False, indent=2)}\n\n"
+        f"User message:\n{message}"
+    )
+    payload = _converse_json(_MULTI_TASK_SYSTEM, prompt, max_tokens=512)
+    if not payload or not isinstance(payload.get("tasks"), list):
+        return []
+
+    valid_ids = {service["id"] for service in services}
+    tasks: list[dict] = []
+    for task in payload["tasks"]:
+        if not isinstance(task, dict):
+            continue
+        service_id = task.get("service_id")
+        if service_id not in valid_ids:
+            continue
+        hint_fields = task.get("hint_fields")
+        tasks.append({
+            "service_id": service_id,
+            "hint_fields": hint_fields if isinstance(hint_fields, dict) else {},
+        })
+    return tasks
 
 
 def extract_fields(

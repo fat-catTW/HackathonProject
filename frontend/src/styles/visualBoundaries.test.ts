@@ -120,6 +120,7 @@ describe("改版範圍限制（Task 12.3）", () => {
       "/",
       "/login",
       "/home",
+      "/calendar",
       "/my-services",
       "/services/restaurant_reservation",
       "/services/food_delivery",
@@ -151,6 +152,7 @@ describe("改版範圍限制（Task 12.3）", () => {
 
   it("頁面檔案清單無增減（Requirement 17.3）", () => {
     const EXPECTED_PAGES = [
+      "CalendarPage.tsx",
       "DeliveryFlowPage.tsx",
       "HealthRecommendationPage.tsx",
       "HomePage.tsx",

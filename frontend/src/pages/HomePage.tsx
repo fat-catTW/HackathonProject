@@ -217,6 +217,19 @@ export function HomePage() {
           </button>
         </section>
 
+        <section className="mt-6">
+          <button
+            type="button"
+            onClick={() => navigate("/calendar")}
+            className="flex w-full items-center gap-3 rounded-[22px] bg-[var(--color-surface)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-info-soft)] text-[var(--color-info)]">
+              <ServiceIcon type="calendar" size={20} />
+            </span>
+            <span className="text-sm font-extrabold text-[var(--color-foreground)]">行事曆</span>
+          </button>
+        </section>
+
         {/*
           「我的服務」／「客服中心」改成彩色插畫卡（參考稿：色塊卡右下角探出一隻大隻的
           可愛角色插圖 + 白色標題 + 圓角行動按鈕）。使用者提供了企鵝（透明背景 PNG，可以

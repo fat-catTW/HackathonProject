@@ -911,6 +911,10 @@ def new_state() -> dict:
         # of the recommended products can be answered with its nutrition info.
         "health_last_recommendations": [],
         "debug_trace": {},
+        "is_multi_task": False,
+        "pending_tasks": [],
+        "awaiting_task_selection": False,
+        "completed_task_summaries": [],
     }
 
 
@@ -1127,6 +1131,9 @@ def handle_message(
         _recompute_missing(state)
         return _continue_collection(actor_id, state, latest_user_message=text, events=events)
 
+    if state.get("awaiting_task_selection"):
+        return _handle_task_selection_reply(actor_id, state, text, auth_token)
+
     if state["awaiting_confirmation"]:
         _recompute_missing(state)
         if state["missing_fields"]:
@@ -1136,7 +1143,7 @@ def handle_message(
 
         verdict = _judge_reply("請確認以上內容是否正確，若正確請回覆確認送出。", text)
         if verdict == "yes":
-            return _submit(actor_id, session_id, state, latest_user_message=text, auth_token=auth_token)
+            return _submit_and_continue_multi_task(actor_id, session_id, state, text, auth_token)
 
         override = _extract_fields(actor_id, state, text, events)
         if override:
@@ -1195,6 +1202,21 @@ def handle_message(
                         return _reply(state, turn_plan["reply"])
                 if turn_plan["mode"] == "service_request":
                     planned_service_id = turn_plan.get("service_id")
+                if turn_plan["mode"] == "multi_task":
+                    tasks = llm.plan_multi_task(
+                        message=text,
+                        services=services,
+                        short_term_memory=short_term_context,
+                        long_term_memory=long_term_context,
+                    )
+                    if len(tasks) >= 2:
+                        state["is_multi_task"] = True
+                        state["pending_tasks"] = list(tasks)
+                        state["awaiting_task_selection"] = True
+                        names = "、".join(_display_service_name(t["service_id"]) for t in tasks)
+                        reply = f"收到！我幫您整理了 {len(tasks)} 個任務：{names}。請問要全部進行，還是先從哪幾項開始呢？"
+                        return _reply(state, reply, task_cards=_task_cards(tasks))
+                    # Fewer than 2 real tasks resolved — fall through to normal single-service handling below.
             else:
                 _trace_fallback(state, "turn_router:no_plan")
 
@@ -1336,6 +1358,94 @@ def _continue_collection(actor_id: str, state: dict, latest_user_message: str = 
     if state.get("service_id") == "food_delivery":
         return _continue_delivery_collection(actor_id, state, latest_user_message, events)
     return _continue_generic_collection(actor_id, state, latest_user_message, events)
+
+
+def _task_cards(tasks: list[dict]) -> list[dict]:
+    return [
+        {"service_id": task["service_id"], "service_name": _display_service_name(task["service_id"])}
+        for task in tasks
+    ]
+
+
+def _select_multi_tasks(text: str, pending_tasks: list[dict], services: list[dict]) -> list[dict]:
+    if _is_yes(text) or any(word in text for word in ("全部", "都要", "都做", "全都要")):
+        return list(pending_tasks)
+    name_by_id = {service["id"]: service.get("name", "") for service in services}
+    selected = [
+        task
+        for task in pending_tasks
+        if name_by_id.get(task["service_id"]) and name_by_id[task["service_id"]] in text
+    ]
+    return selected or list(pending_tasks)
+
+
+def _start_next_multi_task(
+    actor_id: str,
+    state: dict,
+    auth_token: str | None,
+    transition_prefix: str | None = None,
+) -> dict:
+    if not state["pending_tasks"]:
+        summary = "\n".join(state["completed_task_summaries"])
+        state["is_multi_task"] = False
+        reply = f"任務都完成了！\n{summary}" if summary else "目前沒有任務可以彙總。"
+        result = _reply(state, reply, share_text=summary or None)
+        return _prepend_reply(result, transition_prefix) if transition_prefix else result
+
+    task = state["pending_tasks"].pop(0)
+    schema_result = _service_schema(task["service_id"], auth_token)
+    if not schema_result:
+        # Broken/unavailable service schema — skip this task and try the next one.
+        return _start_next_multi_task(actor_id, state, auth_token, transition_prefix)
+
+    services = _available_services(auth_token) or []
+    service = next((item for item in services if item["id"] == task["service_id"]), None)
+    state["service_id"] = task["service_id"]
+    state["service_name"] = _display_service_name(
+        task["service_id"], (service or {}).get("name") or schema_result.get("title")
+    )
+    state["service_schema"] = {"fields": schema_result["fields"]}
+    state["collected_fields"] = {}
+    _recompute_missing(state)
+
+    hint_fields = task.get("hint_fields") or {}
+    if hint_fields:
+        normalized_hints = _normalize_candidate_fields(state, hint_fields, "", source="multi_task_hint")
+        state["collected_fields"].update(normalized_hints)
+        _recompute_missing(state)
+
+    result = _continue_collection(actor_id, state, latest_user_message="")
+    return _prepend_reply(result, transition_prefix)
+
+
+def _submit_and_continue_multi_task(
+    actor_id: str,
+    session_id: str,
+    state: dict,
+    text: str,
+    auth_token: str | None,
+) -> dict:
+    result = _submit(actor_id, session_id, state, latest_user_message=text, auth_token=auth_token)
+    if not state.get("is_multi_task") or not state.get("request_id"):
+        return result
+
+    completed_name = _display_service_name(state["service_id"], state["service_name"])
+    state["completed_task_summaries"].append(f"{completed_name}：{result['reply']}")
+    state["service_id"] = None
+    state["service_name"] = None
+    state["service_schema"] = None
+    state["collected_fields"] = {}
+    state["missing_fields"] = []
+    state["request_id"] = None
+    state["status"] = "COLLECTING_INFORMATION"
+    return _start_next_multi_task(actor_id, state, auth_token, transition_prefix=result["reply"])
+
+
+def _handle_task_selection_reply(actor_id: str, state: dict, text: str, auth_token: str | None) -> dict:
+    services = _available_services(auth_token) or []
+    state["pending_tasks"] = _select_multi_tasks(text, state["pending_tasks"], services)
+    state["awaiting_task_selection"] = False
+    return _start_next_multi_task(actor_id, state, auth_token)
 
 
 def _menu_text(store: dict) -> str:
@@ -1799,6 +1909,8 @@ def _reply(
     reply: str,
     redirect_path: str | None = None,
     redirect_requires_confirmation: bool = False,
+    task_cards: list[dict] | None = None,
+    share_text: str | None = None,
 ) -> dict:
     return {
         "reply": reply,
@@ -1806,4 +1918,6 @@ def _reply(
         "redirect_path": redirect_path,
         "redirect_requires_confirmation": redirect_requires_confirmation,
         "debug_trace": state.get("debug_trace", {}),
+        "task_cards": task_cards,
+        "share_text": share_text,
     }

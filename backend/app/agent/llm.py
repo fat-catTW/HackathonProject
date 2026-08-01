@@ -91,6 +91,45 @@ _PAGE_HELP_SYSTEM = (
     "Return JSON only in the format {\"target_page_id\": string|null, \"reply\": string}."
 )
 
+_VALID_SPECIALTIES = ("耳鼻喉科", "家醫科", "內科", "腸胃科", "皮膚科", "骨科", "眼科", "牙科")
+
+_SYMPTOM_KEYWORD_SPECIALTY: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("耳鼻喉科", ("咳嗽", "喉嚨", "鼻塞", "流鼻水", "打噴嚏")),
+    ("腸胃科", ("肚子痛", "腹瀉", "拉肚子", "胃痛", "噁心", "嘔吐")),
+    ("骨科", ("腰痛", "膝蓋", "關節", "扭傷", "骨折")),
+    ("皮膚科", ("皮膚", "紅疹", "起疹子")),
+    ("眼科", ("眼睛", "視力")),
+)
+_DEFAULT_SPECIALTY = "家醫科"
+_DEFAULT_ADVISORY = "身體不舒服要多休息、多喝溫水，有需要就去診所讓醫生看看喔。"
+
+_SYMPTOM_TRIAGE_SYSTEM = (
+    "You triage a Traditional-Chinese-speaking elderly user's described physical symptoms for a "
+    "Taiwanese home services assistant. "
+    "Choose exactly one specialty from the provided valid_specialties list that best matches the "
+    "symptoms. "
+    "Write a short, warm, one-sentence piece of advice in Traditional Chinese (e.g. suggesting rest "
+    "or drinking warm water) — do not diagnose or promise a cure. "
+    "Return JSON only in the format {\"specialty\": string, \"advisory\": string}."
+)
+
+_CLINIC_RECOMMEND_SYSTEM = (
+    "You recommend one clinic from a list of real candidate clinics for a Traditional-Chinese-speaking "
+    "elderly user in Taiwan, based on their described symptoms. "
+    "Only choose an id that appears in the provided candidates — never invent one. "
+    "Prefer clinics where is_open_now is true when possible, and give a concrete one-sentence reason "
+    "in Traditional Chinese. "
+    "Return JSON only in the format {\"id\": string, \"reason\": string}."
+)
+
+_HEALTH_PRODUCT_SYSTEM = (
+    "You are a product advisor recommending convenience-store products for a Traditional-Chinese-"
+    "speaking elderly user based on their described physical symptoms. "
+    "Only choose product_id values that appear in the provided products list — never invent one. "
+    "Choose up to 3 products and explain each in one short Traditional Chinese sentence. "
+    "Return JSON only in the format {\"recommendations\": [{\"product_id\": string, \"reason\": string}]}."
+)
+
 _DEBUG_STATE = threading.local()
 
 
@@ -182,6 +221,77 @@ def interpret_yes_no(question: str, reply: str) -> str | None:
         return None
     intent = payload.get("intent")
     return intent if intent in {"yes", "no", "unclear"} else None
+
+
+def _fallback_triage_symptom(symptom_text: str) -> dict:
+    for specialty, keywords in _SYMPTOM_KEYWORD_SPECIALTY:
+        if any(keyword in symptom_text for keyword in keywords):
+            return {"specialty": specialty, "advisory": _DEFAULT_ADVISORY}
+    return {"specialty": _DEFAULT_SPECIALTY, "advisory": _DEFAULT_ADVISORY}
+
+
+def triage_symptom(symptom_text: str) -> dict:
+    payload = _converse_json(
+        _SYMPTOM_TRIAGE_SYSTEM,
+        json.dumps(
+            {"symptom_text": symptom_text, "valid_specialties": list(_VALID_SPECIALTIES)},
+            ensure_ascii=False,
+        ),
+        max_tokens=256,
+    )
+    if payload:
+        specialty = payload.get("specialty")
+        advisory = payload.get("advisory")
+        if specialty in _VALID_SPECIALTIES and isinstance(advisory, str) and advisory.strip():
+            return {"specialty": specialty, "advisory": advisory.strip()}
+    return _fallback_triage_symptom(symptom_text)
+
+
+def recommend_clinic(symptom_text: str, candidates: list[dict]) -> dict | None:
+    if not candidates:
+        return None
+    payload = _converse_json(
+        _CLINIC_RECOMMEND_SYSTEM,
+        json.dumps({"symptom_text": symptom_text, "candidates": candidates}, ensure_ascii=False),
+        max_tokens=256,
+    )
+    valid_ids = {c["id"] for c in candidates}
+    if payload:
+        clinic_id = payload.get("id")
+        reason = payload.get("reason")
+        if clinic_id in valid_ids and isinstance(reason, str) and reason.strip():
+            return {"id": clinic_id, "reason": reason.strip()}
+    open_candidates = [c for c in candidates if c.get("is_open_now")]
+    fallback = (open_candidates or candidates)[0]
+    return {"id": fallback["id"], "reason": "距離您所在地區近，且目前有看診，優先為您推薦。"}
+
+
+def recommend_health_products_for_symptom(symptom_text: str, products: list[dict]) -> dict:
+    payload = _converse_json(
+        _HEALTH_PRODUCT_SYSTEM,
+        json.dumps({"symptom_text": symptom_text, "products": products}, ensure_ascii=False),
+        max_tokens=400,
+    )
+    valid_ids = {p["id"] for p in products}
+    if payload and isinstance(payload.get("recommendations"), list):
+        items = []
+        for rec in payload["recommendations"]:
+            if not isinstance(rec, dict):
+                continue
+            product_id = rec.get("product_id")
+            reason = rec.get("reason")
+            if product_id in valid_ids and isinstance(reason, str) and reason.strip():
+                items.append({"product_id": product_id, "reason": reason.strip()})
+        if items:
+            return {"recommendations": items, "fallback_used": False}
+
+    from ..services import health_recommendation
+
+    fallback_items = health_recommendation.fallback_recommend(symptom_text, products)
+    return {
+        "recommendations": [{"product_id": r["product_id"], "reason": r["reason"]} for r in fallback_items],
+        "fallback_used": True,
+    }
 
 
 def choose_service(

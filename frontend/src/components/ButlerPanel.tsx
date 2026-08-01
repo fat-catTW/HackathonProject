@@ -87,7 +87,12 @@ export function ButlerPanel({
         content: r.reply,
         redirectPath: showsRedirectButton ? r.redirect_path! : undefined,
         taskCards: r.task_cards ?? undefined,
+        restaurantCards: r.restaurant_cards ?? undefined,
         shareText: r.share_text ?? undefined,
+        clinicRecommendation: r.clinic_recommendation ?? undefined,
+        redirectLabel:
+          showsRedirectButton && r.product_recommendations?.length ? "前往商城選購 →" : undefined,
+        productRecommendations: r.product_recommendations ?? undefined,
       });
       saveButlerTurn({
         sessionId: r.session_id,
@@ -262,6 +267,22 @@ export function ButlerPanel({
                   onRedirectClick={(path) => {
                     onClose?.();
                     navigate(path);
+                  }}
+                  onRestaurantSelect={(name) => void send(name)}
+                  onClinicContinue={(recommendation, clinicId) => {
+                    onClose?.();
+                    navigate("/services/clinic_appointment", {
+                      state: {
+                        symptomNote: recommendation.symptom_note,
+                        city: recommendation.city,
+                        district: recommendation.district,
+                        advisory: recommendation.advisory,
+                        clinics: recommendation.clinics,
+                        recommendedClinicId: recommendation.recommended_clinic_id,
+                        recommendReason: recommendation.recommend_reason,
+                        selectedClinicId: clinicId,
+                      },
+                    });
                   }}
                 />
               ))}

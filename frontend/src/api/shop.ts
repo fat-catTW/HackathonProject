@@ -5,6 +5,7 @@ import type {
   ShopOrder,
   ShopPointsBalance,
   ShopProduct,
+  ShopReview,
   ShopStore,
   ShopSubmitPayload,
   ShopSubmitResult,
@@ -29,6 +30,10 @@ export function getShopCompareGroup(groupId: string): Promise<ShopCompareGroup> 
 
 export function getShopProduct(productId: string): Promise<ShopProduct> {
   return api(`/api/shop/products/${encodeURIComponent(productId)}`);
+}
+
+export function getShopProductReviews(productId: string): Promise<{ reviews: ShopReview[] }> {
+  return api(`/api/shop/products/${encodeURIComponent(productId)}/reviews`);
 }
 
 export function getShopPoints(): Promise<ShopPointsBalance> {

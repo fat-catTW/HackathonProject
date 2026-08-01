@@ -7,6 +7,7 @@ from .api import (
     auth,
     calendar,
     chat,
+    clinics,
     delivery,
     health,
     onboarding,
@@ -18,6 +19,7 @@ from .api import (
     vendor,
     vendor_delivery,
     vendor_shop,
+    weather,
 )
 from .config import get_settings
 from .services.aws import has_aws_credentials
@@ -41,6 +43,7 @@ app.include_router(chat.router)
 app.include_router(services.router)
 app.include_router(requests.router)
 app.include_router(reservations.router)
+app.include_router(clinics.router)
 app.include_router(delivery.router)
 app.include_router(shop.router)
 app.include_router(health.router)
@@ -48,6 +51,7 @@ app.include_router(vendor.router)
 app.include_router(vendor_delivery.router)
 app.include_router(vendor_shop.router)
 app.include_router(onboarding.router)
+app.include_router(weather.router)
 
 
 @app.get("/health")

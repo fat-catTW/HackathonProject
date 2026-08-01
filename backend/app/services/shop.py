@@ -213,7 +213,7 @@ def cancel_shop_order(
     else:
         STORE.save_request(actor_id, updated)
 
-    for line in order["form_data"]["cart"]:
+    for line in order["form_data"].get("cart") or []:
         STORE.restock_sku(line["sku_id"], line["quantity"])
 
     points_discount = order.get("points_discount", 0)

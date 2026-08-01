@@ -34,6 +34,8 @@ export interface ShopProduct {
   image: string | null;
   specs: ShopSpec[];
   skus: ShopSku[];
+  rating_avg: number;
+  rating_count: number;
 }
 
 export interface ShopCompareOffer extends ShopProduct {
@@ -44,6 +46,15 @@ export interface ShopCompareGroup {
   group_id: string;
   category_id: string;
   offers: ShopCompareOffer[];
+}
+
+export interface ShopReview {
+  review_id: string;
+  author: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  verified_purchase: boolean;
 }
 
 export interface ShopCartLine {

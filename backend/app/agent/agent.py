@@ -5,8 +5,15 @@ import re
 from datetime import date
 
 from ..config import get_settings
-from ..services import catalog, clock
-from ..services import delivery, delivery_catalog, quick_purchase, reservation, shipping
+from ..services import catalog, clinic_catalog, clock
+from ..services import (
+    delivery,
+    delivery_catalog,
+    quick_purchase,
+    reservation,
+    restaurant_search,
+    shipping,
+)
 from ..services.conversation_memory import MEMORY
 from . import form_autopilot, llm, nlu, tools
 from .page_catalog import search_pages
@@ -21,6 +28,11 @@ from .page_catalog import is_navigation_query
 DECIMAL_NUMBER_RE = re.compile(r"\d+\.\d+")
 SERVICE_TIME_MIN = "08:30"
 SERVICE_TIME_MAX = "18:00"
+
+# 對話中描述症狀時沒有地區可問（不像手動掛號頁面有縣市/鄉鎮選單），
+# 先以這個預設地區查詢，使用者仍可在導頁後的掛號頁面換地區重新查詢。
+CLINIC_DEFAULT_CITY = "台中市"
+CLINIC_DEFAULT_DISTRICT = "西屯區"
 
 CONFIRM_WORDS = ("確認", "確定", "好", "可以", "沒問題", "送出", "ok", "OK", "yes", "Yes")
 DENY_WORDS = ("不要", "不用", "取消", "改一下", "先不要", "no", "No")
@@ -119,6 +131,29 @@ RULE_SERVICE_KEYWORDS = (
     ("washing_machine_cleaning", ("洗衣機", "清洗", "滾筒式", "直立式", "內槽")),
     ("air_conditioner_cleaning", ("冷氣", "清洗", "保養", "壁掛式", "室內機")),
     ("home_cleaning", ("清潔", "居家", "打掃", "整理", "到府")),
+    (
+        "clinic_appointment",
+        (
+            "掛號",
+            "看醫生",
+            "診所",
+            "看診",
+            "身體不舒服",
+            "門診",
+            "咳嗽",
+            "喉嚨痛",
+            "肚子痛",
+            "頭痛",
+            "腰痛",
+            "背痛",
+            "膝蓋痛",
+            "發燒",
+            "拉肚子",
+            "很痛",
+            "會痛",
+            "不舒服",
+        ),
+    ),
 )
 
 # goods/store_id 一律透過下方的購物車收集子流程取得，不透過 LLM 猜測
@@ -836,6 +871,21 @@ def _prepend_reply(result: dict, prefix: str | None) -> dict:
     return result
 
 
+def _sync_restaurant_name(actor_id: str, state: dict) -> None:
+    """restaurant_id 是內部代碼或 Google place_id，使用者看不懂；只要有 restaurant_id
+    就順便把可讀的 restaurant_name 也寫進 collected_fields，讓前端「已填寫」欄位卡片
+    顯示店名而不是原始代碼（見 FieldPanel.tsx／fieldLabels.ts 既有的 restaurant_name 標籤）。
+    """
+    if state.get("service_id") != "restaurant_reservation":
+        return
+    restaurant_id = state["collected_fields"].get("restaurant_id")
+    if not restaurant_id or state["collected_fields"].get("restaurant_name"):
+        return
+    resolved = reservation.resolve_restaurant(actor_id, restaurant_id)
+    if resolved:
+        state["collected_fields"]["restaurant_name"] = resolved["name"]
+
+
 def _apply_found_fields_and_continue(
     actor_id: str,
     state: dict,
@@ -852,6 +902,7 @@ def _apply_found_fields_and_continue(
         return _prepend_reply(_reply(state, prohibited_reply), reply_prefix)
 
     state["collected_fields"].update(found)
+    _sync_restaurant_name(actor_id, state)
     _recompute_missing(state)
     result = _continue_collection(actor_id, state, latest_user_message=text, events=events)
     return _prepend_reply(result, reply_prefix)
@@ -952,6 +1003,9 @@ def new_state() -> dict:
         "asked_pref_fields": [],
         "pending_delivery_field": None,
         "pending_prohibited_item": None,
+        # 餐廳訂位在對話中規則比對不到店名時，改用地址/偏好搜尋（見
+        # restaurant_search.search_restaurants），這裡記住剛列給使用者選的候選清單。
+        "pending_restaurant_options": None,
         "prohibited_item_acknowledged": False,
         "request_id": None,
         "status": "COLLECTING_INFORMATION",
@@ -1124,14 +1178,33 @@ def _invalid_number_field_message(state: dict, latest_user_message: str) -> str 
     return None
 
 
+def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str | None]:
+    result = tools.call("compare_product_prices", {"query": query}, auth_token=auth_token)
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "查詢失敗")
+        return f"抱歉，這次比價沒有成功，原因是：{message}。你可以換個商品名稱再試一次。", None
+
+    offers = result.get("offers") or []
+    lines = [f"「{result.get('product_name', '')}」目前各店家的點數兌換價格："]
+    for index, offer in enumerate(offers, start=1):
+        lines.append(f"{index}. {offer.get('store_name', '')}：{offer.get('unit_price', '')} 元")
+    if offers:
+        lines.append(f"目前最便宜的是 {offers[0].get('store_name', '')}。")
+    lines.append("我幫你導到商城購物頁面，可以直接看到完整比價和下單。")
+    reply = "\n".join(lines)
+    redirect_path = f"/services/shop_purchase?compare={result['group_id']}"
+    return reply, redirect_path
+
+
 def _handle_one_shot_service(
     service_id: str, state: dict, text: str, auth_token: str | None
 ) -> dict | None:
     """一次性問答／導頁服務的共用邏輯。
 
-    health_product_recommendation / shop_purchase / shop_price_compare 都沒有表單欄位收集
-    流程：前兩者是直接回答的 query-and-answer 服務，shop_purchase 則是導頁到專屬頁面。
-    這三種在單一服務流程與多任務佇列（_start_next_multi_task）都要套用同一套特例，
+    health_product_recommendation / shop_purchase / shop_price_compare / clinic_appointment
+    都沒有表單欄位收集流程：前兩者（含 clinic_appointment）是直接回答的
+    query-and-answer 服務，shop_purchase 則是導頁到專屬頁面。
+    這幾種在單一服務流程與多任務佇列（_start_next_multi_task）都要套用同一套特例，
     避免多任務佇列把它們誤導進通用的欄位收集流程（進而可能呼叫通用的
     submit_service_request 建立一筆不該存在的案件）。
 
@@ -1180,6 +1253,28 @@ def _handle_one_shot_service(
             reply,
             redirect_path=redirect_path,
             redirect_requires_confirmation=redirect_path is not None,
+        )
+
+    if service_id == "clinic_appointment":
+        # One-shot query-and-answer (like health_product_recommendation):
+        # the triggering message is itself the symptom description, so
+        # run the same Bedrock triage + clinic recommendation the manual
+        # flow page uses and answer immediately instead of collecting a form.
+        # The clinic list renders as cards in the chat panel (not text);
+        # only redirect straight to the manual page when there's nothing
+        # to show a card for (no candidates in the detected district).
+        reply, clinic_recommendation = _answer_clinic_recommendation(text, auth_token)
+        state["service_id"] = None
+        state["service_name"] = None
+        state["service_schema"] = None
+        state["collected_fields"] = {}
+        state["missing_fields"] = []
+        return _reply(
+            state,
+            reply,
+            redirect_path="/services/clinic_appointment" if clinic_recommendation is None else None,
+            redirect_requires_confirmation=clinic_recommendation is None,
+            clinic_recommendation=clinic_recommendation,
         )
 
     return None
@@ -1732,6 +1827,9 @@ def _dispatch_message(
     if state.get("pending_prohibited_item"):
         return _handle_prohibited_item_reply(actor_id, state, text, events)
 
+    if state.get("pending_restaurant_options"):
+        return _handle_restaurant_search_pending_reply(actor_id, state, text, events)
+
     if state.get("pending_pref_field"):
         field_id = state["pending_pref_field"]
         question = state.get("pending_pref_question") or ""
@@ -1898,6 +1996,24 @@ def _dispatch_message(
         if one_shot_result is not None:
             return one_shot_result
 
+        if service_id == "shop_product_advisor":
+            # One-shot query-and-answer service (like health_product_recommendation
+            # and shop_price_compare): answer directly with recommendations instead
+            # of collecting form fields.
+            reply, redirect_path, product_recommendations = _answer_shop_product_advisor(text, auth_token)
+            state["service_id"] = None
+            state["service_name"] = None
+            state["service_schema"] = None
+            state["collected_fields"] = {}
+            state["missing_fields"] = []
+            return _reply(
+                state,
+                reply,
+                redirect_path=redirect_path,
+                redirect_requires_confirmation=redirect_path is not None,
+                product_recommendations=product_recommendations,
+            )
+
     if llm.is_available():
         active_field = current_active_field(state) or ""
         form_plan = llm.plan_form_turn(
@@ -1929,7 +2045,15 @@ def _dispatch_message(
                     planned_found,
                     reply_prefix=form_plan.get("reply"),
                 )
-            if form_plan.get("mode") == "reply" and form_plan.get("reply"):
+            if (
+                form_plan.get("mode") == "reply"
+                and form_plan.get("reply")
+                and not _restaurant_id_needs_search(state)
+            ):
+                # Bedrock doesn't know about restaurant_search — when restaurant_id is
+                # the field waiting to be filled, let it fall through to the normal
+                # extraction/continuation path below instead of trusting its free-form
+                # reply (which would just read out raw restaurant ids from the schema).
                 return _reply(state, form_plan["reply"])
         else:
             _trace_fallback(state, "form_router:no_plan")
@@ -2190,6 +2314,67 @@ def _handle_prohibited_item_reply(actor_id: str, state: dict, text: str, events:
     return _reply(state, "好的，請重新描述包裹內容物，我們可以再確認一次是否能寄送。")
 
 
+def _restaurant_id_needs_search(state: dict) -> bool:
+    return (
+        state.get("service_id") == "restaurant_reservation"
+        and not state.get("pending_restaurant_options")
+        and bool(state.get("missing_fields"))
+        and state["missing_fields"][0] == "restaurant_id"
+    )
+
+
+def _handle_restaurant_search(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    """restaurant_id 規則比對不到店名時的備援：把使用者的話（地址／偏好）丟給
+    restaurant_search.search_restaurants，列出內部特約店家＋Google 搜尋到的店家讓
+    使用者選，而不是像通用欄位流程一樣只丟出寫死的餐廳代碼清單。"""
+    if not latest_user_message.strip():
+        fields = state["service_schema"]["fields"]
+        field = next(item for item in fields if item["id"] == "restaurant_id")
+        return _reply(state, _build_field_question(field))
+
+    result = restaurant_search.search_restaurants(actor_id, latest_user_message, "")
+    options = result.get("restaurants") or []
+    if not options:
+        return _reply(state, "不好意思，沒有找到符合的餐廳，可以換個地址或說法再試一次嗎？")
+
+    state["pending_restaurant_options"] = options
+    return _reply(state, _format_restaurant_options_reply(options), restaurant_cards=options)
+
+
+def _format_restaurant_options_reply(options: list[dict]) -> str:
+    # 詳細店名／地址／理由改交給 restaurant_cards 顯示（見 ChatRestaurantCardList），
+    # 這裡只留一句引導文字，避免跟卡片內容重複列一次。
+    return "這是我幫你找到的餐廳，想訂哪一間？可以直接點卡片，或說編號、店名。"
+
+
+def _match_restaurant_pick(text: str, options: list[dict]) -> dict | None:
+    number = nlu.parse_number(text)
+    if number and 1 <= number <= len(options):
+        return options[number - 1]
+    for restaurant in options:
+        name = restaurant.get("name") or ""
+        if name and name in text:
+            return restaurant
+    return None
+
+
+def _handle_restaurant_search_pending_reply(actor_id: str, state: dict, text: str, events: list[dict] | None) -> dict:
+    options = state.get("pending_restaurant_options") or []
+    picked = _match_restaurant_pick(text, options)
+    if not picked:
+        return _reply(
+            state,
+            f"不好意思，我沒聽懂你想選哪一間。{_format_restaurant_options_reply(options)}",
+            restaurant_cards=options,
+        )
+
+    state["collected_fields"]["restaurant_id"] = picked["id"]
+    state["collected_fields"]["restaurant_name"] = picked["name"]
+    state["pending_restaurant_options"] = None
+    _recompute_missing(state)
+    return _continue_collection(actor_id, state, latest_user_message=text, events=events)
+
+
 def _continue_generic_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
     prefs = _safe_preferences(actor_id)
     fields = state["service_schema"]["fields"]
@@ -2225,6 +2410,13 @@ def _continue_generic_collection(actor_id: str, state: dict, latest_user_message
             )
             state["pending_pref_question"] = question
             return _reply(state, question)
+
+    if (
+        state["missing_fields"]
+        and state["missing_fields"][0] == "restaurant_id"
+        and state.get("service_id") == "restaurant_reservation"
+    ):
+        return _handle_restaurant_search(actor_id, state, latest_user_message)
 
     if state["missing_fields"]:
         state["status"] = "COLLECTING_INFORMATION"
@@ -2492,15 +2684,6 @@ def _format_health_recommendation_reply(result: dict) -> str:
     return "\n".join(lines)
 
 
-def _answer_health_recommendation(state: dict, query: str, auth_token: str | None) -> str:
-    result = tools.call("recommend_products_by_health_need", {"query": query}, auth_token=auth_token)
-    if not result.get("success"):
-        message = result.get("error", {}).get("message", "查詢失敗")
-        return f"抱歉，這次查詢沒有成功，原因是：{message}。你可以稍後再試一次。"
-    state["health_last_recommendations"] = result.get("recommendations") or []
-    return _format_health_recommendation_reply(result)
-
-
 def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str | None]:
     result = tools.call("compare_product_prices", {"query": query}, auth_token=auth_token)
     if not result.get("success"):
@@ -2512,6 +2695,86 @@ def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str 
         lines.append(f"　{offer['store_name']} NT${offer['unit_price']}{tag}")
     lines.append("我幫你打開比價頁面，可以直接選店家下單。")
     return "\n".join(lines), f"/services/shop_purchase?compare={result['group_id']}"
+
+
+def _format_shop_advisor_reply(result: dict) -> str:
+    recommendations = result.get("recommendations") or []
+    if not recommendations:
+        return "很抱歉，目前商城沒有找到符合這個需求的商品，要不要換個方式描述你的需求？"
+    lines = ["這是我幫你比較後找到的推薦："]
+    if result.get("fallback_used"):
+        lines.append("（這次是用關鍵字與評分挑選的，僅供參考）")
+    return "\n".join(lines)
+
+
+def _build_shop_advisor_cards(result: dict) -> list[dict]:
+    cards = []
+    for rec in result.get("recommendations") or []:
+        cards.append(
+            {
+                "id": rec.get("id"),
+                "name": rec.get("name", ""),
+                "store_name": rec.get("store_name", ""),
+                "price": rec.get("skus", [{}])[0].get("unit_price"),
+                "rating_avg": rec.get("rating_avg"),
+                "rating_count": rec.get("rating_count"),
+                "reason": rec.get("reason", ""),
+            }
+        )
+    return cards
+
+
+def _answer_shop_product_advisor(query: str, auth_token: str | None) -> tuple[str, str | None, list[dict]]:
+    result = tools.call("recommend_shop_products_by_need", {"query": query}, auth_token=auth_token)
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "查詢失敗")
+        return f"抱歉，這次查詢沒有成功，原因是：{message}。你可以稍後再試一次。", None, []
+    reply = _format_shop_advisor_reply(result)
+    cards = _build_shop_advisor_cards(result)
+    recommendations = result.get("recommendations") or []
+    category_id = recommendations[0].get("category_id") if recommendations else None
+    redirect_path = f"/services/shop_purchase?category_id={category_id}" if category_id else "/services/shop_purchase"
+    return reply, redirect_path, cards
+
+
+def _answer_health_recommendation(state: dict, query: str, auth_token: str | None) -> str:
+    result = tools.call("recommend_products_by_health_need", {"query": query}, auth_token=auth_token)
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "查詢失敗")
+        return f"抱歉，這次查詢沒有成功，原因是：{message}。你可以稍後再試一次。"
+    state["health_last_recommendations"] = result.get("recommendations") or []
+    return _format_health_recommendation_reply(result)
+
+
+def _answer_clinic_recommendation(symptom_text: str, auth_token: str | None) -> tuple[str, dict | None]:
+    """回傳 (聊天室文字回覆, 卡片資料)。
+
+    卡片資料是 None 時代表這個地區查無診所，前端這時改用文字回覆裡的說明，
+    並讓使用者到手動掛號頁換地區重查（呼叫端會補上 redirect_path）。
+    """
+    city, district = nlu.parse_city_district(symptom_text) or (CLINIC_DEFAULT_CITY, CLINIC_DEFAULT_DISTRICT)
+    triage = llm.triage_symptom(symptom_text)
+    candidates = clinic_catalog.list_clinics(city, district, triage["specialty"])
+    if not candidates:
+        return (
+            f"{triage['advisory']}\n目前在{city}{district}沒有找到符合的診所，"
+            "我幫你打開診所掛號頁面，你可以在那邊換個地區查詢。",
+            None,
+        )
+
+    recommendation = llm.recommend_clinic(symptom_text, candidates)
+    reply = f"{triage['advisory']}\n幫你找了附近的診所，可以直接選一間繼續掛號："
+    clinic_recommendation = {
+        "specialty": triage["specialty"],
+        "advisory": triage["advisory"],
+        "city": city,
+        "district": district,
+        "symptom_note": symptom_text,
+        "clinics": candidates,
+        "recommended_clinic_id": recommendation["id"] if recommendation else None,
+        "recommend_reason": recommendation["reason"] if recommendation else None,
+    }
+    return reply, clinic_recommendation
 
 
 def _format_health_nutrition_reply(product: dict) -> str:
@@ -2594,14 +2857,20 @@ def _reply(
     redirect_path: str | None = None,
     redirect_requires_confirmation: bool = False,
     task_cards: list[dict] | None = None,
+    restaurant_cards: list[dict] | None = None,
     share_text: str | None = None,
+    clinic_recommendation: dict | None = None,
+    product_recommendations: list[dict] | None = None,
 ) -> dict:
     return {
         "reply": reply,
         "state": state,
         "redirect_path": redirect_path,
         "redirect_requires_confirmation": redirect_requires_confirmation,
+        "clinic_recommendation": clinic_recommendation,
+        "product_recommendations": product_recommendations,
         "debug_trace": state.get("debug_trace", {}),
         "task_cards": task_cards,
+        "restaurant_cards": restaurant_cards,
         "share_text": share_text,
     }

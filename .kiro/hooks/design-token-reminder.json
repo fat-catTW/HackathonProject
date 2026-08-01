@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Design Token 提醒",
+      "trigger": "PostFileSave",
+      "matcher": "frontend/src/.*\\.(css|tsx|ts)$",
+      "action": {
+        "type": "agent",
+        "prompt": "檢查剛儲存的檔案是否引用了硬編碼的色碼（hex 或固定 Tailwind 色階，如 bg-gray-100、text-red-600），若有，提醒改用 frontend/src/index.css 中定義的語意化 CSS 變數（--color-*），並確認 Light/Dark 兩個模式皆有對應數值。"
+      }
+    }
+  ]
+}

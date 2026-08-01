@@ -459,8 +459,8 @@ git commit -m "feat: add Bedrock query-planning and result-ranking helpers"
 
 - [ ] **Step 1: Confirm the current failure**
 
-Run: `cd backend && python -m pytest tests/test_shop_price_compare.py -v`
-Expected: `test_agent_detects_price_compare_and_replies_with_redirect`, `test_agent_detects_natural_compare_phrasing_with_product_name_in_the_middle`, and `test_agent_price_compare_not_found_has_no_redirect` FAIL with `NameError: name '_answer_price_compare' is not defined`.
+Run: `cd backend && python -m pytest tests/test_shop_price_compare.py tests/test_agent_quick_purchase_submit.py tests/test_customer_support_requests.py -v`
+Expected: 6 FAIL, all with `NameError: name '_answer_price_compare' is not defined` (verified against this worktree's actual baseline, which has more callers hitting this code path than the design assumed): `test_agent_detects_price_compare_and_replies_with_redirect`, `test_agent_detects_natural_compare_phrasing_with_product_name_in_the_middle`, `test_agent_price_compare_not_found_has_no_redirect` (in `test_shop_price_compare.py`), `test_quick_purchase_chat_flow_creates_order_end_to_end` (in `test_agent_quick_purchase_submit.py`), and `test_keyword_detection_survives_services_without_keywords` (in `test_customer_support_requests.py`).
 
 - [ ] **Step 2: Implement the missing function**
 
@@ -487,8 +487,8 @@ def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str 
 
 - [ ] **Step 3: Run tests to verify they pass**
 
-Run: `cd backend && python -m pytest tests/test_shop_price_compare.py -v`
-Expected: 10 passed
+Run: `cd backend && python -m pytest tests/test_shop_price_compare.py tests/test_agent_quick_purchase_submit.py tests/test_customer_support_requests.py -v`
+Expected: all passed (10 in `test_shop_price_compare.py` plus the 2 other previously-failing tests)
 
 - [ ] **Step 4: Commit**
 
@@ -1243,7 +1243,7 @@ git commit -m "feat: reservation accepts Google-sourced restaurants as pending c
 - [ ] **Step 1: Run the entire backend test suite**
 
 Run: `cd backend && python -m pytest -q`
-Expected: 0 failures. Compare the pass count against `test_results.txt`'s prior run — it should be the same or higher (the 3 previously-FAILED `shop_price_compare` tests now pass; no other test should have flipped to failing).
+Expected: 0 failures, 308 passed (this worktree's verified baseline was 6 failed / 302 passed before Task 3; Task 3 fixes all 6, and Tasks 1-2/4-7 add new passing tests on top — total count will be higher than 308 once those are included, but there must be 0 failures).
 
 - [ ] **Step 2: Grep for any leftover Gemini references**
 

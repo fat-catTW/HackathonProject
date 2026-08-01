@@ -47,7 +47,7 @@
         },
         "fallback_used": {
           "type": "boolean",
-          "description": "True when the rule-based keyword fallback was used instead of Gemini."
+          "description": "True when the rule-based keyword fallback was used."
         }
       },
       "required": ["success"]

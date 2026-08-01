@@ -393,15 +393,20 @@ def recommend_shop_products(query: str, products: list[dict]) -> list[dict] | No
     payload = _converse_json(_SHOP_RECOMMEND_SYSTEM, prompt, max_tokens=1536)
     if not payload or not isinstance(payload.get("recommendations"), list):
         return None
+    raw_recommendations = payload["recommendations"]
     by_id = {p["id"]: p for p in products}
     items = []
-    for rec in payload["recommendations"]:
+    for rec in raw_recommendations:
         product = by_id.get(rec.get("product_id"))
         if not product:
             continue
         items.append({**product, "reason": rec.get("reason", "")})
-    # An empty list here means Bedrock genuinely looked at the catalog and found
-    # nothing confident to recommend — that's a real answer, not an unavailable
-    # LLM, so it must NOT be treated the same as `None` (which means "fall back
-    # to keyword matching"). Only a missing/unparseable payload above returns None.
+    # A genuinely empty {"recommendations": []} means Bedrock looked at the catalog
+    # and found nothing confident to recommend — that's a real answer, not an
+    # unavailable LLM, so it must NOT collapse to `None` ("fall back to keyword
+    # matching"). But if Bedrock DID return items and every single product_id
+    # failed to resolve against the catalog, that's a bad/hallucinated response,
+    # not a confident empty answer — treat that like any other unusable payload.
+    if not items and raw_recommendations:
+        return None
     return items

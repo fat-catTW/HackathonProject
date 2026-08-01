@@ -374,7 +374,7 @@ SERVICES: list[dict] = [
         "id": "shop_purchase",
         "name": "商城購物",
         "description": "多店家商城購物，可用點數折抵",
-        "service_vendor_id": None,
+        "service_vendor_id": 40,
         "cms_type": None,
         "enabled": True,
         "keywords": ["商城", "購物", "買東西", "逛街", "點數", "兌換", "shop", "mall"],

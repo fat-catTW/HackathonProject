@@ -1,14 +1,17 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { createServiceRequest } from "../api/services";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { ButlerLauncher } from "../components/ButlerLauncher";
+import { resetButlerConversation } from "../hooks/useButlerConversation";
 import { Toast } from "../components/Toast";
 import { getServiceDefinition } from "../data/services";
 import { counties, getDistrictsByCountyName } from "../data/twRegions";
+import { useFormAgent } from "../hooks/useFormAgent";
 import type { ServiceField } from "../types/service";
 import { fieldLabel, fieldValueLabel } from "../utils/fieldLabels";
+import { splitTwAddress } from "../utils/twAddress";
 
 type FormValues = Record<string, string>;
 const ADDRESS_COUNTY_SUFFIX = "__county";
@@ -171,10 +174,26 @@ function buildStructuredAddress(county: string, district: string, detail: string
   return `${trimmedCounty}${trimmedDistrict}${trimmedDetail}`;
 }
 
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** AI 代填時要寫進 select 的值：後端給的是 option value，但也容錯中文顯示字（例如「直立式」）。 */
+function resolveSelectValue(field: ServiceField, value: string) {
+  const options = field.options ?? [];
+  if (options.includes(value)) return value;
+  return options.find((option) => fieldValueLabel(option) === value) ?? null;
+}
+
 export function ServiceFormPage() {
   const { serviceId = "" } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const {
+    state: agentState,
+    register: registerFormAgent,
+    cancel: cancelFormAgent,
+  } = useFormAgent();
   const schema = useMemo(() => getServiceDefinition(serviceId), [serviceId]);
   const supportPrefill = (location.state as { supportPrefill?: Record<string, string> } | null)
     ?.supportPrefill;
@@ -183,6 +202,11 @@ export function ServiceFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toastText, setToastText] = useState<string | null>(null);
   const [createdRequestId, setCreatedRequestId] = useState<string | null>(null);
+  // AI 管家代填時要捲到哪一格；以及送給 Agent 的表單快照（避免 callback 讀到過期的 values）。
+  const fieldNodesRef = useRef<Record<string, HTMLElement | null>>({});
+  const valuesRef = useRef<FormValues>({});
+  const agentWasRunningRef = useRef(false);
+  valuesRef.current = values;
 
   useEffect(() => {
     setValues(buildInitialValues(schema?.fields ?? [], supportPrefill));
@@ -389,6 +413,97 @@ export function ServiceFormPage() {
     });
   }
 
+  /**
+   * AI 管家代填單一欄位。
+   *
+   * 不走 updateValue：地址在畫面上是「縣市／鄉鎮市區／詳細地址」三個控制項，但 Agent 給的是
+   * 一整串地址，要先拆開；下拉選單則只接受真的存在的選項，避免把表單寫成不合法的狀態。
+   */
+  const applyAgentValue = useCallback(
+    (fieldId: string, rawValue: string) => {
+      const field = (schema?.fields ?? []).find((item) => item.id === fieldId);
+      if (!field) return false;
+      // 目前被 visibleWhen 藏起來的欄位不代填：畫面上沒有這一格，填了也只會被清掉。
+      if (!isFieldVisible(field, valuesRef.current)) return false;
+
+      if (field.type === "address") {
+        const parts = splitTwAddress(rawValue);
+        // 拆不出縣市／鄉鎮市區時只填詳細地址，剩下的請使用者自己選（不亂猜行政區）。
+        setValues((prev) => ({
+          ...prev,
+          [addressCountyKey(fieldId)]: parts.county,
+          [addressDistrictKey(fieldId)]: parts.district,
+          [addressDetailKey(fieldId)]: parts.detail,
+          [fieldId]: buildStructuredAddress(parts.county, parts.district, parts.detail),
+        }));
+        if (rawValue && (!parts.county || !parts.district)) return false;
+      } else if (field.type === "select" || field.type === "time") {
+        const options = field.type === "time" ? buildTimeOptions(field) : null;
+        const value = !rawValue
+          ? ""
+          : options
+            ? (options.includes(rawValue) ? rawValue : null)
+            : resolveSelectValue(field, rawValue);
+        // 對不上任何選項就不填，寧可讓使用者自己選，也不要塞一個選單裡沒有的值。
+        if (value === null) return false;
+        setValues((prev) => ({ ...prev, [fieldId]: value }));
+      } else {
+        setValues((prev) => ({ ...prev, [fieldId]: rawValue }));
+      }
+
+      setErrors((prev) => {
+        if (!prev[fieldId]) return prev;
+        const next = { ...prev };
+        delete next[fieldId];
+        return next;
+      });
+      return true;
+    },
+    [schema],
+  );
+
+  // 把這張表單交給 AI 管家操作。register 是穩定的 callback，所以這個 effect 只會在
+  // 換表單時重跑。
+  useEffect(() => {
+    if (!schema) return;
+    const fieldIds = new Set(schema.fields.map((field) => field.id));
+    return registerFormAgent({
+      serviceId: schema.service_id,
+      hasField: (fieldId) => fieldIds.has(fieldId),
+      focusField: (fieldId) => {
+        // 測試環境（happy-dom）沒有 scrollIntoView，用 optional call 保護；
+        // 使用者若設定「減少動態效果」就不要平滑捲動（Requirement 15.5）。
+        fieldNodesRef.current[fieldId]?.scrollIntoView?.({
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+          block: "center",
+        });
+      },
+      fillField: applyAgentValue,
+      getValues: () => valuesRef.current,
+    });
+  }, [schema, registerFormAgent, applyAgentValue]);
+
+  // 代填結束後回報結果（running 由 true 變 false 時才觸發）。填不進去的欄位要講清楚，
+  // 不能只報「填好幾格」讓使用者以為表單完成了。
+  useEffect(() => {
+    if (agentState.running) {
+      agentWasRunningRef.current = true;
+      return;
+    }
+    if (!agentWasRunningRef.current) return;
+    agentWasRunningRef.current = false;
+
+    const filled = agentState.filledFieldIds.length;
+    const skipped = agentState.skippedLabels;
+    if (skipped.length > 0) {
+      setToastText(
+        `AI 管家幫你填好 ${filled} 格，${skipped.join("、")}需要你自己選一下`,
+      );
+    } else if (filled > 0) {
+      setToastText(`AI 管家幫你填好 ${filled} 格，確認後就能送出`);
+    }
+  }, [agentState.running, agentState.filledFieldIds, agentState.skippedLabels]);
+
   async function handleFileChange(fieldId: string, file: File | null) {
     if (!file) {
       updateValue(fieldId, "");
@@ -456,6 +571,9 @@ export function ServiceFormPage() {
     setSubmitting(true);
     try {
       const result = await createServiceRequest(schema.service_id, payload);
+      // 案件已經從表單送出了，聊天那邊不能還停在「等你確認送出」——否則使用者回頭
+      // 跟管家說一聲「好」就會再開一張重複的單。
+      resetButlerConversation();
       setCreatedRequestId(result.request_id);
     } catch (error) {
       if (error instanceof ApiError) {
@@ -484,25 +602,58 @@ export function ServiceFormPage() {
     const districtValue = values[addressDistrictKey(field.id)] ?? "";
     const detailValue = values[addressDetailKey(field.id)] ?? "";
     const districtOptions = field.type === "address" ? getDistrictsByCountyName(countyValue) : [];
+    // 代填中的那一格高亮，已填完的留下標記；兩者都不只靠顏色區分（Requirement 16.5）。
+    const agentActive = agentState.activeFieldId === field.id;
+    const agentFilled = agentState.filledFieldIds.includes(field.id);
+    const agentNote = agentState.notes[field.id];
 
     return (
       <label
         key={field.id}
-        className="block rounded-[24px] border border-[var(--color-border)] bg-[var(--color-canvas)] p-4"
+        ref={(node) => {
+          fieldNodesRef.current[field.id] = node;
+        }}
+        data-agent-state={agentActive ? "filling" : agentFilled ? "filled" : undefined}
+        // 代填中的那一格只換邊框色，不加發光陰影（DESIGN.md §5 Inputs/Fields 平面風格）；
+        // 「AI 填寫中」徽章負責用文字＋圖示傳達狀態，不單靠顏色（Requirement 16.5）。
+        className={`block rounded-[24px] border-2 bg-[var(--color-canvas)] p-4 transition-colors ${
+          agentActive
+            ? "border-brand"
+            : agentFilled
+              ? "border-[var(--color-success)]"
+              : "border-[var(--color-border)]"
+        }`}
       >
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--color-surface)] text-brand shadow-sm">
             <ServiceIcon type={field.inputIcon ?? "info"} size={20} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-base font-black text-[var(--color-foreground)]">{field.label}</span>
               {field.required && (
                 <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-bold text-brand">
                   必填
                 </span>
               )}
+              {agentActive ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-[var(--color-on-primary)]">
+                  <ServiceIcon type="chat" size={12} />
+                  AI 填寫中
+                </span>
+              ) : (
+                agentFilled && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-xs font-bold text-[var(--color-foreground)]">
+                    <ServiceIcon type="check" size={12} className="text-[var(--color-success)]" />
+                    AI 已填
+                  </span>
+                )
+              )}
             </div>
+            {agentFilled && agentNote && (
+              // 資料來源要看得見：沿用上次資料時使用者才知道這格是怎麼來的。
+              <p className="mt-1 text-sm font-semibold text-brand">{agentNote}</p>
+            )}
             {field.hint && <p className="mt-1 text-sm leading-6 text-[var(--color-muted-foreground)]">{field.hint}</p>}
 
             <div className="mt-3">
@@ -676,6 +827,32 @@ export function ServiceFormPage() {
 
   return (
     <>
+      {agentState.running && (
+        // 代填期間 AI 管家面板會關起來，用這條浮動狀態列讓使用者知道畫面正在被代操，
+        // 並且隨時可以喊停（Requirement 16.5：不只用顏色，也給文字與按鈕）。
+        <div
+          role="status"
+          className="fixed inset-x-0 top-0 z-[60] mx-auto flex max-w-md items-center gap-3 rounded-b-[28px] bg-brand px-5 py-3 text-[var(--color-on-primary)] shadow-[0_16px_40px_-12px_var(--color-primary)]"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-glass)]">
+            <ServiceIcon type="chat" size={18} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-black">
+              AI 管家代填中 {agentState.filledFieldIds.length}/{agentState.total}
+            </p>
+            <p className="text-sm leading-6">逐格幫你把資料填進表單，填完再請你確認</p>
+          </div>
+          <button
+            type="button"
+            onClick={cancelFormAgent}
+            className="inline-flex min-h-[44px] shrink-0 items-center rounded-full bg-[var(--color-surface)] px-5 text-base font-bold text-brand"
+          >
+            停止
+          </button>
+        </div>
+      )}
+
       <main className="mx-auto min-h-dvh max-w-md bg-[linear-gradient(180deg,var(--color-primary-soft)_0%,var(--color-canvas)_100%)] px-5 pb-32 pt-6">
         <header className="flex items-center gap-3">
           <button
@@ -916,7 +1093,8 @@ export function ServiceFormPage() {
           <div className="mb-3">
             <p className="text-sm font-semibold text-brand">送出前提醒</p>
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-              缺漏欄位會在送出時提示，你也可以改用 AI 管家協助整理需求。
+              缺漏欄位會在送出時提示。不想一格一格填的話，打開 AI 管家跟它說「幫我填」，
+              它會直接幫你把這張表單填好。
             </p>
           </div>
           <div className="flex flex-col gap-3">
@@ -958,7 +1136,10 @@ export function ServiceFormPage() {
       )}
 
       <Toast text={toastText} onHide={() => setToastText(null)} />
-      {schema.service_id !== "customer_support" && <ButlerLauncher currentPageId="service_form" />}
+      {/* 帶上這張表單自己的頁面代碼，管家才知道使用者正站在哪一張表單前面。 */}
+      {schema.service_id !== "customer_support" && (
+        <ButlerLauncher currentPageId={`service_form_${schema.service_id}`} />
+      )}
     </>
   );
 }

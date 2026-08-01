@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createSession, sendMessage } from "../api/chat";
+import { sendMessage } from "../api/chat";
+import { ApiError } from "../api/client";
 import type { ChatEvent } from "../types/request";
-import { buildFieldRows, type CollectedFieldValue } from "../utils/fieldLabels";
+import { buildFieldRows } from "../utils/fieldLabels";
 import { BottomNav } from "./BottomNav";
 import { ChatMessage } from "./ChatMessage";
 import { FieldPanel } from "./FieldPanel";
@@ -11,6 +12,14 @@ import { Mascot } from "./Mascot";
 import { ServiceIcon } from "./ServiceIcon";
 import { Toast } from "./Toast";
 import { VoiceButton } from "./VoiceButton";
+import { useFormAgent } from "../hooks/useFormAgent";
+import {
+  appendButlerEvent,
+  ensureButlerSession,
+  resetButlerConversation,
+  saveButlerTurn,
+  useButlerConversation,
+} from "../hooks/useButlerConversation";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 
 interface ButlerPanelProps {
@@ -27,28 +36,32 @@ export function ButlerPanel({
   currentPageId,
 }: ButlerPanelProps) {
   const navigate = useNavigate();
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [events, setEvents] = useState<ChatEvent[]>([
-    {
-      role: "ASSISTANT",
-      content: "您好，我是 AI 管家。請直接告訴我您想申請什麼服務，例如冷氣清洗、居家清潔或水電修繕。",
-    },
-  ]);
+  const formAgent = useFormAgent();
+  const { sessionId, events, serviceName, collected, missing, status } = useButlerConversation();
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [serviceName, setServiceName] = useState<string | null>(null);
-  const [collected, setCollected] = useState<Record<string, CollectedFieldValue>>({});
-  const [missing, setMissing] = useState<string[]>([]);
-  const [status, setStatus] = useState<string>("COLLECTING_INFORMATION");
   const [toastText, setToastText] = useState<string | null>(null);
   const autoSentRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    createSession()
-      .then((r) => setSessionId(r.session_id))
-      .catch(() => navigate("/login"));
+    // 換人登入時 ensureButlerSession 會把整段對話重來，畫面靠 store 訂閱自動跟上。
+    ensureButlerSession().catch(() => navigate("/login"));
   }, [navigate]);
+
+  // 面板關掉（或換頁）之後不該再自己導頁——這些延遲只是為了讓使用者看完 Toast。
+  useEffect(
+    () => () => {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+    },
+    [],
+  );
+
+  function later(run: () => void, delayMs: number) {
+    timersRef.current.push(setTimeout(run, delayMs));
+  }
 
   useEffect(() => {
     // block/inline: "nearest" 限制只捲動訊息串自己的 overflow-y-auto 容器，不加這兩個
@@ -64,44 +77,69 @@ export function ButlerPanel({
 
     setInput("");
     setSending(true);
-    setEvents((prev) => [...prev, { role: "USER", content: message }]);
+    appendButlerEvent({ role: "USER", content: message });
 
     try {
-      const r = await sendMessage(sessionId, message, currentPageId);
+      const r = await sendMessage(sessionId, message, currentPageId, formAgent.getFormContext());
       const showsRedirectButton = Boolean(r.redirect_path) && r.redirect_requires_confirmation;
-      setEvents((prev) => [
-        ...prev,
-        {
-          role: "ASSISTANT",
-          content: r.reply,
-          redirectPath: showsRedirectButton ? r.redirect_path! : undefined,
-          taskCards: r.task_cards ?? undefined,
-          shareText: r.share_text ?? undefined,
-        },
-      ]);
-      setServiceName(r.service_name);
-      setCollected(r.collected_fields);
-      setMissing(r.missing_fields);
-      setStatus(r.status);
+      appendButlerEvent({
+        role: "ASSISTANT",
+        content: r.reply,
+        redirectPath: showsRedirectButton ? r.redirect_path! : undefined,
+        taskCards: r.task_cards ?? undefined,
+        shareText: r.share_text ?? undefined,
+      });
+      saveButlerTurn({
+        sessionId: r.session_id,
+        serviceName: r.service_name,
+        collected: r.collected_fields,
+        missing: r.missing_fields,
+        status: r.status,
+      });
 
       if (r.request_id) {
+        // 立刻重置，不要放在延遲裡：使用者在 Toast 跑完前自己關掉面板的話，
+        // 這段對話就會永遠停在「已送出案件」的狀態，之後說「幫我填」只會得到頁面說明。
+        resetButlerConversation();
         setToastText("服務案件已建立，正在帶你前往明細頁。");
-        setTimeout(() => {
+        later(() => {
           onClose?.();
           navigate(`/requests/${r.request_id}`);
         }, 900);
+      } else if (r.form_actions?.length) {
+        // 代操表單：先把面板收起來（不然整張表單被蓋住），必要時導到表單頁，
+        // 再交給 FormAgentProvider 逐格高亮填入。
+        const actions = r.form_actions;
+        const targetServiceId = r.service_id;
+        const redirectPath = r.redirect_path;
+        setToastText("AI 管家開始幫你填表單。");
+        later(() => {
+          onClose?.();
+          if (redirectPath) navigate(redirectPath);
+          void formAgent.run(actions, targetServiceId);
+        }, 700);
       } else if (r.redirect_path && !r.redirect_requires_confirmation) {
         setToastText("正在帶你前往專屬頁面。");
-        setTimeout(() => {
+        later(() => {
           onClose?.();
           navigate(r.redirect_path!);
         }, 900);
       }
-    } catch {
-      setEvents((prev) => [
-        ...prev,
-        { role: "ASSISTANT", content: "剛剛連線有點問題，請再描述一次需求，我會繼續幫你整理。" },
-      ]);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "SESSION_NOT_FOUND") {
+        // 後端重啟或 session 過期：換一段新對話，不要卡在一個永遠 404 的 session id。
+        resetButlerConversation();
+        void ensureButlerSession().catch(() => navigate("/login"));
+        appendButlerEvent({
+          role: "ASSISTANT",
+          content: "剛剛的對話連線過期了，我已經重新開始一段對話，請再說一次你的需求。",
+        });
+      } else {
+        appendButlerEvent({
+          role: "ASSISTANT",
+          content: "剛剛連線有點問題，請再描述一次需求，我會繼續幫你整理。",
+        });
+      }
     } finally {
       setSending(false);
     }
@@ -206,10 +244,7 @@ export function ButlerPanel({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setStatus("COLLECTING_INFORMATION");
-                setMissing(["_edit"]);
-              }}
+              onClick={() => saveButlerTurn({ status: "COLLECTING_INFORMATION", missing: ["_edit"] })}
               className="w-full rounded-2xl border-2 border-[var(--color-border)] py-4.5 text-base font-bold text-[var(--color-muted-foreground)]"
             >
               返回修改

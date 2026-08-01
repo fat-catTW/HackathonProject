@@ -11,7 +11,6 @@ import {
   getShopPoints,
   listShopCategories,
   listShopProducts,
-  simulateShopOrderProgress,
   submitShopOrder,
 } from "../api/shop";
 import type { ShopCartLine, ShopCategory, ShopOrder, ShopProduct, ShopSubmitResult } from "../types/shop";
@@ -223,17 +222,6 @@ export function ShopFlowPage() {
       setToastText("訂單已取消");
     } catch {
       setToastText("取消失敗");
-    }
-  }
-
-  async function handleSimulateAdvance() {
-    if (!result) return;
-    try {
-      await simulateShopOrderProgress(result.request_id);
-      const fullOrder = await getShopOrder(result.request_id);
-      setOrder(fullOrder);
-    } catch {
-      setToastText("模擬推進失敗");
     }
   }
 
@@ -678,13 +666,6 @@ export function ShopFlowPage() {
                       className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand"
                     >
                       取消訂單
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSimulateAdvance}
-                      className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)]"
-                    >
-                      Demo：推進下一個狀態
                     </button>
                   </div>
                 )}

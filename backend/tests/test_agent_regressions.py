@@ -561,3 +561,75 @@ def test_handle_message_keeps_pending_preference_when_reply_is_unclear(monkeypat
 
     assert result["reply"] == "我這邊有你上次使用的聯絡電話：0912345678。這次要沿用嗎？"
     assert result["state"]["pending_pref_field"] == "phone"
+
+
+def _plumbing_state(collected: dict | None = None) -> dict:
+    schema = catalog.get_service_schema("plumbing_repair")
+    return {
+        "service_id": "plumbing_repair",
+        "service_name": "水電修繕",
+        "service_schema": {"fields": schema["fields"]},
+        "collected_fields": collected or {},
+        "missing_fields": ["issue_description"],
+        "status": "COLLECTING_INFORMATION",
+        "request_id": None,
+        "debug_trace": {},
+    }
+
+
+def test_field_extraction_only_sees_reusable_preferences(monkeypatch):
+    """抽欄位時不能看到上一張單的內容，否則模型會照抄成使用者沒說過的話。"""
+    monkeypatch.setattr(
+        agent_module,
+        "_safe_memory_snapshot",
+        lambda actor_id: {
+            "preferences": {"last_address": "台北市信義區松高路1號", "last_phone": "0912345678"},
+            "long_term_memory": {
+                "last_service_name": "水電修繕",
+                "last_request_summary": "服務：水電修繕；問題描述：廚房水管漏水；聯絡電話：0912345678",
+            },
+        },
+    )
+
+    seen: dict = {}
+
+    def spy(**kwargs):
+        seen.update(kwargs)
+        return {}
+
+    monkeypatch.setattr(agent_module.llm, "extract_fields", spy)
+    _extract_fields("user-1", _plumbing_state(), "幫我填水電修繕", events=[])
+
+    long_term = seen["long_term_memory"]
+    assert "常用地址: 台北市信義區松高路1號" in long_term
+    assert "問題描述" not in long_term
+    assert "上次摘要" not in long_term
+
+
+def test_llm_cannot_fill_a_description_the_user_never_said(monkeypatch):
+    """模型即使自己生出問題描述（多半抄自記憶），也不寫進表單。"""
+    monkeypatch.setattr(
+        agent_module.llm,
+        "extract_fields",
+        lambda **kwargs: {"issue_description": "廚房水槽下方水管漏水"},
+    )
+
+    state = _plumbing_state({"repair_item": "水管"})
+    found = _extract_fields("user-1", state, "幫我填", events=[])
+
+    assert "issue_description" not in found
+    assert "ungrounded_free_text:issue_description" in state["debug_trace"]["fallbacks"]
+
+
+def test_llm_may_still_quote_the_description_from_this_message(monkeypatch):
+    """使用者這次講了，模型摘出其中一段仍然照填。"""
+    monkeypatch.setattr(
+        agent_module.llm,
+        "extract_fields",
+        lambda **kwargs: {"issue_description": "廚房水管漏水"},
+    )
+
+    state = _plumbing_state({"repair_item": "水管"})
+    found = _extract_fields("user-1", state, "幫我填，廚房水管漏水，地板都濕了", events=[])
+
+    assert found["issue_description"] == "廚房水管漏水"

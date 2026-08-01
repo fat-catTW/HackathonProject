@@ -52,3 +52,33 @@ def test_create_delivery_order_amounts_are_not_floats_with_explicit_shipping_fee
     order = delivery.get_delivery_order("user-1", result["request_id"])
     assert not isinstance(order["shipping_fee_amount"], float)
     assert not isinstance(order["total_amount"], float)
+
+
+def test_apply_vendor_status_returns_updated_order_without_saving():
+    order = {
+        "request_id": "REQ-1",
+        "status": "PENDING",
+        "order_status": "01",
+        "vendor_data": {"delivery": None, "order_status": None},
+        "status_history": [{"status": "01", "at": "2026-08-01T00:00:00+08:00"}],
+    }
+    updated = delivery.apply_vendor_status(order, 1)
+    assert updated is not None
+    assert updated["order_status"] == "02"
+    assert updated["status"] == "IN_PROGRESS"
+    assert updated["status_history"][-1]["status"] == "02"
+    # 原始 dict 不能被動到，呼叫端才能安全地拿它跟 STORE 裡的版本比較
+    assert order["order_status"] == "01"
+    assert order["status_history"] == [{"status": "01", "at": "2026-08-01T00:00:00+08:00"}]
+
+
+def test_apply_vendor_status_marks_completed_on_delivered():
+    order = {"request_id": "REQ-1", "status": "PENDING", "order_status": "05", "vendor_data": {}}
+    updated = delivery.apply_vendor_status(order, 5)
+    assert updated["order_status"] == "70"
+    assert updated["status"] == "COMPLETED"
+
+
+def test_apply_vendor_status_rejects_unknown_code():
+    order = {"request_id": "REQ-1", "status": "PENDING", "order_status": "01", "vendor_data": {}}
+    assert delivery.apply_vendor_status(order, 99) is None

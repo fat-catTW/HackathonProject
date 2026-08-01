@@ -1,7 +1,9 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { actOnVendorRequest, getVendorRequest, revealVendorContact } from "../api/vendor";
+import { getVendorApiForKind } from "../api/vendorRouting";
+import { vendorKindOf } from "../types/vendor";
+import { useVendorAuth } from "../hooks/useVendorAuth";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { StatusBadge } from "../components/StatusBadge";
@@ -10,12 +12,33 @@ import type { VendorAction, VendorRequestDetail } from "../types/vendor";
 const ACTION_LABELS: Record<VendorAction, string> = {
   accept: "接單",
   reject: "婉拒",
+  start: "開始服務",
+  complete: "完成服務",
+  verify: "核銷",
+  prepare: "開始備餐",
+  pickup: "外送員已取餐",
+  dispatch: "開始配送",
+  deliver: "送達",
+  confirm: "確認訂單",
+  ship: "出貨",
 };
 
 const DONE_MESSAGES: Record<VendorAction, string> = {
   accept: "已接下這張單，狀態更新為「已確認」。",
   reject: "已婉拒這張單。",
+  start: "已標記開始服務。",
+  complete: "已標記完成服務。",
+  verify: "已完成核銷。",
+  prepare: "已標記開始備餐。",
+  pickup: "已標記外送員取餐。",
+  dispatch: "已標記開始配送。",
+  deliver: "已標記送達。",
+  confirm: "已確認訂單。",
+  ship: "已標記出貨。",
 };
+
+// 拒絕／婉拒類動作破壞性較高，按下前要跳確認彈窗；其餘動作直接執行。
+const DESTRUCTIVE_ACTIONS: VendorAction[] = ["reject"];
 
 // 案件現況也會隨 409 一起回來，直接拿來更新畫面就不必再打一次 API。
 function conflictDetail(error: ApiError): VendorRequestDetail | null {
@@ -36,6 +59,8 @@ function formatTime(value: string) {
 export function VendorRequestDetailPage() {
   const { requestId = "" } = useParams();
   const navigate = useNavigate();
+  const { vendorId } = useVendorAuth();
+  const vendorApiSet = getVendorApiForKind(vendorKindOf(vendorId));
   const [detail, setDetail] = useState<VendorRequestDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -53,7 +78,8 @@ export function VendorRequestDetailPage() {
 
   useEffect(() => {
     setLoading(true);
-    getVendorRequest(requestId)
+    vendorApiSet
+      .get(requestId)
       .then(setDetail)
       .catch((e) => {
         if (e instanceof ApiError && e.code === "UNAUTHORIZED") {
@@ -63,13 +89,14 @@ export function VendorRequestDetailPage() {
         setError(e instanceof ApiError ? e.message : "載入失敗，請稍後再試");
       })
       .finally(() => setLoading(false));
-  }, [navigate, requestId]);
+  }, [navigate, requestId, vendorApiSet]);
 
   const revealContact = () => {
     if (revealing) return;
     setRevealing(true);
     setContactError("");
-    revealVendorContact(requestId)
+    vendorApiSet
+      .reveal(requestId)
       .then((result) => {
         setContact(Object.fromEntries(result.contact.map((c) => [c.id, c.value])));
         // 這次檢視也會出現在紀錄裡，直接換上後端回傳的完整清單。
@@ -91,7 +118,8 @@ export function VendorRequestDetailPage() {
     if (!detail || acting) return;
     setActing(action);
     setNotice(null);
-    actOnVendorRequest(requestId, action, detail.version)
+    vendorApiSet
+      .act(requestId, action, detail.version)
       .then((result) => {
         setDetail(result);
         setNotice({ tone: "ok", text: DONE_MESSAGES[action] });
@@ -275,25 +303,28 @@ export function VendorRequestDetailPage() {
 
           {detail.available_actions.length > 0 ? (
             <section className="mt-5 flex flex-col gap-3 sm:flex-row">
-              {detail.available_actions.includes("accept") && (
-                <button
-                  type="button"
-                  onClick={() => runAction("accept")}
-                  disabled={acting !== null}
-                  className="flex-1 rounded-2xl bg-brand px-6 py-4 text-lg font-black text-white shadow-sm transition hover:brightness-105 disabled:opacity-50"
-                >
-                  {acting === "accept" ? "處理中…" : "接下這張單"}
-                </button>
-              )}
-              {detail.available_actions.includes("reject") && (
-                <button
-                  type="button"
-                  onClick={() => setConfirmingReject(true)}
-                  disabled={acting !== null}
-                  className="flex-1 rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-4 text-lg font-bold text-[var(--color-muted-foreground)] transition hover:border-danger hover:text-danger disabled:opacity-50"
-                >
-                  {acting === "reject" ? "處理中…" : "婉拒這張單"}
-                </button>
+              {detail.available_actions.map((action) =>
+                DESTRUCTIVE_ACTIONS.includes(action) ? (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => setConfirmingReject(true)}
+                    disabled={acting !== null}
+                    className="flex-1 rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-4 text-lg font-bold text-[var(--color-muted-foreground)] transition hover:border-danger hover:text-danger disabled:opacity-50"
+                  >
+                    {acting === action ? "處理中…" : ACTION_LABELS[action]}
+                  </button>
+                ) : (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => runAction(action)}
+                    disabled={acting !== null}
+                    className="flex-1 rounded-2xl bg-brand px-6 py-4 text-lg font-black text-white shadow-sm transition hover:brightness-105 disabled:opacity-50"
+                  >
+                    {acting === action ? "處理中…" : ACTION_LABELS[action]}
+                  </button>
+                ),
               )}
             </section>
           ) : (

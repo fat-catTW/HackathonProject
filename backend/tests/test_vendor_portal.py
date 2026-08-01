@@ -1,15 +1,19 @@
 """廠商後台：資料隔離、清單可見性，以及接單／拒單的狀態機與樂觀鎖。"""
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app.services.store import STORE, now_iso
+from backend.app.services import store as store_module, reservation
+from backend.app.api import vendor as vendor_module
 
 RESIDENT_TOKEN = "demo-token-vincent"
 VENDOR_CLEANING = ("vendor1@demo.local", "vendor1234")  # service_vendor_id = 1
 VENDOR_PLUMBING = ("vendor11@demo.local", "vendor1234")  # service_vendor_id = 11
+VENDOR_RESERVATION = ("vendor22@demo.local", "vendor1234")  # service_vendor_id = 22
 
 AC_CLEANING_FORM = {
     "quantity": 2,
@@ -119,9 +123,8 @@ def test_status_change_propagates_to_vendor_list(client):
     pending = client.get("/api/vendor/requests?scope=pending", headers=auth(token))
     assert request_id in [i["request_id"] for i in pending.json()["items"]]
 
-    confirmed = client.post(
-        f"/api/requests/{request_id}/simulate/CONFIRMED", headers=auth(RESIDENT_TOKEN)
-    )
+    version = vendor_detail(client, token, request_id)["version"]
+    confirmed = vendor_act(client, token, request_id, "accept", version)
     assert confirmed.status_code == 200
 
     orders = client.get("/api/vendor/requests?scope=orders", headers=auth(token))
@@ -165,7 +168,7 @@ def test_accept_moves_request_from_pending_to_orders(client):
     assert body["status"] == "CONFIRMED"
     assert body["status_label"] == "已確認"
     assert body["version"] == detail["version"] + 1
-    assert body["available_actions"] == []  # 已接的單不能再接一次
+    assert body["available_actions"] == ["start"]  # 接單後可以開始服務
 
     orders = client.get("/api/vendor/requests?scope=orders", headers=auth(token))
     assert request_id in [i["request_id"] for i in orders.json()["items"]]
@@ -283,7 +286,7 @@ def test_vendor_cannot_act_on_another_vendors_request(client):
 def test_unknown_action_is_rejected(client):
     request_id = submit_air_conditioner_request(client)
     token = vendor_token(client, VENDOR_CLEANING)
-    res = vendor_act(client, token, request_id, "complete", 1)
+    res = vendor_act(client, token, request_id, "explode", 1)
     assert res.status_code == 422
 
 
@@ -317,3 +320,87 @@ def test_vendor_login_rejects_unknown_email(client):
         "/api/vendor/login", json={"email": "nobody@demo.local", "password": "vendor1234"}
     )
     assert res.status_code == 401
+
+
+def test_vendor_advances_full_lifecycle_for_generic_service(client):
+    request_id = submit_air_conditioner_request(client)
+    token = vendor_token(client, VENDOR_CLEANING)
+
+    accept = vendor_act(client, token, request_id, "accept", vendor_detail(client, token, request_id)["version"])
+    assert accept.status_code == 200, accept.text
+    assert accept.json()["available_actions"] == ["start"]
+
+    start = vendor_act(client, token, request_id, "start", accept.json()["version"])
+    assert start.status_code == 200, start.text
+    assert start.json()["status"] == "IN_PROGRESS"
+    assert start.json()["available_actions"] == ["complete"]
+
+    complete = vendor_act(client, token, request_id, "complete", start.json()["version"])
+    assert complete.status_code == 200, complete.text
+    assert complete.json()["status"] == "COMPLETED"
+    # 冷氣清洗沒有核銷概念，完工後沒有可再做的動作
+    assert complete.json()["available_actions"] == []
+
+
+def test_verify_action_is_only_available_for_restaurant_reservation(client):
+    request_id = submit_air_conditioner_request(client)
+    token = vendor_token(client, VENDOR_CLEANING)
+    version = vendor_detail(client, token, request_id)["version"]
+
+    for action in ("accept", "start", "complete"):
+        res = vendor_act(client, token, request_id, action, version)
+        assert res.status_code == 200, res.text
+        version = res.json()["version"]
+
+    verify = vendor_act(client, token, request_id, "verify", version)
+    assert verify.status_code == 409
+    assert verify.json()["detail"]["error"]["code"] == "REQUEST_STATUS_CONFLICT"
+
+
+def test_reservation_vendor_can_verify_after_completion(client, monkeypatch, tmp_path):
+    # Isolate this test from shared STORE to avoid duplicate reservation pollution
+    test_store = store_module.MemoryStore(storage_path=tmp_path / "store.json")
+    monkeypatch.setattr(store_module, "STORE", test_store)
+    monkeypatch.setattr(reservation, "STORE", test_store)
+    monkeypatch.setattr(vendor_module, "STORE", test_store)
+
+    submitted = client.post(
+        "/api/reservations/submit",
+        json={
+            "restaurant_id": "r005",
+            "reserved_date": "2026-08-01",
+            "time_slot": "LUNCH",
+            "people": 2,
+            "contact_name": "王大明",
+            "phone": "0912345678",
+            "is_premium": False,
+        },
+        headers=auth(RESIDENT_TOKEN),
+    ).json()
+    assert submitted["status"] == "PENDING_PROVIDER"
+    request_id = submitted["request_id"]
+
+    token = vendor_token(client, VENDOR_RESERVATION)
+    version = vendor_detail(client, token, request_id)["version"]
+    for action, expected_order_status in (("accept", "03"), ("start", "04"), ("complete", "70")):
+        step = vendor_act(client, token, request_id, action, version)
+        assert step.status_code == 200, step.text
+        version = step.json()["version"]
+
+    verify = vendor_act(client, token, request_id, "verify", version)
+    assert verify.status_code == 200, verify.text
+    assert verify.json()["status"] == "VERIFIED"
+
+    # Regression check: a verified case must stay visible to the vendor (Critical
+    # finding from the final whole-branch review — VERIFIED wasn't in any vendor
+    # visibility set, so the case 404'd immediately after a successful verify).
+    still_visible = vendor_detail(client, token, request_id)
+    assert still_visible["status"] == "VERIFIED"
+
+    listed = client.get("/api/vendor/requests?scope=all", headers=auth(token)).json()
+    assert request_id in [item["request_id"] for item in listed["items"]]
+    assert verify.json()["available_actions"] == []
+
+    order = client.get(f"/api/reservations/{request_id}", headers=auth(RESIDENT_TOKEN)).json()
+    assert order["order_status"] == "80"
+    assert order["status_history"][-1]["status"] == "80"

@@ -3,7 +3,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .agent import llm
-from .api import auth, calendar, chat, delivery, health, onboarding, requests, reservations, services, sessions, shop, vendor
+from .api import (
+    auth,
+    calendar,
+    chat,
+    delivery,
+    health,
+    onboarding,
+    requests,
+    reservations,
+    services,
+    sessions,
+    shop,
+    vendor,
+    vendor_delivery,
+    vendor_shop,
+)
 from .config import get_settings
 from .services.aws import has_aws_credentials
 from .services.conversation_memory import MEMORY
@@ -30,6 +45,8 @@ app.include_router(delivery.router)
 app.include_router(shop.router)
 app.include_router(health.router)
 app.include_router(vendor.router)
+app.include_router(vendor_delivery.router)
+app.include_router(vendor_shop.router)
 app.include_router(onboarding.router)
 
 

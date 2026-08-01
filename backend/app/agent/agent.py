@@ -1818,6 +1818,21 @@ def _dispatch_message(
                 redirect_path="/services/shop_purchase",
             )
 
+        if service_id == "clinic_appointment":
+            # Same treatment as shop_purchase: this needs a district/specialty
+            # picker and a real-clinic recommendation step, not conversational
+            # field collection — redirect to the dedicated flow page.
+            state["service_id"] = None
+            state["service_name"] = None
+            state["service_schema"] = None
+            state["collected_fields"] = {}
+            state["missing_fields"] = []
+            return _reply(
+                state,
+                "掛號需要先描述症狀、挑選診所和看診時段，這部分請到「診所掛號」頁面操作會更方便，我幫你導過去囉！",
+                redirect_path="/services/clinic_appointment",
+            )
+
         if service_id == "shop_price_compare":
             # One-shot query-and-answer service (like health_product_recommendation):
             # answer directly with a price summary instead of collecting form fields.

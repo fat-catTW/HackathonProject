@@ -377,6 +377,26 @@ SERVICES: list[dict] = [
         },
     },
     {
+        "id": "clinic_appointment",
+        "name": "診所掛號",
+        "description": "描述症狀，AI 幫您找附近診所並掛號",
+        "service_vendor_id": None,
+        "cms_type": None,
+        "enabled": True,
+        "keywords": ["掛號", "看醫生", "診所", "看診", "身體不舒服", "門診"],
+        "schema": {
+            "fields": [
+                {
+                    "id": "symptom_note",
+                    "label": "症狀描述",
+                    "type": "textarea",
+                    "required": True,
+                    "question": "請問您哪裡不舒服呢？",
+                },
+            ],
+        },
+    },
+    {
         "id": "restaurant_reservation",
         "name": "餐廳訂位",
         "description": "22世紀風味館 精選餐廳訂位服務",

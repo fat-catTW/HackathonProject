@@ -55,7 +55,7 @@ describe("VendorRequestsPage 視覺套用", () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(screen.getByText("冷氣清洗")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(LIST_ITEM.request_id)).toBeInTheDocument());
     expect(container.querySelectorAll(".glass-panel").length).toBe(0);
   });
 
@@ -66,7 +66,7 @@ describe("VendorRequestsPage 視覺套用", () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(screen.getByText("冷氣清洗")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(LIST_ITEM.request_id)).toBeInTheDocument());
     // 極淡漸層僅出現在 <header>，列表與 Tab 不得套用任何漸層
     const header = container.querySelector("header");
     expect(header?.classList.contains("bg-brand-gradient-soft")).toBe(true);
@@ -84,7 +84,7 @@ describe("VendorRequestsPage 視覺套用", () => {
     expect(screen.getByRole("button", { name: /待確認諮詢單/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /已接訂單/ })).toBeInTheDocument();
 
-    await waitFor(() => expect(screen.getByText("冷氣清洗")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(LIST_ITEM.request_id)).toBeInTheDocument());
     expect(screen.getByText(LIST_ITEM.request_id)).toBeInTheDocument();
     expect(screen.getByText(/陳阿姨/)).toBeInTheDocument();
     // 列表項目仍為連往明細頁的 Link
@@ -118,7 +118,7 @@ describe("VendorRequestDetailPage 視覺套用", () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(screen.getByText("冷氣清洗")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(LIST_ITEM.request_id)).toBeInTheDocument());
     expect(container.querySelectorAll(".glass-panel").length).toBe(0);
   });
 

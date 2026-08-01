@@ -1,10 +1,12 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listRequests } from "../api/requests";
 import { RequestCard } from "../components/RequestCard";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { BottomNav } from "../components/BottomNav";
 import { SupportPanel } from "../components/SupportPanel";
+import { SearchAndCategoryFilter, FilterChipGroup } from "../components/SearchAndCategoryFilter";
+import { SERVICES } from "../data/services";
 import type { RequestListItem, RequestStatus } from "../types/request";
 
 // 已結案的狀態：沒有後續進度可追，一律沉到清單底部。
@@ -37,11 +39,46 @@ export function sortRequests(items: RequestListItem[]): RequestListItem[] {
   });
 }
 
+/** 服務在目錄中的顯示順序，用來排序分類 chip；不在目錄裡的服務名稱排到最後。 */
+const SERVICE_ORDER = new Map(SERVICES.map((service, index) => [service.title, index]));
+
+/** 篩選列只列出目前資料裡實際出現過的服務種類，避免出現使用者從沒申請過的空分類。 */
+const MIN_ITEMS_FOR_FILTER = 3;
+
+/**
+ * 把細分的案件狀態歸類成住戶好理解的四種篩選標籤：
+ * 待確認（草稿／等待廠商回應）、已確認（廠商已接單，含服務進行中）、
+ * 已完成、已婉拒（廠商拒單、住戶取消、或處理失敗，都算沒有繼續進行）。
+ */
+const STATUS_GROUP: Record<string, string> = {
+  DRAFT: "PENDING",
+  AWAITING_USER_CONFIRMATION: "PENDING",
+  SUBMITTED: "PENDING",
+  AWAITING_QUOTE: "PENDING",
+  PENDING_PROVIDER: "PENDING",
+  CONFIRMED: "CONFIRMED",
+  IN_PROGRESS: "CONFIRMED",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "DECLINED",
+  REJECTED: "DECLINED",
+  FAILED: "DECLINED",
+};
+
+const STATUS_GROUP_LABELS: { id: string; label: string }[] = [
+  { id: "PENDING", label: "待確認" },
+  { id: "CONFIRMED", label: "已確認" },
+  { id: "COMPLETED", label: "已完成" },
+  { id: "DECLINED", label: "已婉拒" },
+];
+
 export function MyServicesPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<RequestListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeStatus, setActiveStatus] = useState("all");
 
   useEffect(() => {
     if (!supportOpen) return;
@@ -60,6 +97,42 @@ export function MyServicesPage() {
       .finally(() => setLoading(false));
   }, [navigate]);
 
+  const categories = useMemo(() => {
+    const names = [...new Set(items.map((item) => item.service_name))].sort(
+      (a, b) => (SERVICE_ORDER.get(a) ?? 999) - (SERVICE_ORDER.get(b) ?? 999),
+    );
+    return [
+      { id: "all", label: "全部", count: items.length },
+      ...names.map((name) => ({
+        id: name,
+        label: name,
+        count: items.filter((item) => item.service_name === name).length,
+      })),
+    ];
+  }, [items]);
+
+  const statusFilters = useMemo(() => {
+    return [
+      { id: "all", label: "全部", count: items.length },
+      ...STATUS_GROUP_LABELS.map((group) => ({
+        ...group,
+        count: items.filter((item) => STATUS_GROUP[item.status] === group.id).length,
+      })).filter((group) => group.count > 0),
+    ];
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return items.filter((item) => {
+      const matchesCategory = activeCategory === "all" || item.service_name === activeCategory;
+      const matchesStatus = activeStatus === "all" || STATUS_GROUP[item.status] === activeStatus;
+      const matchesSearch = !keyword || item.service_name.toLowerCase().includes(keyword);
+      return matchesCategory && matchesStatus && matchesSearch;
+    });
+  }, [items, search, activeCategory, activeStatus]);
+
+  const showFilterBar = items.length > MIN_ITEMS_FOR_FILTER;
+
   return (
     <>
       <main className="mx-auto min-h-dvh max-w-md bg-canvas px-5 pb-32 pt-8">
@@ -77,14 +150,28 @@ export function MyServicesPage() {
           </div>
         </header>
 
-        <section className="mt-8 rounded-[28px] bg-[var(--color-surface)] p-5 shadow-sm">
-          <h2 className="text-lg font-black text-[var(--color-foreground)]">查看案件與進度</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-muted-foreground)]">
-            這裡會列出你已建立的服務需求，包含目前狀態與最近更新時間。
-          </p>
-        </section>
+        {showFilterBar && (
+          <section className="mt-8 space-y-3">
+            <FilterChipGroup
+              groupLabel="案件狀態篩選"
+              options={statusFilters}
+              activeId={activeStatus}
+              onChange={setActiveStatus}
+            />
+            <SearchAndCategoryFilter
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchLabel="搜尋服務名稱"
+              searchPlaceholder="搜尋服務名稱"
+              categoryGroupLabel="服務種類篩選"
+              categories={categories}
+              activeCategory={activeCategory}
+              onCategoryChange={setActiveCategory}
+            />
+          </section>
+        )}
 
-        <section className="mt-6 space-y-3.5">
+        <section className={`space-y-3.5 ${showFilterBar ? "mt-5" : "mt-8"}`}>
           {loading && (
             <p className="rounded-2xl bg-[var(--color-surface)] p-5 text-center text-[var(--color-muted-foreground)] shadow-sm">
               正在載入服務紀錄…
@@ -95,7 +182,12 @@ export function MyServicesPage() {
               目前還沒有服務案件，按下下方的 AI 管家按鈕就能開始建立。
             </p>
           )}
-          {items.map((item) => (
+          {!loading && items.length > 0 && filteredItems.length === 0 && (
+            <p className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center text-[var(--color-muted-foreground)]">
+              找不到符合的服務案件，換個關鍵字看看。
+            </p>
+          )}
+          {filteredItems.map((item) => (
             <RequestCard key={item.request_id} item={item} />
           ))}
         </section>

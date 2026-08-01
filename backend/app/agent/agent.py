@@ -6,7 +6,7 @@ from datetime import date
 
 from ..config import get_settings
 from ..services import catalog, clock
-from ..services import delivery, delivery_catalog, quick_purchase, reservation, shipping
+from ..services import delivery, delivery_catalog, quick_purchase, reservation, restaurant_search, shipping
 from ..services.conversation_memory import MEMORY
 from . import form_autopilot, llm, nlu, tools
 from .page_catalog import search_pages
@@ -952,6 +952,9 @@ def new_state() -> dict:
         "asked_pref_fields": [],
         "pending_delivery_field": None,
         "pending_prohibited_item": None,
+        # 餐廳訂位在對話中規則比對不到店名時，改用地址/偏好搜尋（見
+        # restaurant_search.search_restaurants），這裡記住剛列給使用者選的候選清單。
+        "pending_restaurant_options": None,
         "prohibited_item_acknowledged": False,
         "request_id": None,
         "status": "COLLECTING_INFORMATION",
@@ -1750,6 +1753,9 @@ def _dispatch_message(
     if state.get("pending_prohibited_item"):
         return _handle_prohibited_item_reply(actor_id, state, text, events)
 
+    if state.get("pending_restaurant_options"):
+        return _handle_restaurant_search_pending_reply(actor_id, state, text, events)
+
     if state.get("pending_pref_field"):
         field_id = state["pending_pref_field"]
         question = state.get("pending_pref_question") or ""
@@ -2208,6 +2214,58 @@ def _handle_prohibited_item_reply(actor_id: str, state: dict, text: str, events:
     return _reply(state, "好的，請重新描述包裹內容物，我們可以再確認一次是否能寄送。")
 
 
+def _handle_restaurant_search(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    """restaurant_id 規則比對不到店名時的備援：把使用者的話（地址／偏好）丟給
+    restaurant_search.search_restaurants，列出內部特約店家＋Google 搜尋到的店家讓
+    使用者選，而不是像通用欄位流程一樣只丟出寫死的餐廳代碼清單。"""
+    if not latest_user_message.strip():
+        fields = state["service_schema"]["fields"]
+        field = next(item for item in fields if item["id"] == "restaurant_id")
+        return _reply(state, _build_field_question(field))
+
+    result = restaurant_search.search_restaurants(actor_id, latest_user_message, "")
+    options = result.get("restaurants") or []
+    if not options:
+        return _reply(state, "不好意思，沒有找到符合的餐廳，可以換個地址或說法再試一次嗎？")
+
+    state["pending_restaurant_options"] = options
+    return _reply(state, _format_restaurant_options_reply(options))
+
+
+def _format_restaurant_options_reply(options: list[dict]) -> str:
+    lines = ["這是我幫你找到的餐廳，想訂哪一間？可以直接說編號或店名："]
+    for index, restaurant in enumerate(options, start=1):
+        address_suffix = f"（{restaurant['address']}）" if restaurant.get("address") else ""
+        line = f"{index}. {restaurant.get('name', '')}{address_suffix}"
+        if restaurant.get("reason"):
+            line += f"：{restaurant['reason']}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def _match_restaurant_pick(text: str, options: list[dict]) -> dict | None:
+    number = nlu.parse_number(text)
+    if number and 1 <= number <= len(options):
+        return options[number - 1]
+    for restaurant in options:
+        name = restaurant.get("name") or ""
+        if name and name in text:
+            return restaurant
+    return None
+
+
+def _handle_restaurant_search_pending_reply(actor_id: str, state: dict, text: str, events: list[dict] | None) -> dict:
+    options = state.get("pending_restaurant_options") or []
+    picked = _match_restaurant_pick(text, options)
+    if not picked:
+        return _reply(state, f"不好意思，我沒聽懂你想選哪一間。{_format_restaurant_options_reply(options)}")
+
+    state["collected_fields"]["restaurant_id"] = picked["id"]
+    state["pending_restaurant_options"] = None
+    _recompute_missing(state)
+    return _continue_collection(actor_id, state, latest_user_message=text, events=events)
+
+
 def _continue_generic_collection(actor_id: str, state: dict, latest_user_message: str = "", events: list[dict] | None = None) -> dict:
     prefs = _safe_preferences(actor_id)
     fields = state["service_schema"]["fields"]
@@ -2243,6 +2301,13 @@ def _continue_generic_collection(actor_id: str, state: dict, latest_user_message
             )
             state["pending_pref_question"] = question
             return _reply(state, question)
+
+    if (
+        state["missing_fields"]
+        and state["missing_fields"][0] == "restaurant_id"
+        and state.get("service_id") == "restaurant_reservation"
+    ):
+        return _handle_restaurant_search(actor_id, state, latest_user_message)
 
     if state["missing_fields"]:
         state["status"] = "COLLECTING_INFORMATION"

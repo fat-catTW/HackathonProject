@@ -14,7 +14,21 @@ POINTS_TO_NT_RATE = 1  # 1 point = NT$1 discount
 PHYSICAL_SHIPPING_FEE = 60
 
 CANCELLABLE_STATUSES = ("SUBMITTED", "CONFIRMED")
-STATUS_PROGRESSION = ("SUBMITTED", "CONFIRMED", "IN_PROGRESS", "COMPLETED")
+
+STATUS_LABELS = {
+    "SUBMITTED": "待確認",
+    "CONFIRMED": "備貨中",
+    "IN_PROGRESS": "已出貨",
+    "COMPLETED": "已送達",
+    "CANCELLED": "已取消",
+}
+
+# 廠商後台的動作 → (要求的來源狀態, 目標狀態)。
+SHOP_VENDOR_TRANSITIONS: dict[str, tuple[str, str]] = {
+    "confirm": ("SUBMITTED", "CONFIRMED"),
+    "ship": ("CONFIRMED", "IN_PROGRESS"),
+    "deliver": ("IN_PROGRESS", "COMPLETED"),
+}
 
 
 def _error(code: str, message: str) -> dict:
@@ -177,12 +191,27 @@ def get_shop_order(actor_id: str, request_id: str) -> dict | None:
     return STORE.get_request(actor_id, request_id)
 
 
-def cancel_shop_order(actor_id: str, request_id: str, reason: str = "USER_CANCEL") -> dict:
+def cancel_shop_order(
+    actor_id: str, request_id: str, reason: str = "USER_CANCEL", expected_version: int | None = None
+) -> dict:
     order = STORE.get_request(actor_id, request_id)
     if not order:
         return _error("REQUEST_NOT_FOUND", "找不到這筆訂單")
     if order.get("status") not in CANCELLABLE_STATUSES:
         return _error("CANCEL_NOT_ALLOWED", "目前狀態無法取消訂單")
+
+    updated = dict(order)
+    updated["status"] = "CANCELLED"
+    updated["cancel_reason"] = reason
+    updated["status_history"] = list(order.get("status_history") or [])
+    updated["status_history"].append({"status": "CANCELLED", "at": now_iso()})
+
+    # 樂觀鎖先過，才做退點數／補庫存——避免版本衝突時已經退了，但案件其實沒取消成功。
+    if expected_version is not None:
+        if not STORE.save_request_if_version(actor_id, updated, expected_version):
+            return _error("VERSION_CONFLICT", "訂單已被更新，請重新整理後再操作。")
+    else:
+        STORE.save_request(actor_id, updated)
 
     for line in order["form_data"]["cart"]:
         STORE.restock_sku(line["sku_id"], line["quantity"])
@@ -191,23 +220,26 @@ def cancel_shop_order(actor_id: str, request_id: str, reason: str = "USER_CANCEL
     if points_discount:
         STORE.refund_user_points(actor_id, points_discount // POINTS_TO_NT_RATE)
 
-    order["status"] = "CANCELLED"
-    order["cancel_reason"] = reason
-    order["status_history"].append({"status": "CANCELLED", "at": now_iso()})
-    STORE.save_request(actor_id, order)
     return {"success": True, "status": "CANCELLED"}
 
 
-def advance_shop_order_status(actor_id: str, request_id: str) -> dict:
-    """Demo-only: advance a physical-product order to the next status."""
+def advance_shop_order_for_vendor(actor_id: str, request_id: str, action: str, expected_version: int) -> dict:
     order = STORE.get_request(actor_id, request_id)
     if not order:
         return _error("REQUEST_NOT_FOUND", "找不到這筆訂單")
-    current = order.get("status")
-    if current not in STATUS_PROGRESSION or current == STATUS_PROGRESSION[-1]:
-        return _error("STATUS_ADVANCE_NOT_ALLOWED", "目前狀態無法再往下推進")
-    next_status = STATUS_PROGRESSION[STATUS_PROGRESSION.index(current) + 1]
-    order["status"] = next_status
-    order["status_history"].append({"status": next_status, "at": now_iso()})
-    STORE.save_request(actor_id, order)
-    return {"success": True, "status": next_status}
+
+    source, target = SHOP_VENDOR_TRANSITIONS[action]
+    if order.get("status") != source:
+        return _error(
+            "STATUS_ADVANCE_NOT_ALLOWED", f"訂單目前是「{STATUS_LABELS.get(order.get('status'), order.get('status'))}」，無法{action}"
+        )
+
+    updated = dict(order)
+    updated["status"] = target
+    updated["status_history"] = list(order.get("status_history") or [])
+    updated["status_history"].append({"status": target, "at": now_iso()})
+
+    if not STORE.save_request_if_version(actor_id, updated, expected_version):
+        return _error("VERSION_CONFLICT", "訂單已被更新，請重新整理後再操作。")
+
+    return {"success": True, "status": target}

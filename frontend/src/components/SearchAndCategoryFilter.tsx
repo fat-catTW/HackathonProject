@@ -67,6 +67,45 @@ export function FilterChipGroup({ groupLabel, options, activeId, onChange }: Fil
 }
 
 /**
+ * 緊湊的分段式篩選列（segmented control）：實色底槽＋內縮膠囊，視覺上跟上面
+ * 浮動、可橫向捲動的 chip 列明顯不同。選項一律等寬分配、不橫向捲動、觸控高度
+ * 仍保持 44px（Requirement：互動元件觸控區不得小於 44px），只在寬度與字級上
+ * 縮小，避免選項一多看起來像散落一地的 chip。
+ */
+export function SegmentedFilterGroup({ groupLabel, options, activeId, onChange }: FilterChipGroupProps) {
+  if (options.length === 0) return null;
+  return (
+    <div
+      role="group"
+      aria-label={groupLabel}
+      className="flex flex-wrap gap-1 rounded-2xl bg-[var(--color-canvas)] p-1"
+    >
+      {options.map((option) => {
+        const isActive = option.id === activeId;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onChange(option.id)}
+            aria-pressed={isActive}
+            className={`flex min-h-[44px] flex-1 basis-[76px] items-center justify-center gap-1 whitespace-nowrap rounded-xl px-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] ${
+              isActive
+                ? "bg-[var(--color-surface)] text-brand shadow-sm"
+                : "text-[var(--color-muted-foreground)] hover:text-brand"
+            }`}
+          >
+            {option.label}
+            <span className={isActive ? "text-brand/70" : "text-[var(--color-muted-foreground)]"}>
+              {option.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * 搜尋框＋分類 chip 列，供「我的服務」與「廠商後台」共用同一套篩選互動。
  * 分類清單由呼叫端動態算出（僅列出目前資料中實際出現的分類），本元件只負責呈現與互動。
  */

@@ -5,14 +5,14 @@ from backend.app.services import health_catalog
 
 
 def test_triage_symptom_falls_back_to_keyword_rules_without_bedrock():
-    with patch("backend.app.agent.llm.is_available", return_value=False):
+    with patch("backend.app.agent.llm._converse_json", return_value=None):
         result = llm.triage_symptom("我一直咳嗽，喉嚨很癢")
     assert result["specialty"] == "耳鼻喉科"
     assert result["advisory"]
 
 
 def test_triage_symptom_defaults_to_family_medicine_for_unmatched_symptoms():
-    with patch("backend.app.agent.llm.is_available", return_value=False):
+    with patch("backend.app.agent.llm._converse_json", return_value=None):
         result = llm.triage_symptom("完全不相關的描述xyz")
     assert result["specialty"] == "家醫科"
 

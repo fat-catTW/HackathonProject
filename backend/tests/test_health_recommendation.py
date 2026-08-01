@@ -1,5 +1,5 @@
 """Tests for the health product recommendation feature: catalog, service schema,
-NLU/agent intent routing, embedded tool handlers, and the Gemini fallback path."""
+NLU/agent intent routing, embedded tool handlers, and the keyword fallback path."""
 from unittest.mock import patch
 
 from backend.app.agent import agent, tools

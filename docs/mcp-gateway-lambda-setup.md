@@ -45,7 +45,7 @@ Recommended environment variables for each Lambda:
 
 `SERVICE_CATALOG_FALLBACK=true` keeps the service-catalog tools working even when DynamoDB does not yet contain the `SERVICE#...` catalog items.
 
-`recommend_products_by_health_need` additionally needs `GEMINI_API_KEY` if you want live Gemini calls. Without that key, it falls back to rule-based keyword matching. `get_product_nutrition` does not require Gemini.
+`recommend_products_by_health_need` always uses rule-based keyword matching in this Lambda deployment mode (unlike the embedded/backend mode, which additionally searches Google via Bedrock — see `backend/app/services/health_recommendation.py`).
 
 ## 3. Create the AgentCore Gateway
 

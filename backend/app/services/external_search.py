@@ -2,8 +2,8 @@
 
 Both functions return None (not an exception) when the API key is missing
 or the call fails, so callers can fall back to internal catalog matching
-without special-casing errors — mirrors health_recommendation.py's existing
-Gemini-unavailable-returns-None convention.
+without special-casing errors — mirrors the Bedrock-unavailable-returns-None
+convention already used throughout app/agent/llm.py.
 """
 from __future__ import annotations
 

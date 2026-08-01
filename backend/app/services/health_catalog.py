@@ -53,6 +53,10 @@ PRODUCTS: list[dict] = [
     {"id": "P036", "name": "烤地瓜球", "category": "零食", "price": 35, "calories": 160, "protein_g": 2, "carbs_g": 34, "fat_g": 1, "sodium_mg": 30, "tags": ["高纖", "低脂", "原型食物"], "allergens": []},
     {"id": "P037", "name": "大亨堡熱狗", "category": "熱食", "price": 55, "calories": 280, "protein_g": 12, "carbs_g": 22, "fat_g": 16, "sodium_mg": 680, "tags": ["高鈉", "高脂"], "allergens": ["麩質"]},
     {"id": "P038", "name": "玉米濃湯", "category": "熱食", "price": 35, "calories": 140, "protein_g": 4, "carbs_g": 20, "fat_g": 5, "sodium_mg": 580, "tags": ["高鈉"], "allergens": ["奶", "麩質"]},
+    {"id": "P039", "name": "無糖喉糖", "category": "藥妝保健", "price": 45, "calories": 15, "protein_g": 0, "carbs_g": 4, "fat_g": 0, "sodium_mg": 5, "tags": ["喉嚨不適", "感冒", "無糖"], "allergens": []},
+    {"id": "P040", "name": "京都念慈菴川貝枇杷膏", "category": "藥妝保健", "price": 159, "calories": 60, "protein_g": 0, "carbs_g": 15, "fat_g": 0, "sodium_mg": 5, "tags": ["喉嚨不適", "感冒", "潤喉"], "allergens": []},
+    {"id": "P041", "name": "維他命C發泡錠", "category": "藥妝保健", "price": 89, "calories": 10, "protein_g": 0, "carbs_g": 2, "fat_g": 0, "sodium_mg": 40, "tags": ["感冒", "保健"], "allergens": []},
+    {"id": "P042", "name": "熱蜂蜜檸檬飲", "category": "飲品", "price": 55, "calories": 90, "protein_g": 0, "carbs_g": 22, "fat_g": 0, "sodium_mg": 10, "tags": ["喉嚨不適", "感冒", "潤喉"], "allergens": []},
 ]
 
 

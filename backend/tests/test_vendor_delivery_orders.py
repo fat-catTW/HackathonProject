@@ -192,3 +192,36 @@ def test_reveal_contact_rejects_other_vendors():
         f"/api/vendor/delivery-orders/{created['request_id']}/contact", headers=other_vendor_headers
     )
     assert res.status_code == 404
+
+
+def test_reveal_contact_access_log_accumulates_across_calls():
+    client = TestClient(app)
+    headers = _resident_headers(client)
+    created = _create_order(client, headers)
+    vendor_headers = _vendor_headers(client)
+
+    client.post(f"/api/vendor/delivery-orders/{created['request_id']}/contact", headers=vendor_headers)
+    client.post(f"/api/vendor/delivery-orders/{created['request_id']}/contact", headers=vendor_headers)
+
+    detail = client.get(
+        f"/api/vendor/delivery-orders/{created['request_id']}", headers=vendor_headers
+    ).json()
+    assert len(detail["contact_access_log"]) == 2
+
+
+def test_reveal_contact_log_failure_blocks_the_reveal(monkeypatch, isolated_store):
+    client = TestClient(app)
+    headers = _resident_headers(client)
+    created = _create_order(client, headers)
+    vendor_headers = _vendor_headers(client)
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("dynamodb unavailable")
+
+    monkeypatch.setattr(isolated_store, "log_contact_access", boom)
+
+    res = client.post(
+        f"/api/vendor/delivery-orders/{created['request_id']}/contact", headers=vendor_headers
+    )
+    assert res.status_code == 503
+    assert res.json()["detail"]["error"]["code"] == "CONTACT_LOG_UNAVAILABLE"

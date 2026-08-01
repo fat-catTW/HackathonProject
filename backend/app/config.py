@@ -47,6 +47,11 @@ _BUILTIN_VENDOR_ACCOUNTS: dict = {
         "name": "22世紀風味館",
         "password": "vendor1234",
     },
+    "vendor30@demo.local": {
+        "vendor_id": 30,
+        "name": "美食外送物流中心",
+        "password": "vendor1234",
+    },
 }
 
 

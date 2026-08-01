@@ -1,5 +1,7 @@
 import type { ChatEvent } from "../types/request";
 import { Mascot } from "./Mascot";
+import { ShareWithFamilyButton } from "./ShareWithFamilyButton";
+import { TaskCardList } from "./TaskCardList";
 
 /**
  * 對話氣泡。屬於資料型元件，依 Requirement 15.3 維持不透明實色，不套玻璃擬態，
@@ -36,6 +38,8 @@ export function ChatMessage({
         }`}
       >
         {event.content}
+        {event.taskCards && event.taskCards.length > 0 && <TaskCardList cards={event.taskCards} />}
+        {event.shareText && <ShareWithFamilyButton text={event.shareText} />}
         {event.redirectPath && (
           <button
             type="button"

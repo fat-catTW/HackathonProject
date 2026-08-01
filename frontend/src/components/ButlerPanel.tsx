@@ -75,6 +75,8 @@ export function ButlerPanel({
           role: "ASSISTANT",
           content: r.reply,
           redirectPath: showsRedirectButton ? r.redirect_path! : undefined,
+          taskCards: r.task_cards ?? undefined,
+          shareText: r.share_text ?? undefined,
         },
       ]);
       setServiceName(r.service_name);

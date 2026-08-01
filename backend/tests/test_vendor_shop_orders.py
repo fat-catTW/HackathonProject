@@ -218,3 +218,32 @@ def test_shop_vendor_cannot_reveal_other_vendors_order():
         f"/api/vendor/shop-orders/{created['request_id']}/contact", headers=other_vendor_headers
     )
     assert res.status_code == 404
+
+
+def test_stale_version_returns_consistent_conflict_code(isolated_store):
+    """狀態沒變但案件被改過（表單更新等）時，舊版本一樣不能寫入——比照
+    test_vendor_portal.py::test_stale_version_is_rejected_even_when_the_status_still_allows_it
+    的手法，直接把版本推進一號但不動狀態，讓 REQUEST_STATUS_CONFLICT 分支不會先
+    攔下這次呼叫，逼真的走到樂觀鎖版本檢查那條路徑。
+    """
+    client = TestClient(app)
+    headers = _resident_headers(client)
+    created = _create_physical_order(client, headers)
+    vendor_headers = _vendor_headers(client)
+    request_id = created["request_id"]
+
+    detail = client.get(f"/api/vendor/shop-orders/{request_id}", headers=vendor_headers).json()
+    stale_version = detail["version"]
+
+    index = isolated_store.get_vendor_request(40, request_id)
+    owner_id = index["owner_id"]
+    order = isolated_store.get_stored_request(owner_id, request_id)
+    isolated_store.save_request(owner_id, order)  # 狀態仍是 SUBMITTED，但版本前進一號
+
+    retry = client.post(
+        f"/api/vendor/shop-orders/{request_id}/confirm",
+        json={"version": stale_version},
+        headers=vendor_headers,
+    )
+    assert retry.status_code == 409
+    assert retry.json()["detail"]["error"]["code"] == "REQUEST_VERSION_CONFLICT"

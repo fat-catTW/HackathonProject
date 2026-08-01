@@ -241,9 +241,16 @@ def act_on_vendor_shop_order(
         result = shop.advance_shop_order_for_vendor(owner_id, request_id, action, body.version)
 
     if not result.get("success"):
-        code = result["error"]["code"]
+        # 統一用跟 vendor.py／vendor_delivery.py 一致的代碼：走到這裡代表狀態檢查
+        # 通過之後、寫入之前這段時間案件被改過了，前端只要辨認同一組代碼即可，不必
+        # 另外認得商城服務層自己的內部錯誤碼。
         _, current = _load_order_or_404(vendor.vendor_id, request_id)
-        raise _fail(409, code, result["error"]["message"], _detail_payload(current, vendor.vendor_id))
+        raise _fail(
+            409,
+            "REQUEST_VERSION_CONFLICT",
+            "訂單已被更新，請重新整理後再操作。",
+            _detail_payload(current, vendor.vendor_id),
+        )
 
     _, updated = _load_order_or_404(vendor.vendor_id, request_id)
     return {"success": True, **_detail_payload(updated, vendor.vendor_id)}

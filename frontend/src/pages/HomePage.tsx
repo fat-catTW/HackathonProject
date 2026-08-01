@@ -7,6 +7,7 @@ import { ServiceIcon } from "../components/ServiceIcon";
 import { BottomNav } from "../components/BottomNav";
 import { AppearanceMenu } from "../components/AppearanceMenu";
 import { SupportPanel } from "../components/SupportPanel";
+import { WeatherGreetingCard } from "../components/WeatherGreetingCard";
 import { SERVICES } from "../data/services";
 import { SERVICE_TONES } from "../utils/serviceTones";
 import { useAccessibilityMode } from "../hooks/useAccessibilityMode";
@@ -175,6 +176,8 @@ export function HomePage() {
             </span>
           </button>
         </section>
+
+        <WeatherGreetingCard userName={name} />
 
         {/*
           服務捷徑列：份量刻意比管家小一號，只露出前 4 個服務圖示 + 「還有幾個」提示，

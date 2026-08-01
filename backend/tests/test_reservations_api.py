@@ -126,9 +126,40 @@ def test_booking_callback_updates_pending_order(client):
             "booking_id": "EZ-CB-1",
             "share_reservation_url": "https://eztable.example.com/booking/EZ-CB-1",
         },
+        headers={"X-Webhook-Secret": "demo-webhook-secret"},
     )
     assert response.status_code == 200
 
     detail = client.get(f"/api/reservations/{created['request_id']}", headers=headers).json()
     assert detail["status"] == "CONFIRMED"
     assert detail["vendor_data"]["booking_id"] == "EZ-CB-1"
+
+
+def test_booking_callback_rejects_missing_or_wrong_secret(client):
+    headers = auth_headers(client)
+
+    # Get the current user's sub (actor_id) from the demo account
+    demo_response = client.get("/api/auth/demo-accounts")
+    # Get the first demo token to determine the user
+    demo_token = demo_response.json()["accounts"][0]["token"]
+    # Map demo token to sub via settings
+    from backend.app.config import get_settings
+    actor_id = get_settings().demo_users[demo_token]["sub"]
+
+    created = client.post(
+        "/api/reservations/submit", json=valid_payload(restaurant_id="r005"), headers=headers
+    ).json()
+    request_id = created["request_id"]
+
+    no_header = client.post(
+        "/api/webhooks/booking-callback",
+        json={"request_id": request_id, "actor_id": actor_id, "status": "CONFIRMED"},
+    )
+    assert no_header.status_code == 401
+
+    wrong_secret = client.post(
+        "/api/webhooks/booking-callback",
+        json={"request_id": request_id, "actor_id": actor_id, "status": "CONFIRMED"},
+        headers={"X-Webhook-Secret": "wrong-secret"},
+    )
+    assert wrong_secret.status_code == 401

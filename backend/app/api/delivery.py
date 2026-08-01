@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth.cognito import CurrentUser, get_current_user
+from ..auth.webhooks import verify_webhook_secret
 from ..services import delivery, delivery_catalog
 
 router = APIRouter()
@@ -68,7 +69,7 @@ def cancel_delivery_order(request_id: str, body: dict = None, user: CurrentUser 
     return result
 
 
-@router.post("/api/webhooks/delivery-callback")
+@router.post("/api/webhooks/delivery-callback", dependencies=[Depends(verify_webhook_secret)])
 def delivery_webhook(body: dict):
     """第三方外送系統回呼：更新訂單狀態與外送員資訊。"""
     actor_id = body.get("actor_id")

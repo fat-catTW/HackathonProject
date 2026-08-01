@@ -104,6 +104,13 @@ class Settings:
     cognito_user_pool_id: str = os.getenv("COGNITO_USER_POOL_ID", "")
     cognito_client_id: str = os.getenv("COGNITO_CLIENT_ID", "")
 
+    # 第三方 webhook 回呼的共用密鑰；正式環境请設定 WEBHOOK_SHARED_SECRET，
+    # mock 模式沒設定時退回一組固定的示範密鑰，讓本地開發／demo 不必額外設定，
+    # 但驗證邏輯本身永遠開啟，不會因為忘記設定就變成無驗證。
+    webhook_shared_secret: str = os.getenv("WEBHOOK_SHARED_SECRET", "") or (
+        "demo-webhook-secret" if _env_flag("USE_MOCK", True) else ""
+    )
+
     # 聯絡資訊欄位級加密（Milestone 15）。兩者皆未設定時退回內建開發金鑰，
     # 詳見 services/contact_privacy.py。
     contact_encryption_key: str = os.getenv("CONTACT_ENCRYPTION_KEY", "")

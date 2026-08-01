@@ -53,3 +53,36 @@ def test_customer_can_no_longer_advance_delivery_status_directly():
         headers=headers,
     )
     assert response.status_code == 404
+
+
+def test_delivery_webhook_requires_correct_secret(isolated_store):
+    client = TestClient(app)
+    headers = _auth_headers(client)
+    created = _create_order(client, headers)
+
+    # Get the current user's sub (actor_id) from the demo account, the same way
+    # test_reservations_api.py's booking-callback tests do (don't hardcode a sub).
+    demo_response = client.get("/api/auth/demo-accounts")
+    demo_token = demo_response.json()["accounts"][0]["token"]
+    from backend.app.config import get_settings
+    resident_sub = get_settings().demo_users[demo_token]["sub"]
+
+    ok = client.post(
+        "/api/webhooks/delivery-callback",
+        json={"actor_id": resident_sub, "request_id": created["request_id"], "vendor_status": 1},
+        headers={"X-Webhook-Secret": "demo-webhook-secret"},
+    )
+    assert ok.status_code == 200, ok.text
+
+    no_header = client.post(
+        "/api/webhooks/delivery-callback",
+        json={"actor_id": resident_sub, "request_id": created["request_id"], "vendor_status": 1},
+    )
+    assert no_header.status_code == 401
+
+    wrong_secret = client.post(
+        "/api/webhooks/delivery-callback",
+        json={"actor_id": resident_sub, "request_id": created["request_id"], "vendor_status": 1},
+        headers={"X-Webhook-Secret": "wrong-secret"},
+    )
+    assert wrong_secret.status_code == 401

@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth.cognito import CurrentUser, get_current_user
-from ..services import shop, shop_catalog
+from ..services import shop, shop_catalog, shop_reviews
 from ..services.store import STORE
 
 router = APIRouter()
@@ -43,6 +43,14 @@ def get_shop_compare_group(group_id: str) -> dict:
     if not offers:
         _raise_api_error(404, "COMPARE_GROUP_NOT_FOUND", "找不到這組比價商品")
     return {"group_id": group_id, "category_id": offers[0]["category_id"], "offers": offers}
+
+
+@router.get("/api/shop/products/{product_id}/reviews")
+def get_shop_product_reviews(product_id: str) -> dict:
+    product = shop_catalog.get_product(product_id)
+    if not product:
+        _raise_api_error(404, "PRODUCT_NOT_FOUND", "找不到這項商品")
+    return {"reviews": shop_reviews.list_reviews(product_id)}
 
 
 @router.get("/api/shop/points")

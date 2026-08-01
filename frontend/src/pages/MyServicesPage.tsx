@@ -5,7 +5,7 @@ import { RequestCard } from "../components/RequestCard";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { BottomNav } from "../components/BottomNav";
 import { SupportPanel } from "../components/SupportPanel";
-import { SearchAndCategoryFilter, FilterChipGroup } from "../components/SearchAndCategoryFilter";
+import { SearchAndCategoryFilter, SegmentedFilterGroup } from "../components/SearchAndCategoryFilter";
 import { SERVICES } from "../data/services";
 import type { RequestListItem, RequestStatus } from "../types/request";
 
@@ -152,12 +152,6 @@ export function MyServicesPage() {
 
         {showFilterBar && (
           <section className="mt-8 space-y-3">
-            <FilterChipGroup
-              groupLabel="案件狀態篩選"
-              options={statusFilters}
-              activeId={activeStatus}
-              onChange={setActiveStatus}
-            />
             <SearchAndCategoryFilter
               searchValue={search}
               onSearchChange={setSearch}
@@ -167,6 +161,12 @@ export function MyServicesPage() {
               categories={categories}
               activeCategory={activeCategory}
               onCategoryChange={setActiveCategory}
+            />
+            <SegmentedFilterGroup
+              groupLabel="案件狀態篩選"
+              options={statusFilters}
+              activeId={activeStatus}
+              onChange={setActiveStatus}
             />
           </section>
         )}

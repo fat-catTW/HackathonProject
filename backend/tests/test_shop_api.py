@@ -55,3 +55,19 @@ def test_get_shop_compare_group_unknown_id_returns_404():
     response = client.get("/api/shop/compare/does_not_exist")
     assert response.status_code == 404
     assert response.json()["detail"]["error"]["code"] == "COMPARE_GROUP_NOT_FOUND"
+
+
+def test_get_shop_product_reviews_returns_reviews():
+    client = TestClient(app)
+    response = client.get("/api/shop/products/prod_mic_blue_yeti_x/reviews")
+    assert response.status_code == 200
+    reviews = response.json()["reviews"]
+    assert len(reviews) >= 1
+    assert all({"review_id", "author", "rating", "comment", "created_at", "verified_purchase"} <= set(r.keys()) for r in reviews)
+
+
+def test_get_shop_product_reviews_unknown_product_returns_404():
+    client = TestClient(app)
+    response = client.get("/api/shop/products/does_not_exist/reviews")
+    assert response.status_code == 404
+    assert response.json()["detail"]["error"]["code"] == "PRODUCT_NOT_FOUND"

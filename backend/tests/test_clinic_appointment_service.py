@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from datetime import date, timedelta
 
 import pytest
 
@@ -20,7 +21,7 @@ def isolated_store(monkeypatch):
 def valid_payload(**overrides):
     payload = {
         "clinic_id": "clinic-fallback-001",
-        "appointment_date": "2026-08-02",
+        "appointment_date": (date.today() + timedelta(days=1)).isoformat(),
         "appointment_time": "15:00",
         "contact_name": "王添財",
         "phone": "0912345678",

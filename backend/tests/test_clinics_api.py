@@ -1,4 +1,5 @@
 # backend/tests/test_clinics_api.py
+from datetime import date, timedelta
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
@@ -33,7 +34,7 @@ def auth_headers(client: TestClient) -> dict:
 def valid_appointment_payload(**overrides):
     payload = {
         "clinic_id": "clinic-fallback-001",
-        "appointment_date": "2026-08-02",
+        "appointment_date": (date.today() + timedelta(days=1)).isoformat(),
         "appointment_time": "15:00",
         "contact_name": "王添財",
         "phone": "0912345678",

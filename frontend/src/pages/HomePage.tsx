@@ -217,26 +217,16 @@ export function HomePage() {
           </button>
         </section>
 
-        <section className="mt-6 grid grid-cols-2 gap-3">
+        <section className="mt-6">
           <button
             type="button"
             onClick={() => navigate("/calendar")}
-            className="flex flex-col items-start gap-2 rounded-[22px] bg-[var(--color-surface)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            className="flex w-full items-center gap-3 rounded-[22px] bg-[var(--color-surface)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-info-soft)] text-[var(--color-info)]">
               <ServiceIcon type="calendar" size={20} />
             </span>
             <span className="text-sm font-extrabold text-[var(--color-foreground)]">行事曆</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/scam-check")}
-            className="flex flex-col items-start gap-2 rounded-[22px] bg-[var(--color-surface)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger)]">
-              <ServiceIcon type="warning" size={20} />
-            </span>
-            <span className="text-sm font-extrabold text-[var(--color-foreground)]">詐騙訊息辨識</span>
           </button>
         </section>
 

@@ -10,7 +10,6 @@ import { MyServicesPage } from "./pages/MyServicesPage";
 import { NewRequestPage } from "./pages/NewRequestPage";
 import { RequestDetailPage } from "./pages/RequestDetailPage";
 import { ReservationFlowPage } from "./pages/ReservationFlowPage";
-import { ScamCheckPage } from "./pages/ScamCheckPage";
 import { DeliveryFlowPage } from "./pages/DeliveryFlowPage";
 import { ShopFlowPage } from "./pages/ShopFlowPage";
 import { HealthRecommendationPage } from "./pages/HealthRecommendationPage";
@@ -70,7 +69,6 @@ export default function App() {
           element={<Protected><ShopFlowPage /></Protected>}
         />
         <Route path="/services/:serviceId" element={<Protected><ServiceFormPage /></Protected>} />
-        <Route path="/scam-check" element={<Protected><ScamCheckPage /></Protected>} />
         <Route path="/new" element={<Protected><NewRequestPage /></Protected>} />
         <Route
           path="/requests/:requestId"

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -54,7 +54,16 @@ describe("ReservationFlowPage", () => {
 
     await user.click(await screen.findByText("22世紀風味館 信義旗艦店"));
     await user.click(screen.getByText("下一步"));
-    await user.type(screen.getByLabelText("用餐日期"), "2026-08-01");
+    // 原本寫死 "2026-08-01"：一旦系統時間走到這天之後，就會早於 ReservationDatePicker
+    // 的 min（今天），導致日期輸入框驗證失敗、流程卡在 date 步驟。改成相對「明天」計算，
+    // 並用 fireEvent.change（而非逐字 user.type）設值，因為原生 type="date" 欄位是
+    // 分段輸入（年/月/日各自一段），userEvent.type 逐字元打入含「-」的字串在此欄位下
+    // 不保證組成正確日期。
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateValue = tomorrow.toISOString().slice(0, 10);
+    // ReservationDatePicker 用 onInput（不是 onChange）接值，故用 fireEvent.input 對應原生事件。
+    fireEvent.input(screen.getByLabelText("用餐日期"), { target: { value: dateValue } });
     await user.click(screen.getByText("下一步"));
     await user.click(screen.getByText("午餐（11:00–14:00）"));
     await user.click(screen.getByText("12:00"));

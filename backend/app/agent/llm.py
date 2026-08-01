@@ -5,6 +5,7 @@ import json
 import re
 import threading
 from datetime import date
+from decimal import Decimal
 from functools import lru_cache
 
 from ..config import get_settings
@@ -150,6 +151,25 @@ def consume_debug_info() -> dict:
     return info
 
 
+def _json_safe(value):
+    """Recursively convert Decimal values (as returned by DynamoDB reads, see
+    store.py's convert_floats_to_decimal for the write-side counterpart) into
+    plain int/float so prompt payloads built from session state can always be
+    JSON-serialized, regardless of whether state came from the mock store or
+    real DynamoDB."""
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    return value
+
+
+def _dumps(value) -> str:
+    return json.dumps(_json_safe(value), ensure_ascii=False, indent=2)
+
+
 def _strip_fences(text: str) -> str:
     cleaned = text.strip()
     if cleaned.startswith("```"):
@@ -241,7 +261,7 @@ def choose_service(
         f"Today is {clock.today().isoformat()} ({clock.weekday_zh()}).\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
-        f"Available services:\n{json.dumps(services, ensure_ascii=False, indent=2)}\n\n"
+        f"Available services:\n{_dumps(services)}\n\n"
         f"User message:\n{message}"
     )
     payload = _converse_json(_SERVICE_SYSTEM, prompt, max_tokens=192)
@@ -265,7 +285,7 @@ def plan_turn(
         f"Current page id: {current_page_id or 'None'}\n\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
-        f"Available services:\n{json.dumps(services, ensure_ascii=False, indent=2)}\n\n"
+        f"Available services:\n{_dumps(services)}\n\n"
         f"Latest user message:\n{message}"
     )
     payload = _converse_json(_TURN_SYSTEM, prompt, max_tokens=320)
@@ -297,7 +317,7 @@ def plan_multi_task(
         f"Today is {date.today().isoformat()}.\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
-        f"Available services:\n{json.dumps(services, ensure_ascii=False, indent=2)}\n\n"
+        f"Available services:\n{_dumps(services)}\n\n"
         f"User message:\n{message}"
     )
     payload = _converse_json(_MULTI_TASK_SYSTEM, prompt, max_tokens=512)
@@ -334,9 +354,9 @@ def extract_fields(
     prompt = (
         f"Today is {clock.today().isoformat()} ({clock.weekday_zh()}).\n"
         f"Service name: {service_name}\n"
-        f"Form schema:\n{json.dumps(form_schema or {'fields': fields}, ensure_ascii=False, indent=2)}\n\n"
-        f"Current form draft:\n{json.dumps(form_draft or {'fields': collected_fields}, ensure_ascii=False, indent=2)}\n\n"
-        f"Already collected:\n{json.dumps(collected_fields, ensure_ascii=False, indent=2)}\n\n"
+        f"Form schema:\n{_dumps(form_schema or {'fields': fields})}\n\n"
+        f"Current form draft:\n{_dumps(form_draft or {'fields': collected_fields})}\n\n"
+        f"Already collected:\n{_dumps(collected_fields)}\n\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
         f"Latest user message:\n{message}"
@@ -363,9 +383,9 @@ def plan_form_turn(
         f"Today is {date.today().isoformat()}.\n"
         f"Service name: {service_name}\n"
         f"Active field: {active_field or 'None'}\n"
-        f"Form schema:\n{json.dumps(form_schema or {'fields': fields}, ensure_ascii=False, indent=2)}\n\n"
-        f"Current form draft:\n{json.dumps(form_draft or {'fields': collected_fields}, ensure_ascii=False, indent=2)}\n\n"
-        f"Already collected:\n{json.dumps(collected_fields, ensure_ascii=False, indent=2)}\n\n"
+        f"Form schema:\n{_dumps(form_schema or {'fields': fields})}\n\n"
+        f"Current form draft:\n{_dumps(form_draft or {'fields': collected_fields})}\n\n"
+        f"Already collected:\n{_dumps(collected_fields)}\n\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
         f"Latest user message:\n{message}"
@@ -423,7 +443,7 @@ def compose_reply(
     }
     payload = _converse_json(
         _REPLY_SYSTEM,
-        json.dumps(prompt_payload, ensure_ascii=False, indent=2),
+        _dumps(prompt_payload),
         max_tokens=320,
     )
     if not payload:
@@ -446,7 +466,7 @@ def compose_page_help_reply(
     }
     payload = _converse_json(
         _PAGE_HELP_SYSTEM,
-        json.dumps(prompt_payload, ensure_ascii=False, indent=2),
+        _dumps(prompt_payload),
         max_tokens=320,
     )
     if not payload:
@@ -474,7 +494,7 @@ def rank_external_results(
         f"User request:\n{user_text}\n\n"
         f"max_results: {max_results}\n\n"
         f"Candidates (id field is \"{id_key}\"):\n"
-        + json.dumps(candidates, ensure_ascii=False, indent=2)
+        + _dumps(candidates)
     )
     payload = _converse_json(_EXTERNAL_RANK_SYSTEM, prompt, max_tokens=768)
     if not payload or not isinstance(payload.get("picks"), list):

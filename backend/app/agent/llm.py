@@ -104,6 +104,18 @@ _PAGE_HELP_SYSTEM = (
     "Return JSON only in the format {\"target_page_id\": string|null, \"reply\": string}."
 )
 
+_SCAM_CHECK_SYSTEM = (
+    "You help an elderly Traditional-Chinese-speaking user in Taiwan judge whether a message they "
+    "received might be a scam. "
+    "Classify it into exactly one category: \"投資詐騙\" (investment/fake-profit scams), "
+    "\"假冒親友\" (impersonating a family member or friend asking for money/help), "
+    "\"釣魚連結\" (phishing links or fake official notices), or \"正常訊息\" (a normal, safe message). "
+    "Write a short, warm, plain-language explanation in Traditional Chinese a non-technical elderly "
+    "reader can understand, including one concrete next step (e.g. do not click the link, call your "
+    "child to confirm, do not transfer money). "
+    "Return JSON only in the format {\"category\": string, \"explanation\": string}."
+)
+
 _DEBUG_STATE = threading.local()
 
 
@@ -195,6 +207,18 @@ def interpret_yes_no(question: str, reply: str) -> str | None:
         return None
     intent = payload.get("intent")
     return intent if intent in {"yes", "no", "unclear"} else None
+
+
+def check_scam_message(text: str) -> dict | None:
+    payload = _converse_json(_SCAM_CHECK_SYSTEM, text, max_tokens=320)
+    if not payload:
+        return None
+    category = payload.get("category")
+    explanation = payload.get("explanation")
+    valid_categories = {"投資詐騙", "假冒親友", "釣魚連結", "正常訊息"}
+    if category not in valid_categories or not isinstance(explanation, str) or not explanation.strip():
+        return None
+    return {"category": category, "explanation": explanation.strip()}
 
 
 def choose_service(

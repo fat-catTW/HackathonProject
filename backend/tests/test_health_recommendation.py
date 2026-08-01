@@ -18,7 +18,7 @@ def test_health_product_recommendation_schema_has_single_query_field():
     assert field_ids == ["query"]
 
 
-def test_list_products_returns_38_static_products_without_dynamodb():
+def test_list_products_returns_42_static_products_without_dynamodb():
     products = health_catalog.list_products()
     assert len(products) == 42
     assert any(p["id"] == "P001" and p["name"] == "雞胸沙拉" for p in products)

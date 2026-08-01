@@ -67,4 +67,9 @@ def cross_sell(request_id: str, user: CurrentUser = Depends(get_current_user)):
     if not order:
         _raise_api_error(404, "REQUEST_NOT_FOUND", "找不到對應的掛號紀錄。")
     symptom_text = order["form_data"].get("symptom_note", "")
-    return llm.recommend_health_products_for_symptom(symptom_text, health_catalog.list_products())
+    products = health_catalog.list_products()
+    result = llm.recommend_health_products_for_symptom(symptom_text, products)
+    name_by_product_id = {product["id"]: product["name"] for product in products}
+    for rec in result["recommendations"]:
+        rec["name"] = name_by_product_id.get(rec["product_id"], "")
+    return result

@@ -70,3 +70,46 @@ def test_normalize_record_splits_comma_separated_specialties():
 
 def test_normalize_record_returns_none_when_missing_required_fields():
     assert clinic_catalog._normalize_record({"HOSP_ID": "1"}) is None
+
+
+def _raw_record(hosp_id, name, address, holiday_duty_cname=""):
+    return {
+        "HOSP_ID": hosp_id,
+        "HOSP_NAME": name,
+        "ADDRESS": address,
+        "TEL": "04-0000000",
+        "FUNCTYPE_CNAME": "家醫科",
+        "HOLIDAYDUTY_CNAME": holiday_duty_cname,
+    }
+
+
+def test_list_clinics_matches_taiwan_variant_char_from_live_fetch(monkeypatch):
+    records = [
+        _raw_record("fetch-001", "臺中西屯某診所", "臺中市西屯區某路1號"),
+        _raw_record("fetch-002", "台北大安某診所", "台北市大安區某路2號"),
+    ]
+    monkeypatch.setattr(clinic_catalog, "_fetch_all_clinics", lambda: records)
+    results = clinic_catalog.list_clinics("台中市", "西屯區", now=MONDAY_10AM)
+    assert any(c["id"] == "fetch-001" for c in results)
+
+
+def test_list_clinics_caps_results_at_ten_and_sorts_open_first(monkeypatch):
+    records = []
+    for i in range(15):
+        # Odd-indexed clinics are open (星期一上午看診); even-indexed are closed.
+        duty = "星期一上午看診" if i % 2 == 1 else "星期一上午休診"
+        records.append(
+            _raw_record(
+                f"fetch-{i:03d}",
+                f"西屯診所{i}",
+                "台中市西屯區某路1號",
+                holiday_duty_cname=duty,
+            )
+        )
+    monkeypatch.setattr(clinic_catalog, "_fetch_all_clinics", lambda: records)
+    results = clinic_catalog.list_clinics("台中市", "西屯區", now=MONDAY_10AM)
+    assert len(results) == 10
+    open_flags = [c["is_open_now"] for c in results]
+    # All open entries should be sorted before closed entries.
+    assert open_flags == sorted(open_flags, reverse=True)
+    assert any(flag is True for flag in open_flags)

@@ -2,7 +2,7 @@
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
-from backend.app.services import clinic_appointment, clinic_catalog, store as store_module
+from backend.app.services import clinic_appointment, clinic_catalog, health_catalog, store as store_module
 import tempfile
 from pathlib import Path
 import pytest
@@ -106,7 +106,13 @@ def test_cross_sell_endpoint_returns_recommendations(client):
     created = client.post("/api/clinic-appointments", json=valid_appointment_payload(), headers=headers).json()
     response = client.post(f"/api/clinic-appointments/{created['request_id']}/cross-sell", headers=headers)
     assert response.status_code == 200
-    assert len(response.json()["recommendations"]) > 0
+    recommendations = response.json()["recommendations"]
+    assert len(recommendations) > 0
+
+    products_by_id = {product["id"]: product["name"] for product in health_catalog.list_products()}
+    for rec in recommendations:
+        assert rec["name"] == products_by_id.get(rec["product_id"])
+        assert rec["name"]
 
 
 def test_cross_sell_endpoint_not_found_returns_404(client):

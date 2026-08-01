@@ -16,6 +16,8 @@ from datetime import datetime
 
 import httpx
 
+from . import clock
+
 _NHI_ENDPOINT = "https://info.nhi.gov.tw/api/iode0010/v1/rest/datastore/A21030000I-D21004-009"
 _PAGE_SIZE = 1000
 _MAX_PAGES = 5
@@ -62,6 +64,12 @@ _FALLBACK_CLINICS: list[dict] = [
 
 _cache: dict[str, tuple[float, list[dict]]] = {}
 
+_MAX_RESULTS = 10
+
+
+def _normalize_char_variant(text: str) -> str:
+    return text.replace("臺", "台")
+
 
 def _current_session_cname(now: datetime) -> tuple[str, str]:
     weekday_cname = _WEEKDAY_CNAME[now.weekday()]
@@ -73,7 +81,7 @@ def _current_session_cname(now: datetime) -> tuple[str, str]:
 
 
 def _is_open_now(holiday_duty_cname: str, now: datetime | None = None) -> bool:
-    now = now or datetime.now()
+    now = now or clock.now()
     weekday_cname, session_cname = _current_session_cname(now)
     marker = f"{weekday_cname}{session_cname}看診"
     return marker in (holiday_duty_cname or "")
@@ -156,11 +164,13 @@ def _to_public_shape(clinic: dict, now: datetime | None) -> dict:
 def list_clinics(
     city: str, district: str, specialty: str | None = None, *, now: datetime | None = None
 ) -> list[dict]:
-    area = f"{city}{district}"
-    matches = [c for c in _load_clinics() if area in c["address"]]
+    area = _normalize_char_variant(f"{city}{district}")
+    matches = [c for c in _load_clinics() if area in _normalize_char_variant(c["address"])]
     if specialty:
         matches = [c for c in matches if specialty in c["specialties"]]
-    return [_to_public_shape(c, now) for c in matches]
+    shaped = [_to_public_shape(c, now) for c in matches]
+    shaped.sort(key=lambda c: c["is_open_now"], reverse=True)
+    return shaped[:_MAX_RESULTS]
 
 
 def get_clinic(clinic_id: str, *, now: datetime | None = None) -> dict | None:

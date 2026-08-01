@@ -57,3 +57,31 @@ def test_get_appointment_returns_saved_order_with_clinic_details():
 
 def test_get_appointment_returns_none_for_unknown_request_id():
     assert clinic_appointment.get_appointment("user-1", "nope") is None
+
+
+def test_create_appointment_fails_for_invalid_date():
+    result = clinic_appointment.create_appointment(
+        "user-1", valid_payload(appointment_date="2020-01-01")
+    )
+    assert result["success"] is False
+    assert result["error"]["code"] == "INVALID_DATE"
+
+
+def test_create_appointment_fails_for_invalid_phone_format():
+    result = clinic_appointment.create_appointment("user-1", valid_payload(phone="12345"))
+    assert result["success"] is False
+    assert result["error"]["code"] == "INVALID_PHONE"
+
+
+def test_create_appointment_fails_for_invalid_time_format():
+    result = clinic_appointment.create_appointment(
+        "user-1", valid_payload(appointment_time="25:99")
+    )
+    assert result["success"] is False
+    assert result["error"]["code"] == "INVALID_TIME"
+
+
+def test_create_appointment_fails_for_blank_after_strip_contact_name():
+    result = clinic_appointment.create_appointment("user-1", valid_payload(contact_name="   "))
+    assert result["success"] is False
+    assert result["error"]["code"] == "INVALID_CONTACT_NAME"

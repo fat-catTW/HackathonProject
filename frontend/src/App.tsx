@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { FormAgentProvider } from "./hooks/useFormAgent";
 import { useAuth } from "./hooks/useAuth";
 import { useVendorAuth } from "./hooks/useVendorAuth";
 import { HomePage } from "./pages/HomePage";
@@ -43,7 +44,9 @@ function ScrollToTop() {
 
 export default function App() {
   return (
-    <>
+    // FormAgentProvider 包在路由外層：AI 代操表單的動作佇列要撐過「導頁到表單頁」
+    // 以及「關閉管家面板」兩件事（見 useFormAgent.tsx）。
+    <FormAgentProvider>
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<LandingPage />} />
@@ -84,6 +87,6 @@ export default function App() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </FormAgentProvider>
   );
 }

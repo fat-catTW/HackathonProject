@@ -37,6 +37,25 @@ export interface RequestDetail extends RequestListItem {
   estimated_fee_max?: number;
 }
 
+/** AI 代操表單時，Agent 要前端在畫面上執行的一個動作。 */
+export interface FormAction {
+  type: "fill" | "clear";
+  field_id: string;
+  label: string;
+  /** 直接寫進輸入框的值（select 為 option value、number 為數字字串）。 */
+  value: string;
+  /** 給人看的值，例如 `直立式`、`2 台`。 */
+  display_value: string;
+  /** 資料來源說明，例如「沿用你上次填的資料」。 */
+  note: string | null;
+}
+
+/** 送出訊息時附上的表單快照，讓 Agent 以畫面上的內容為準。 */
+export interface FormContext {
+  service_id: string;
+  values: Record<string, string>;
+}
+
 export interface ChatResponse {
   session_id: string;
   reply: string;
@@ -44,6 +63,7 @@ export interface ChatResponse {
   service_name: string | null;
   collected_fields: Record<string, CollectedFieldValue>;
   missing_fields: string[];
+  form_actions: FormAction[];
   request_id: string | null;
   status: string;
   redirect_path: string | null;

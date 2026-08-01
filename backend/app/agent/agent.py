@@ -1953,7 +1953,15 @@ def _dispatch_message(
                     planned_found,
                     reply_prefix=form_plan.get("reply"),
                 )
-            if form_plan.get("mode") == "reply" and form_plan.get("reply"):
+            if (
+                form_plan.get("mode") == "reply"
+                and form_plan.get("reply")
+                and not _restaurant_id_needs_search(state)
+            ):
+                # Bedrock doesn't know about restaurant_search — when restaurant_id is
+                # the field waiting to be filled, let it fall through to the normal
+                # extraction/continuation path below instead of trusting its free-form
+                # reply (which would just read out raw restaurant ids from the schema).
                 return _reply(state, form_plan["reply"])
         else:
             _trace_fallback(state, "form_router:no_plan")
@@ -2212,6 +2220,15 @@ def _handle_prohibited_item_reply(actor_id: str, state: dict, text: str, events:
         _recompute_missing(state)
         return _continue_collection(actor_id, state, latest_user_message=text, events=events)
     return _reply(state, "好的，請重新描述包裹內容物，我們可以再確認一次是否能寄送。")
+
+
+def _restaurant_id_needs_search(state: dict) -> bool:
+    return (
+        state.get("service_id") == "restaurant_reservation"
+        and not state.get("pending_restaurant_options")
+        and bool(state.get("missing_fields"))
+        and state["missing_fields"][0] == "restaurant_id"
+    )
 
 
 def _handle_restaurant_search(actor_id: str, state: dict, latest_user_message: str) -> dict:

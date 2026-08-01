@@ -121,6 +121,35 @@ def test_reservation_chat_flow_falls_back_to_restaurant_search_when_name_not_rec
     assert mock_search.call_args.args[0] == "user-1"
 
 
+def test_reservation_chat_flow_ignores_bedrock_reply_mode_when_restaurant_id_missing():
+    """Regression test: when live Bedrock is available, llm.plan_form_turn may decide
+    the message doesn't map to any field and return mode="reply" with its own free-form
+    text (which doesn't know about restaurant_search and would just read out raw
+    restaurant ids). That reply must be ignored in favor of the search flow whenever
+    restaurant_id is the field currently being collected."""
+    state = agent.new_state()
+
+    with patch("backend.app.agent.agent._available_services", return_value=[
+        {"id": "restaurant_reservation", "name": "餐廳訂位", "description": "22世紀風味館 精選餐廳訂位服務"},
+    ]), patch("backend.app.agent.agent.llm.is_available", return_value=True), \
+         patch("backend.app.agent.agent.llm.plan_turn", return_value={
+             "mode": "service_request", "reply": None, "service_id": "restaurant_reservation",
+         }), \
+         patch("backend.app.agent.agent.llm.plan_form_turn", return_value={
+             "mode": "reply",
+             "reply": "請告訴我您想選擇的餐廳編號（r001-r006）。",
+             "fields": {},
+         }), \
+         patch("backend.app.agent.agent.restaurant_search.search_restaurants", return_value=_FAKE_SEARCH_RESULT) as mock_search:
+        result = _run_turn(state, "我人在臺中，明天是父親節，我要訂有5人座的餐廳。")
+        state = result["state"]
+
+    assert state["pending_restaurant_options"] == _FAKE_SEARCH_RESULT["restaurants"]
+    assert "台中好料理" in result["reply"]
+    assert "r001-r006" not in result["reply"]
+    mock_search.assert_called_once()
+
+
 def test_reservation_chat_flow_resolves_restaurant_pick_by_number():
     state = agent.new_state()
     state["service_id"] = "restaurant_reservation"

@@ -87,20 +87,29 @@ def _is_open_now(holiday_duty_cname: str, now: datetime | None = None) -> bool:
     return marker in (holiday_duty_cname or "")
 
 
+_FETCH_RETRIES = 2
+_RETRY_DELAY_SECONDS = 0.5
+
+
 def _fetch_page(offset: int) -> list[dict] | None:
-    try:
-        response = httpx.get(
-            _NHI_ENDPOINT,
-            params={"limit": _PAGE_SIZE, "offset": offset},
-            timeout=_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        if isinstance(payload, str):
-            payload = json.loads(payload)
-        return payload["result"]["records"]
-    except Exception:
-        return None
+    """政府開放資料 API 偶爾會單次請求失敗（timeout／短暫 5xx），重試個一兩次
+    再放棄，不要讓第一頁的一次性失敗就整批退回小小的靜態備援清單。"""
+    for attempt in range(_FETCH_RETRIES + 1):
+        try:
+            response = httpx.get(
+                _NHI_ENDPOINT,
+                params={"limit": _PAGE_SIZE, "offset": offset},
+                timeout=_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            return payload["result"]["records"]
+        except Exception:
+            if attempt < _FETCH_RETRIES:
+                time.sleep(_RETRY_DELAY_SECONDS)
+    return None
 
 
 def _fetch_all_clinics() -> list[dict] | None:

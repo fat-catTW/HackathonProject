@@ -129,6 +129,21 @@ SHOP_REVIEWS: dict[str, list[dict]] = {
         {"review_id": "rev_atr2100x_usb_02", "author": "惠敏", "rating": 5, "comment": "XLR/USB雙介面很彈性，之後要升級混音器也能直接接。", "created_at": "2026-05-30", "verified_purchase": True},
         {"review_id": "rev_atr2100x_usb_03", "author": "靜怡", "rating": 4, "comment": "戶外收音也試過，抗噪表現不錯，就是機身偏重。", "created_at": "2026-06-18", "verified_purchase": False},
     ],
+    "prod_mic_shure_mv7": [
+        {"review_id": "rev_shure_mv7_01", "author": "承翰", "rating": 5, "comment": "自動增益超好用，不用自己調輸入音量，收音水準直接拉到電台等級。", "created_at": "2026-05-10", "verified_purchase": True},
+        {"review_id": "rev_shure_mv7_02", "author": "雨萱", "rating": 5, "comment": "USB跟XLR都能接，之後要升級混音器完全不用換麥克風，一次到位。", "created_at": "2026-06-01", "verified_purchase": True},
+        {"review_id": "rev_shure_mv7_03", "author": "阿豪", "rating": 4, "comment": "音質沒話說，就是價格不便宜，新手可能會猶豫。", "created_at": "2026-06-23", "verified_purchase": True},
+    ],
+    "prod_mic_elgato_wave3": [
+        {"review_id": "rev_elgato_wave3_01", "author": "志明", "rating": 5, "comment": "Wave Link軟體可以分開控制遊戲聲跟麥克風音量，直播剪輯都方便。", "created_at": "2026-05-06", "verified_purchase": True},
+        {"review_id": "rev_elgato_wave3_02", "author": "小美", "rating": 4, "comment": "防爆音技術真的有感，講話比較激動也不會噴麥。", "created_at": "2026-05-28", "verified_purchase": True},
+        {"review_id": "rev_elgato_wave3_03", "author": "春嬌", "rating": 4, "comment": "外型簡約好看，軟體剛開始設定要花點時間熟悉。", "created_at": "2026-06-17", "verified_purchase": False},
+    ],
+    "prod_mic_samson_q2u": [
+        {"review_id": "rev_samson_q2u_01", "author": "冠廷", "rating": 5, "comment": "價格是同類最便宜的，還附麥克風架跟收納袋，新手練習錄音很划算。", "created_at": "2026-05-14", "verified_purchase": True},
+        {"review_id": "rev_samson_q2u_02", "author": "詩涵", "rating": 4, "comment": "USB接電腦直接用，XLR之後要接混音器也可以，彈性不錯。", "created_at": "2026-06-05", "verified_purchase": True},
+        {"review_id": "rev_samson_q2u_03", "author": "俊傑", "rating": 3, "comment": "這個價位的音質已經很不錯，但跟高階款比細節還是有差。", "created_at": "2026-06-26", "verified_purchase": True},
+    ],
     "prod_webcam_logitech_c920": [
         {"review_id": "rev_webcam_logitech_c920_01", "author": "阿宗", "rating": 5, "comment": "1080p畫質視訊會議很夠用，自動對焦反應快。", "created_at": "2026-04-15", "verified_purchase": True},
         {"review_id": "rev_webcam_logitech_c920_02", "author": "佳玲", "rating": 4, "comment": "搭配麥克風錄podcast影片版剛剛好，色彩還原不錯。", "created_at": "2026-05-21", "verified_purchase": True},
@@ -138,6 +153,26 @@ SHOP_REVIEWS: dict[str, list[dict]] = {
         {"review_id": "rev_scarlett_solo_01", "author": "小雨", "rating": 5, "comment": "入門錄音介面首選，接上XLR麥克風音質提升很明顯。", "created_at": "2026-05-04", "verified_purchase": True},
         {"review_id": "rev_scarlett_solo_02", "author": "Vincent", "rating": 4, "comment": "操作介面直覺，第一次用類比介面也很快上手。", "created_at": "2026-05-26", "verified_purchase": True},
         {"review_id": "rev_scarlett_solo_03", "author": "美惠", "rating": 4, "comment": "想從純USB麥克風升級雙軌訪談的話這台很適合，但要另外買麥克風線。", "created_at": "2026-06-19", "verified_purchase": False},
+    ],
+    "prod_gpu_msi_rtx5090": [
+        {"review_id": "rev_rtx5090_01", "author": "阿凱", "rating": 5, "comment": "4K全開跑起來完全不卡，玩最新遊戲跟跑AI模型都很順。", "created_at": "2026-05-09", "verified_purchase": True},
+        {"review_id": "rev_rtx5090_02", "author": "志明", "rating": 5, "comment": "散熱表現比想像中安靜，滿載溫度也控制得不錯。", "created_at": "2026-06-02", "verified_purchase": True},
+        {"review_id": "rev_rtx5090_03", "author": "雨萱", "rating": 4, "comment": "效能無話可說，就是體積很大，買之前要先量機殼空間。", "created_at": "2026-06-24", "verified_purchase": True},
+    ],
+    "prod_laptop_asus_rog": [
+        {"review_id": "rev_asus_rog_01", "author": "承翰", "rating": 5, "comment": "240Hz螢幕玩FPS遊戲反應很快，散熱系統也壓得住長時間遊玩。", "created_at": "2026-05-11", "verified_purchase": True},
+        {"review_id": "rev_asus_rog_02", "author": "小美", "rating": 4, "comment": "剪片跑轉檔速度明顯比舊筆電快很多，重量偏重外出攜帶要考慮。", "created_at": "2026-06-04", "verified_purchase": True},
+        {"review_id": "rev_asus_rog_03", "author": "春嬌", "rating": 4, "comment": "曜岩黑質感很好，風扇全速時聲音有點明顯。", "created_at": "2026-06-21", "verified_purchase": False},
+    ],
+    "prod_keyboard_logitech_g913": [
+        {"review_id": "rev_logitech_g913_01", "author": "阿豪", "rating": 5, "comment": "低軸體打字手感很輕盈，無線延遲完全感覺不出來。", "created_at": "2026-05-07", "verified_purchase": True},
+        {"review_id": "rev_logitech_g913_02", "author": "詩涵", "rating": 5, "comment": "RGB燈效可以自訂分區，配色跟電競桌面很搭。", "created_at": "2026-05-29", "verified_purchase": True},
+        {"review_id": "rev_logitech_g913_03", "author": "冠廷", "rating": 3, "comment": "手感偏軟，喜歡段落感的人可能不習慣，但打字很安靜。", "created_at": "2026-06-16", "verified_purchase": True},
+    ],
+    "prod_headphone_sony_xm6": [
+        {"review_id": "rev_sony_xm6_01", "author": "品妤", "rating": 5, "comment": "降噪效果真的是業界標竿，搭高鐵通勤整個世界都安靜了。", "created_at": "2026-05-13", "verified_purchase": True},
+        {"review_id": "rev_sony_xm6_02", "author": "惠敏", "rating": 5, "comment": "續航力很扎實，出國一趟充電次數少很多。", "created_at": "2026-06-06", "verified_purchase": True},
+        {"review_id": "rev_sony_xm6_03", "author": "靜怡", "rating": 4, "comment": "音質跟降噪都很滿意，就是價格偏高。", "created_at": "2026-06-28", "verified_purchase": True},
     ],
 }
 

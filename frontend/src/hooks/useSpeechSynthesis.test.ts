@@ -63,4 +63,32 @@ describe("useSpeechSynthesis", () => {
     const { result } = renderHook(() => useSpeechSynthesis());
     expect(result.current.supported).toBe(false);
   });
+
+  it("keeps speaking=true when a stale utterance's onend fires after a second speak() call", () => {
+    const { result } = renderHook(() => useSpeechSynthesis());
+
+    act(() => result.current.speak("第一句"));
+    const firstUtterance = speakMock.mock.calls[0][0];
+    expect(result.current.speaking).toBe(true);
+
+    act(() => result.current.speak("第二句"));
+    const secondUtterance = speakMock.mock.calls[1][0];
+    expect(result.current.speaking).toBe(true);
+
+    // Simulate the first utterance's onend arriving late (e.g. triggered
+    // asynchronously by the cancel() call inside the second speak()).
+    act(() => firstUtterance.onend?.());
+    expect(result.current.speaking).toBe(true);
+
+    // The second (current) utterance finishing should still clear speaking.
+    act(() => secondUtterance.onend?.());
+    expect(result.current.speaking).toBe(false);
+  });
+
+  it("cancels speech synthesis on unmount", () => {
+    const { unmount } = renderHook(() => useSpeechSynthesis());
+    cancelMock.mockClear();
+    unmount();
+    expect(cancelMock).toHaveBeenCalledTimes(1);
+  });
 });

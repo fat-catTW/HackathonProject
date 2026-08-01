@@ -4,9 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export function useSpeechSynthesis() {
   const [speaking, setSpeaking] = useState(false);
   const [supported, setSupported] = useState(true);
+  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
     setSupported(typeof window !== "undefined" && !!window.speechSynthesis);
+    return () => {
+      window.speechSynthesis?.cancel();
+    };
   }, []);
 
   const speak = useCallback((text: string) => {
@@ -14,8 +18,12 @@ export function useSpeechSynthesis() {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "zh-TW";
-    utterance.onend = () => setSpeaking(false);
-    utterance.onerror = () => setSpeaking(false);
+    currentUtteranceRef.current = utterance;
+    const clearIfCurrent = () => {
+      if (currentUtteranceRef.current === utterance) setSpeaking(false);
+    };
+    utterance.onend = clearIfCurrent;
+    utterance.onerror = clearIfCurrent;
     setSpeaking(true);
     window.speechSynthesis.speak(utterance);
   }, []);

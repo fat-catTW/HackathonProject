@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { useVendorAuth } from "./hooks/useVendorAuth";
+import { CalendarPage } from "./pages/CalendarPage";
 import { HomePage } from "./pages/HomePage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/home" element={<Protected><HomePage /></Protected>} />
+        <Route path="/calendar" element={<Protected><CalendarPage /></Protected>} />
         <Route path="/my-services" element={<Protected><MyServicesPage /></Protected>} />
         <Route
           path="/services/restaurant_reservation"

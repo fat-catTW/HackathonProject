@@ -328,7 +328,7 @@ def act_on_vendor_request(
         )
 
     updated = dict(request) | {"status": transition.target}
-    if "order_items" in updated:
+    if service_id == "restaurant_reservation":
         # 餐廳訂位案件另外維護一份兩位數 order_status／歷程，要跟 status 同步推進，
         # 否則住戶端看到的 order_status 會卡在舊狀態（沿用原本 simulate 端點的邏輯）。
         from ..services.reservation import TEXT_TO_ORDER_STATUS

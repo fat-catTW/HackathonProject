@@ -7,6 +7,8 @@ request time.
 """
 from __future__ import annotations
 
+from . import shop_reviews
+
 SHOP_CATEGORIES: list[dict] = [
     {"id": "cat_beverage", "name": "飲品兌換"},
     {"id": "cat_food", "name": "美食兌換"},
@@ -418,13 +420,17 @@ def list_products(*, category_id: str | None = None, store_id: str | None = None
             **p,
             "store_name": (get_store(p["store_id"]) or {}).get("name", ""),
             "compare_group_id": p.get("compare_group_id"),
+            **shop_reviews.get_rating_summary(p["id"]),
         }
         for p in products
     ]
 
 
 def get_product(product_id: str) -> dict | None:
-    return next((p for p in SHOP_PRODUCTS if p["id"] == product_id), None)
+    product = next((p for p in SHOP_PRODUCTS if p["id"] == product_id), None)
+    if product is None:
+        return None
+    return {**product, **shop_reviews.get_rating_summary(product_id)}
 
 
 def get_sku(sku_id: str) -> tuple[dict, dict] | None:

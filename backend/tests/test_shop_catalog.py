@@ -181,3 +181,16 @@ def test_electronics_products_have_descriptive_tags():
 def test_electronics_products_have_no_compare_group_id():
     products = shop_catalog.list_products(category_id="cat_electronics")
     assert all(p["compare_group_id"] is None for p in products)
+
+
+def test_list_products_includes_rating_fields():
+    for product in shop_catalog.list_products():
+        assert isinstance(product["rating_avg"], float)
+        assert isinstance(product["rating_count"], int)
+        assert product["rating_count"] >= 1
+
+
+def test_get_product_includes_rating_fields():
+    product = shop_catalog.get_product("prod_mic_blue_yeti_x")
+    assert product["rating_count"] >= 1
+    assert 1.0 <= product["rating_avg"] <= 5.0

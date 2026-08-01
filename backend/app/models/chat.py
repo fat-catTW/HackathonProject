@@ -26,4 +26,5 @@ class ChatResponse(BaseModel):
     status: str = "COLLECTING_INFORMATION"
     redirect_path: str | None = None
     redirect_requires_confirmation: bool = False
+    product_recommendations: list[dict] | None = None
     debug_trace: dict = {}

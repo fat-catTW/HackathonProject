@@ -384,7 +384,10 @@ def compose_page_help_reply(
 
 def recommend_shop_products(query: str, products: list[dict]) -> list[dict] | None:
     prompt = json.dumps({"query": query, "products": products}, ensure_ascii=False)
-    payload = _converse_json(_SHOP_RECOMMEND_SYSTEM, prompt, max_tokens=512)
+    # Up to 5 recommendations, each with a full-sentence reason, routinely exceeds
+    # 512 tokens and gets truncated mid-JSON — which then fails to parse and looks
+    # identical to a real LLM failure. 1536 leaves headroom for the largest catalog.
+    payload = _converse_json(_SHOP_RECOMMEND_SYSTEM, prompt, max_tokens=1536)
     if not payload or not isinstance(payload.get("recommendations"), list):
         return None
     by_id = {p["id"]: p for p in products}
@@ -394,4 +397,8 @@ def recommend_shop_products(query: str, products: list[dict]) -> list[dict] | No
         if not product:
             continue
         items.append({**product, "reason": rec.get("reason", "")})
-    return items or None
+    # An empty list here means Bedrock genuinely looked at the catalog and found
+    # nothing confident to recommend — that's a real answer, not an unavailable
+    # LLM, so it must NOT be treated the same as `None` (which means "fall back
+    # to keyword matching"). Only a missing/unparseable payload above returns None.
+    return items

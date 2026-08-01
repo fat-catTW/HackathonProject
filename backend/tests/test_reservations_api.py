@@ -36,7 +36,7 @@ def auth_headers(client: TestClient) -> dict:
 def valid_payload(**overrides):
     payload = {
         "restaurant_id": "r001",
-        "reserved_date": "2026-08-01",
+        "reserved_date": "2026-09-15",
         "time_slot": "LUNCH",
         "specific_time": "12:30",
         "people": 2,
@@ -68,6 +68,20 @@ def test_get_restaurant_not_found_returns_404(client):
     headers = auth_headers(client)
     response = client.get("/api/restaurants/nope", headers=headers)
     assert response.status_code == 404
+
+
+def test_search_restaurants_requires_address(client):
+    headers = auth_headers(client)
+    response = client.post("/api/restaurants/search", json={}, headers=headers)
+    assert response.status_code == 400
+    assert response.json()["detail"]["error"]["code"] == "INVALID_FORM_DATA"
+
+
+def test_search_restaurants_returns_capped_list(client):
+    headers = auth_headers(client)
+    response = client.post("/api/restaurants/search", json={"address": "台中市"}, headers=headers)
+    assert response.status_code == 200
+    assert len(response.json()["restaurants"]) <= 5
 
 
 def test_submit_reservation_creates_order(client):

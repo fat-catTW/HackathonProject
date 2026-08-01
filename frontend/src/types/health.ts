@@ -17,6 +17,7 @@ export interface HealthRecommendationItem {
   name: string;
   reason: string;
   match_tags: string[];
+  source?: string;
 }
 
 export interface HealthRecommendationResult {

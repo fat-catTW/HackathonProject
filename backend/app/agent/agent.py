@@ -1124,6 +1124,24 @@ def _invalid_number_field_message(state: dict, latest_user_message: str) -> str 
     return None
 
 
+def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str | None]:
+    result = tools.call("compare_product_prices", {"query": query}, auth_token=auth_token)
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "查詢失敗")
+        return f"抱歉，這次比價沒有成功，原因是：{message}。你可以換個商品名稱再試一次。", None
+
+    offers = result.get("offers") or []
+    lines = [f"「{result.get('product_name', '')}」目前各店家的點數兌換價格："]
+    for index, offer in enumerate(offers, start=1):
+        lines.append(f"{index}. {offer.get('store_name', '')}：{offer.get('unit_price', '')} 元")
+    if offers:
+        lines.append(f"目前最便宜的是 {offers[0].get('store_name', '')}。")
+    lines.append("我幫你導到商城購物頁面，可以直接看到完整比價和下單。")
+    reply = "\n".join(lines)
+    redirect_path = f"/services/shop_purchase?compare={result['group_id']}"
+    return reply, redirect_path
+
+
 def _handle_one_shot_service(
     service_id: str, state: dict, text: str, auth_token: str | None
 ) -> dict | None:

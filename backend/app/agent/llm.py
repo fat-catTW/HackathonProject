@@ -121,6 +121,22 @@ _PAGE_HELP_SYSTEM = (
     "Return JSON only in the format {\"target_page_id\": string|null, \"reply\": string}."
 )
 
+_EXTERNAL_QUERY_SYSTEM = (
+    "You turn a Taiwanese user's request into a short, effective search-engine query in Traditional "
+    "Chinese, for finding real-world products or restaurants on the web. "
+    "Keep it to a few keywords, no explanations. "
+    "Return JSON only in the format {\"query\": string}."
+)
+
+_EXTERNAL_RANK_SYSTEM = (
+    "You pick and rank the best matches for a user's request from a provided candidate list. "
+    "You may ONLY choose ids that appear in the candidate list — never invent an id or describe an "
+    "item that is not in the list. "
+    "Pick at most the requested max_results items, best match first, and give each a short "
+    "one-sentence reason in Traditional Chinese. "
+    "Return JSON only in the format {\"picks\": [{\"id\": string, \"reason\": string}]}."
+)
+
 _DEBUG_STATE = threading.local()
 
 
@@ -437,3 +453,46 @@ def compose_page_help_reply(
         return None
     reply = payload.get("reply")
     return reply.strip() if isinstance(reply, str) and reply.strip() else None
+
+
+def plan_external_query(user_text: str, *, purpose: str) -> str | None:
+    payload = _converse_json(
+        _EXTERNAL_QUERY_SYSTEM,
+        f"Purpose: {purpose}\nUser request:\n{user_text}",
+        max_tokens=128,
+    )
+    if not payload:
+        return None
+    query = payload.get("query")
+    return query.strip() if isinstance(query, str) and query.strip() else None
+
+
+def rank_external_results(
+    user_text: str, candidates: list[dict], *, id_key: str, max_results: int
+) -> list[dict] | None:
+    prompt = (
+        f"User request:\n{user_text}\n\n"
+        f"max_results: {max_results}\n\n"
+        f"Candidates (id field is \"{id_key}\"):\n"
+        + json.dumps(candidates, ensure_ascii=False, indent=2)
+    )
+    payload = _converse_json(_EXTERNAL_RANK_SYSTEM, prompt, max_tokens=768)
+    if not payload or not isinstance(payload.get("picks"), list):
+        return None
+
+    by_id = {c[id_key]: c for c in candidates}
+    picks: list[dict] = []
+    for pick in payload["picks"]:
+        if not isinstance(pick, dict):
+            continue
+        pick_id = pick.get("id")
+        if pick_id not in by_id:
+            continue
+        reason = pick.get("reason")
+        picks.append({
+            **by_id[pick_id],
+            "reason": reason.strip() if isinstance(reason, str) and reason.strip() else "",
+        })
+        if len(picks) >= max_results:
+            break
+    return picks or None

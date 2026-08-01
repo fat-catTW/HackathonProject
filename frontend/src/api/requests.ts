@@ -15,10 +15,3 @@ export function cancelRequest(requestId: string) {
     { method: "POST" },
   );
 }
-
-export function simulateStatus(requestId: string, next: string) {
-  return api<{ success: boolean; status: string }>(
-    `/api/requests/${requestId}/simulate/${next}`,
-    { method: "POST" },
-  );
-}

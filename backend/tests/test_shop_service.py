@@ -188,15 +188,43 @@ def test_cancel_shop_order_rejects_completed_serial_code_order(isolated_store):
     assert result["error"]["code"] == "CANCEL_NOT_ALLOWED"
 
 
-def test_advance_shop_order_status_progresses_through_fixed_sequence():
+def test_advance_shop_order_for_vendor_progresses_through_named_actions():
     created = shop.create_shop_order("user-a", physical_cart_payload())
     assert created["status"] == "SUBMITTED"
-    r1 = shop.advance_shop_order_status("user-a", created["request_id"])
+    version = 1  # create_shop_order 之後的第一版
+
+    r1 = shop.advance_shop_order_for_vendor("user-a", created["request_id"], "confirm", version)
     assert r1 == {"success": True, "status": "CONFIRMED"}
-    r2 = shop.advance_shop_order_status("user-a", created["request_id"])
+
+    order = shop.get_shop_order("user-a", created["request_id"])
+    r2 = shop.advance_shop_order_for_vendor("user-a", created["request_id"], "ship", order["version"])
     assert r2["status"] == "IN_PROGRESS"
-    r3 = shop.advance_shop_order_status("user-a", created["request_id"])
+
+    order = shop.get_shop_order("user-a", created["request_id"])
+    r3 = shop.advance_shop_order_for_vendor("user-a", created["request_id"], "deliver", order["version"])
     assert r3["status"] == "COMPLETED"
-    r4 = shop.advance_shop_order_status("user-a", created["request_id"])
-    assert r4["success"] is False
-    assert r4["error"]["code"] == "STATUS_ADVANCE_NOT_ALLOWED"
+
+
+def test_advance_shop_order_for_vendor_rejects_wrong_source_status():
+    created = shop.create_shop_order("user-a", physical_cart_payload())
+    result = shop.advance_shop_order_for_vendor("user-a", created["request_id"], "ship", 1)
+    assert result["success"] is False
+    assert result["error"]["code"] == "STATUS_ADVANCE_NOT_ALLOWED"
+
+
+def test_advance_shop_order_for_vendor_rejects_stale_version():
+    created = shop.create_shop_order("user-a", physical_cart_payload())
+    result = shop.advance_shop_order_for_vendor("user-a", created["request_id"], "confirm", 999)
+    assert result["success"] is False
+    assert result["error"]["code"] == "VERSION_CONFLICT"
+
+
+def test_cancel_shop_order_with_version_conflict_does_not_restock(isolated_store):
+    created = shop.create_shop_order("user-a", physical_cart_payload())
+    result = shop.cancel_shop_order("user-a", created["request_id"], expected_version=999)
+    assert result["success"] is False
+    assert result["error"]["code"] == "VERSION_CONFLICT"
+    # 版本衝突時不能已經退了庫存卻沒有真的取消。isolated_store fixture 給
+    # sku_tshirt_white_s 起始庫存 5，physical_cart_payload() 預設買 2 件，
+    # 建單後庫存應為 3，取消失敗不該讓它變回去。
+    assert isolated_store.get_sku_stock("sku_tshirt_white_s") == 3

@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth.cognito import CurrentUser, get_current_user
+from ..auth.webhooks import verify_webhook_secret
 from ..services import reservation, restaurant_catalog
 
 router = APIRouter()
@@ -50,7 +51,7 @@ def cancel_reservation(request_id: str, user: CurrentUser = Depends(get_current_
     return result
 
 
-@router.post("/api/webhooks/booking-callback")
+@router.post("/api/webhooks/booking-callback", dependencies=[Depends(verify_webhook_secret)])
 def booking_callback(body: dict):
     actor_id = body.get("actor_id")
     request_id = body.get("request_id")

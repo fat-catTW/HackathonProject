@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { sendMessage } from "../api/chat";
-import { cancelRequest, getRequest, simulateStatus } from "../api/requests";
+import { cancelRequest, getRequest } from "../api/requests";
 import { ChatMessage } from "../components/ChatMessage";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { ServiceIcon } from "../components/ServiceIcon";
@@ -79,18 +79,6 @@ export function RequestDetailPage() {
   }
 
   const cancellable = !["COMPLETED", "CANCELLED"].includes(detail.status);
-  const nextDemo: Record<string, { to: string; label: string }> = {
-    SUBMITTED: { to: "CONFIRMED", label: "Demo：模擬廠商已確認" },
-    PENDING_PROVIDER: { to: "CONFIRMED", label: "Demo：模擬廠商已確認" },
-    AWAITING_QUOTE: { to: "CONFIRMED", label: "Demo：模擬廠商已報價確認" },
-    CONFIRMED: { to: "IN_PROGRESS", label: "Demo：模擬服務進行中" },
-    IN_PROGRESS: { to: "COMPLETED", label: "Demo：模擬服務已完成" },
-  };
-  const isReservation = detail.service_id === "restaurant_reservation";
-  if (isReservation && detail.status === "COMPLETED") {
-    nextDemo.COMPLETED = { to: "VERIFIED", label: "Demo：模擬已核銷" };
-  }
-  const demo = nextDemo[detail.status];
 
   return (
     <>
@@ -212,15 +200,6 @@ export function RequestDetailPage() {
             >
               再建一筆相同服務
             </button>
-            {demo && (
-              <button
-                type="button"
-                onClick={() => simulateStatus(detail.request_id, demo.to).then(load)}
-                className="w-full rounded-2xl border-2 border-brand px-6 py-3.5 font-bold text-brand"
-              >
-                {demo.label}
-              </button>
-            )}
           </div>
         </div>
       </main>

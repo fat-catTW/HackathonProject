@@ -185,6 +185,7 @@ class BaseStore:
                     "service_id": request.get("service_id", ""),
                     "service_name": request.get("service_name", ""),
                     "status": request.get("status", ""),
+                    "order_status": request.get("order_status"),
                     # 廠商後台改狀態時要帶回這個版本，因此索引也要跟著鏡射。
                     "version": version_of(request),
                     # 密文與遮罩一起鏡射；廠商清單只讀 form_data_masked。

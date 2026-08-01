@@ -10,6 +10,7 @@ from ..agent.agent import (
 )
 from ..auth.cognito import CurrentUser, get_current_user
 from ..models.chat import ChatRequest, ChatResponse, FormUpdateRequest
+from ..services import clock
 from ..services.conversation_memory import MEMORY
 
 router = APIRouter()
@@ -43,6 +44,7 @@ def _chat_response(session_id: str, result: dict) -> ChatResponse:
         form_schema=build_form_schema(state),
         form_draft=build_form_draft(state),
         active_field=current_active_field(state),
+        form_actions=result.get("form_actions") or [],
         request_id=state["request_id"],
         status=state["status"],
         redirect_path=result.get("redirect_path"),
@@ -56,15 +58,21 @@ def _chat_response(session_id: str, result: dict) -> ChatResponse:
 def chat(body: ChatRequest, user: CurrentUser = Depends(get_current_user)):
     session = _load_session_or_404(user.sub, body.session_id)
 
-    result = handle_message(
-        user.sub,
-        body.session_id,
-        session["state"],
-        body.message,
-        session["events"],
-        current_page_id=body.current_page_id,
-        auth_token=user.access_token,
-    )
+    # 這次請求內的「今天」以使用者裝置為準（「這禮拜三」要從他當下的日期算起）。
+    date_token = clock.use_client_date(body.client_date)
+    try:
+        result = handle_message(
+            user.sub,
+            body.session_id,
+            session["state"],
+            body.message,
+            session["events"],
+            current_page_id=body.current_page_id,
+            auth_token=user.access_token,
+            form_context=body.form_context.model_dump() if body.form_context else None,
+        )
+    finally:
+        clock.reset_client_date(date_token)
     MEMORY.save_turn(user.sub, body.session_id, body.message, result["reply"], result["state"])
     return _chat_response(body.session_id, result)
 

@@ -8,6 +8,7 @@ from datetime import date
 from functools import lru_cache
 
 from ..config import get_settings
+from ..services import clock
 from ..services.aws import get_aws_client, has_aws_credentials
 
 _YES_NO_SYSTEM = (
@@ -42,6 +43,8 @@ _FIELD_SYSTEM = (
     "Use only the provided field ids from the current form schema. "
     "Read the current form schema and current form draft before deciding updates. "
     "Your job is to interpret the latest user message and write only the form fields the user is providing or correcting. "
+    "Memory is background only: never copy a remembered value into a field unless the latest user message explicitly asks to reuse it. "
+    "Never write a free-text field (descriptions, notes) from memory - those must come from what the user just said. "
     "For select fields, return one of the exact option values whenever possible. "
     "For dates, prefer YYYY-MM-DD. "
     "If the latest user message is not giving field values, return an empty object. "
@@ -199,7 +202,7 @@ def choose_service(
     long_term_memory: str = "",
 ) -> str | None:
     prompt = (
-        f"Today is {date.today().isoformat()}.\n"
+        f"Today is {clock.today().isoformat()} ({clock.weekday_zh()}).\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
         f"Available services:\n{json.dumps(services, ensure_ascii=False, indent=2)}\n\n"
@@ -259,7 +262,7 @@ def extract_fields(
     long_term_memory: str = "",
 ) -> dict:
     prompt = (
-        f"Today is {date.today().isoformat()}.\n"
+        f"Today is {clock.today().isoformat()} ({clock.weekday_zh()}).\n"
         f"Service name: {service_name}\n"
         f"Form schema:\n{json.dumps(form_schema or {'fields': fields}, ensure_ascii=False, indent=2)}\n\n"
         f"Current form draft:\n{json.dumps(form_draft or {'fields': collected_fields}, ensure_ascii=False, indent=2)}\n\n"
@@ -332,7 +335,7 @@ def compose_reply(
     long_term_memory: str = "",
 ) -> str | None:
     prompt_payload = {
-        "today": date.today().isoformat(),
+        "today": f"{clock.today().isoformat()} ({clock.weekday_zh()})",
         "phase": phase,
         "latest_user_message": latest_user_message,
         "service_name": service_name,
@@ -366,7 +369,7 @@ def compose_page_help_reply(
     tool_payload: dict | None = None,
 ) -> str | None:
     prompt_payload = {
-        "today": date.today().isoformat(),
+        "today": f"{clock.today().isoformat()} ({clock.weekday_zh()})",
         "latest_user_message": latest_user_message,
         "current_page_id": current_page_id or "",
         "tool_payload": tool_payload or {},

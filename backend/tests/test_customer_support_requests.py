@@ -58,18 +58,21 @@ def test_customer_support_request_keeps_context_and_type_metadata(isolated_store
     assert stored_request["form_data"]["related_request_id"] == "REQ-20260730-001"
 
 
-def test_keyword_detection_survives_services_without_keywords():
-    """customer_support 沒有 keywords，關鍵字比對不能因此炸掉。
+def test_keyword_detection_survives_services_without_keywords(monkeypatch):
+    """服務目錄裡有項目沒列 keywords 時，關鍵字比對不能因此炸掉。
 
-    這個服務 show_in_catalog=False，只從 FAQ 升級流程建立，刻意不列關鍵字；
-    detect_service 以前直接讀 s["keywords"]，讓所有走 NLU 的對話都 KeyError。
+    customer_support 當初就是這種項目（show_in_catalog=False，只從 FAQ 升級流程
+    建立，刻意不列關鍵字），detect_service 以前直接讀 s["keywords"]，讓所有走
+    NLU 的對話都 KeyError。現在目錄裡每個服務都補上了 keywords（見
+    test_shop_price_compare.py 的 test_every_service_entry_has_a_keywords_list），
+    所以這裡自己塞一個沒有 keywords 的服務來守住原本的行為。
     """
     from backend.app.agent import nlu
-    from backend.app.services.catalog import SERVICES
 
-    assert not any("keywords" in s for s in SERVICES if s["id"] == "customer_support")
+    keywordless = {"id": "keywordless_service", "name": "無關鍵字服務", "enabled": True}
+    monkeypatch.setattr(nlu, "SERVICES", [*nlu.SERVICES, keywordless])
 
     service_id, candidates = nlu.detect_service("我想訂餐廳吃飯")
     assert service_id == "restaurant_reservation"
     # 沒有關鍵字的服務永遠不會被選中，不會誤攔一般對話。
-    assert "customer_support" not in [s["id"] for s in candidates]
+    assert "keywordless_service" not in [s["id"] for s in candidates]

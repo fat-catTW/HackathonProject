@@ -1,0 +1,60 @@
+name: Unit Tests
+
+# 只在發 PR 時跑（開新 PR、PR 有新 commit、reopen）
+on:
+  pull_request:
+
+# 同一個 PR 連續 push 時，取消還在跑的舊 workflow
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# 測試裡有寫死本地時間格式的斷言（例如 RequestCard 的「建立 7/31 下午08:47」），
+# runner 預設 UTC 會對不上，固定成專案的時區。
+env:
+  TZ: Asia/Taipei
+
+jobs:
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+    env:
+      # CI 沒有 AWS 憑證，一律跑本地 mock（backend/tests/conftest.py 也會再強制一次）
+      USE_MOCK: "true"
+      AGENT_TOOL_MODE: embedded
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      # 測試檔是 `from backend.app...`，必須在 repo 根目錄執行
+      - name: Run pytest
+        run: python -m pytest backend/tests -q
+
+  frontend:
+    name: Frontend (vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run vitest
+        run: npm test

@@ -102,7 +102,6 @@ class Settings:
     google_search_engine_id: str = os.getenv("GOOGLE_SEARCH_ENGINE_ID", "")
     google_maps_api_key: str = os.getenv("GOOGLE_MAPS_API_KEY", "")
     dynamodb_table_name: str = os.getenv("DYNAMODB_TABLE_NAME", "ServiceAssistant")
-    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     mock_store_path: Path = _BACKEND_ROOT / os.getenv("MOCK_STORE_PATH", ".local-store.json")
     user_store_path: Path = _BACKEND_ROOT / os.getenv("USER_STORE_PATH", ".local-users.json")
     allow_demo_auth: bool = _env_flag("ALLOW_DEMO_AUTH", True)

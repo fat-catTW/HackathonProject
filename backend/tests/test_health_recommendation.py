@@ -52,12 +52,41 @@ def test_fallback_recommend_excludes_unhealthy_tags_when_nothing_matches():
     assert not (matched_ids & unhealthy_ids)
 
 
-def test_recommend_falls_back_to_keyword_matching_without_gemini_key():
-    """No GEMINI_API_KEY is configured in the test env, so recommend() must
-    use the rule-based fallback and mark fallback_used=True."""
+def test_recommend_falls_back_to_keyword_matching_without_bedrock_or_google():
+    """Neither Bedrock nor a Google key is configured in the test env, so
+    recommend() must use the rule-based fallback and mark fallback_used=True."""
     result = health_recommendation.recommend("我想減脂", health_catalog.list_products())
     assert result["fallback_used"] is True
     assert len(result["recommendations"]) > 0
+
+
+def test_recommend_uses_bedrock_and_google_when_available():
+    products = health_catalog.list_products()[:2]
+    fake_external = [{"title": "外部商品A", "snippet": "低卡高蛋白", "link": "https://example.com/a"}]
+    fake_picks = [
+        {"product_id": products[0]["id"], "name": products[0]["name"], "source": "internal",
+         "detail": "x", "reason": "符合減脂需求"},
+    ]
+    with patch("backend.app.services.health_recommendation.llm.is_available", return_value=True), \
+         patch("backend.app.services.health_recommendation.llm.plan_external_query", return_value="低卡商品"), \
+         patch("backend.app.services.health_recommendation.external_search.google_text_search", return_value=fake_external), \
+         patch("backend.app.services.health_recommendation.llm.rank_external_results", return_value=fake_picks):
+        result = health_recommendation.recommend("我想減脂", products)
+
+    assert result["fallback_used"] is False
+    assert result["recommendations"][0]["product_id"] == products[0]["id"]
+    assert result["recommendations"][0]["reason"] == "符合減脂需求"
+    assert result["recommendations"][0]["source"] == "internal"
+
+
+def test_recommend_falls_back_when_bedrock_ranking_returns_nothing():
+    products = health_catalog.list_products()[:2]
+    with patch("backend.app.services.health_recommendation.llm.is_available", return_value=True), \
+         patch("backend.app.services.health_recommendation.llm.plan_external_query", return_value="q"), \
+         patch("backend.app.services.health_recommendation.external_search.google_text_search", return_value=None), \
+         patch("backend.app.services.health_recommendation.llm.rank_external_results", return_value=None):
+        result = health_recommendation.recommend("我想減脂", products)
+    assert result["fallback_used"] is True
 
 
 def test_embedded_recommend_tool_requires_query():

@@ -43,6 +43,8 @@ _FIELD_SYSTEM = (
     "Use only the provided field ids from the current form schema. "
     "Read the current form schema and current form draft before deciding updates. "
     "Your job is to interpret the latest user message and write only the form fields the user is providing or correcting. "
+    "Memory is background only: never copy a remembered value into a field unless the latest user message explicitly asks to reuse it. "
+    "Never write a free-text field (descriptions, notes) from memory - those must come from what the user just said. "
     "For select fields, return one of the exact option values whenever possible. "
     "For dates, prefer YYYY-MM-DD. "
     "If the latest user message is not giving field values, return an empty object. "

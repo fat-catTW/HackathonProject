@@ -167,7 +167,7 @@ def list_clinics(
     area = _normalize_char_variant(f"{city}{district}")
     matches = [c for c in _load_clinics() if area in _normalize_char_variant(c["address"])]
     if specialty:
-        matches = [c for c in matches if specialty in c["specialties"]]
+        matches = [c for c in matches if any(specialty in s for s in c["specialties"])]
     shaped = [_to_public_shape(c, now) for c in matches]
     shaped.sort(key=lambda c: c["is_open_now"], reverse=True)
     return shaped[:_MAX_RESULTS]

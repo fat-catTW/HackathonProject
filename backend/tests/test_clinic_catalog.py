@@ -93,6 +93,17 @@ def test_list_clinics_matches_taiwan_variant_char_from_live_fetch(monkeypatch):
     assert any(c["id"] == "fetch-001" for c in results)
 
 
+def test_list_clinics_matches_specialty_within_compound_string(monkeypatch):
+    """Real NHI data reports specialties like "耳鼻喉科(耳鼻喉頭頸外科)" rather
+    than a bare "耳鼻喉科" — the filter must match by substring, not exact
+    list membership, or every real ENT clinic gets silently excluded."""
+    record = _raw_record("fetch-ent-001", "真實耳鼻喉科診所", "台中市西屯區某路9號")
+    record["FUNCTYPE_CNAME"] = "耳鼻喉科(耳鼻喉頭頸外科)"
+    monkeypatch.setattr(clinic_catalog, "_fetch_all_clinics", lambda: [record])
+    results = clinic_catalog.list_clinics("台中市", "西屯區", "耳鼻喉科", now=MONDAY_10AM)
+    assert any(c["id"] == "fetch-ent-001" for c in results)
+
+
 def test_list_clinics_caps_results_at_ten_and_sorts_open_first(monkeypatch):
     records = []
     for i in range(15):

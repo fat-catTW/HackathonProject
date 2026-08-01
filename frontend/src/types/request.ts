@@ -80,5 +80,5 @@ export interface ChatResponse {
   status: string;
   redirect_path: string | null;
   redirect_requires_confirmation: boolean;
-  product_recommendations: ProductRecommendation[] | null;
+  product_recommendations?: ProductRecommendation[] | null;
 }

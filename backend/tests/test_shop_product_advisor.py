@@ -52,7 +52,9 @@ def test_agent_detects_shop_product_advisor_and_replies_with_redirect():
     assert result["state"]["request_id"] is None
     assert result["redirect_path"] == "/services/shop_purchase?category_id=cat_electronics"
     assert result["redirect_requires_confirmation"] is True
-    assert "★" in result["reply"]
+    assert "這是我幫你比較後找到的推薦" in result["reply"]
+    assert result["product_recommendations"]
+    assert result["product_recommendations"][0]["rating_avg"] is not None
 
 
 def test_agent_shop_product_advisor_tool_failure_has_no_redirect():

@@ -166,10 +166,10 @@ def test_electronics_category_registered():
     assert "cat_electronics" in category_ids
 
 
-def test_electronics_category_has_seven_distinct_vendors():
+def test_electronics_category_has_distinct_vendors():
     products = shop_catalog.list_products(category_id="cat_electronics")
-    assert len(products) == 7
-    assert len({p["store_id"] for p in products}) == 7
+    assert len(products) == 14
+    assert len({p["store_id"] for p in products}) == 14
 
 
 def test_electronics_products_have_descriptive_tags():

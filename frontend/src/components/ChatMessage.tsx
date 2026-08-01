@@ -1,4 +1,5 @@
 import type { ChatEvent } from "../types/request";
+import { ChatRestaurantCardList } from "./ChatRestaurantCardList";
 import { Mascot } from "./Mascot";
 import { ShareWithFamilyButton } from "./ShareWithFamilyButton";
 import { TaskCardList } from "./TaskCardList";
@@ -15,9 +16,11 @@ import { TaskCardList } from "./TaskCardList";
 export function ChatMessage({
   event,
   onRedirectClick,
+  onRestaurantSelect,
 }: {
   event: ChatEvent;
   onRedirectClick?: (path: string) => void;
+  onRestaurantSelect?: (name: string) => void;
 }) {
   const isUser = event.role === "USER";
   return (
@@ -39,6 +42,12 @@ export function ChatMessage({
       >
         {event.content}
         {event.taskCards && event.taskCards.length > 0 && <TaskCardList cards={event.taskCards} />}
+        {event.restaurantCards && event.restaurantCards.length > 0 && (
+          <ChatRestaurantCardList
+            restaurants={event.restaurantCards}
+            onSelect={(name) => onRestaurantSelect?.(name)}
+          />
+        )}
         {event.shareText && <ShareWithFamilyButton text={event.shareText} />}
         {event.redirectPath && (
           <button

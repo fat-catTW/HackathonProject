@@ -22,11 +22,21 @@ export interface RequestListItem {
   updated_at: string;
 }
 
+export interface ChatRestaurantCard {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  reason?: string;
+  source?: string;
+}
+
 export interface ChatEvent {
   role: "USER" | "ASSISTANT";
   content: string;
   redirectPath?: string;
   taskCards?: { service_id: string; service_name: string }[];
+  restaurantCards?: ChatRestaurantCard[];
   shareText?: string;
 }
 
@@ -71,5 +81,6 @@ export interface ChatResponse {
   redirect_path: string | null;
   redirect_requires_confirmation: boolean;
   task_cards: { service_id: string; service_name: string }[] | null;
+  restaurant_cards: ChatRestaurantCard[] | null;
   share_text: string | null;
 }

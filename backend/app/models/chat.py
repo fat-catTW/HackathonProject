@@ -55,4 +55,5 @@ class ChatResponse(BaseModel):
     redirect_requires_confirmation: bool = False
     debug_trace: dict = {}
     task_cards: list[dict] | None = None
+    restaurant_cards: list[dict] | None = None
     share_text: str | None = None

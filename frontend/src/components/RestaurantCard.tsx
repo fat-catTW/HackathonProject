@@ -1,8 +1,18 @@
-import type { RestaurantInfo } from "../types/reservation";
 import { ServiceIcon } from "./ServiceIcon";
 
+/** 卡片只用得到這幾個欄位；ReservationFlowPage 的完整 RestaurantInfo 和聊天室搜尋結果
+ * （只有 id/name/address/phone/reason，沒有 brand/cuisine/supports_booking_api）都能直接套用。 */
+export interface RestaurantCardInfo {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  /** AI 搜尋這家店的理由（只有聊天室的搜尋結果才有）。 */
+  reason?: string;
+}
+
 interface Props {
-  restaurant: RestaurantInfo;
+  restaurant: RestaurantCardInfo;
   selected: boolean;
   onSelect: () => void;
 }
@@ -26,14 +36,23 @@ export function RestaurantCard({ restaurant, selected, onSelect }: Props) {
       }`}
     >
       <p className="text-base font-black leading-normal text-[var(--color-foreground)]">{restaurant.name}</p>
-      <div className="mt-2 flex items-start gap-1.5 text-sm leading-relaxed text-[var(--color-muted-foreground)]">
-        <ServiceIcon type="location" size={16} className="mt-0.5 flex-none" />
-        <span>{restaurant.address}</span>
-      </div>
-      <div className="mt-1 flex items-center gap-1.5 text-sm leading-relaxed text-[var(--color-muted-foreground)]">
-        <ServiceIcon type="phone" size={16} className="flex-none" />
-        <span className="font-[family-name:var(--font-mono)]">{restaurant.phone}</span>
-      </div>
+      {restaurant.address && (
+        <div className="mt-2 flex items-start gap-1.5 text-sm leading-relaxed text-[var(--color-muted-foreground)]">
+          <ServiceIcon type="location" size={16} className="mt-0.5 flex-none" />
+          <span>{restaurant.address}</span>
+        </div>
+      )}
+      {restaurant.phone && (
+        <div className="mt-1 flex items-center gap-1.5 text-sm leading-relaxed text-[var(--color-muted-foreground)]">
+          <ServiceIcon type="phone" size={16} className="flex-none" />
+          <span className="font-[family-name:var(--font-mono)]">{restaurant.phone}</span>
+        </div>
+      )}
+      {restaurant.reason && (
+        <p className="mt-2 border-t border-[var(--color-border)] pt-2 text-sm leading-relaxed text-[var(--color-muted-foreground)]">
+          {restaurant.reason}
+        </p>
+      )}
     </button>
   );
 }

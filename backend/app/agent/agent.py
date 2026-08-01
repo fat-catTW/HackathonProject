@@ -2262,7 +2262,7 @@ def _handle_restaurant_search(actor_id: str, state: dict, latest_user_message: s
         return _reply(state, "不好意思，沒有找到符合的餐廳，可以換個地址或說法再試一次嗎？")
 
     state["pending_restaurant_options"] = options
-    return _reply(state, _format_restaurant_options_reply(options))
+    return _reply(state, _format_restaurant_options_reply(options), restaurant_cards=options)
 
 
 def _format_restaurant_options_reply(options: list[dict]) -> str:
@@ -2291,7 +2291,11 @@ def _handle_restaurant_search_pending_reply(actor_id: str, state: dict, text: st
     options = state.get("pending_restaurant_options") or []
     picked = _match_restaurant_pick(text, options)
     if not picked:
-        return _reply(state, f"不好意思，我沒聽懂你想選哪一間。{_format_restaurant_options_reply(options)}")
+        return _reply(
+            state,
+            f"不好意思，我沒聽懂你想選哪一間。{_format_restaurant_options_reply(options)}",
+            restaurant_cards=options,
+        )
 
     state["collected_fields"]["restaurant_id"] = picked["id"]
     state["collected_fields"]["restaurant_name"] = picked["name"]
@@ -2711,6 +2715,7 @@ def _reply(
     redirect_path: str | None = None,
     redirect_requires_confirmation: bool = False,
     task_cards: list[dict] | None = None,
+    restaurant_cards: list[dict] | None = None,
     share_text: str | None = None,
 ) -> dict:
     return {
@@ -2720,5 +2725,6 @@ def _reply(
         "redirect_requires_confirmation": redirect_requires_confirmation,
         "debug_trace": state.get("debug_trace", {}),
         "task_cards": task_cards,
+        "restaurant_cards": restaurant_cards,
         "share_text": share_text,
     }

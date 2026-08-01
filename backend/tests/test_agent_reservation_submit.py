@@ -118,6 +118,7 @@ def test_reservation_chat_flow_falls_back_to_restaurant_search_when_name_not_rec
     assert state["pending_restaurant_options"] == _FAKE_SEARCH_RESULT["restaurants"]
     assert "台中好料理" in result["reply"]
     assert "22世紀風味館 信義旗艦店" in result["reply"]
+    assert result["restaurant_cards"] == _FAKE_SEARCH_RESULT["restaurants"]
     mock_search.assert_called_once()
     assert mock_search.call_args.args[0] == "user-1"
 

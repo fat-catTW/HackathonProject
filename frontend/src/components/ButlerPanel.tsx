@@ -87,6 +87,7 @@ export function ButlerPanel({
         content: r.reply,
         redirectPath: showsRedirectButton ? r.redirect_path! : undefined,
         taskCards: r.task_cards ?? undefined,
+        restaurantCards: r.restaurant_cards ?? undefined,
         shareText: r.share_text ?? undefined,
       });
       saveButlerTurn({
@@ -263,6 +264,7 @@ export function ButlerPanel({
                     onClose?.();
                     navigate(path);
                   }}
+                  onRestaurantSelect={(name) => void send(name)}
                 />
               ))}
               {sending && (

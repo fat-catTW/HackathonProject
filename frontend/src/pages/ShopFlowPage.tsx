@@ -2,6 +2,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ButlerLauncher } from "../components/ButlerLauncher";
 import { GlassPanel } from "../components/GlassPanel";
+import { RatingStars } from "../components/RatingStars";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { Toast } from "../components/Toast";
 import {
@@ -9,12 +10,13 @@ import {
   getShopCompareGroup,
   getShopOrder,
   getShopPoints,
+  getShopProductReviews,
   listShopCategories,
   listShopProducts,
   simulateShopOrderProgress,
   submitShopOrder,
 } from "../api/shop";
-import type { ShopCartLine, ShopCategory, ShopOrder, ShopProduct, ShopSubmitResult } from "../types/shop";
+import type { ShopCartLine, ShopCategory, ShopOrder, ShopProduct, ShopReview, ShopSubmitResult } from "../types/shop";
 
 type Step = "category" | "product" | "cart" | "checkout" | "result";
 const STEP_ORDER: Step[] = ["category", "product", "cart", "checkout", "result"];
@@ -47,6 +49,9 @@ export function ShopFlowPage() {
   const [activeProduct, setActiveProduct] = useState<ShopProduct | null>(null);
   const [comparingGroupId, setComparingGroupId] = useState<string | null>(null);
   const [selectedSpecs, setSelectedSpecs] = useState<Record<string, string>>({});
+  const [sortByRating, setSortByRating] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
+  const [reviews, setReviews] = useState<ShopReview[]>([]);
 
   const [cart, setCart] = useState<CartEntry[]>([]);
   const [pointsBalance, setPointsBalance] = useState(0);
@@ -77,6 +82,14 @@ export function ShopFlowPage() {
       })
       .catch(() => setToastText("比價資料載入失敗"));
   }, [compareParam]);
+
+  const categoryIdParam = searchParams.get("category_id");
+
+  useEffect(() => {
+    if (!categoryIdParam) return;
+    setSelectedCategoryId(categoryIdParam);
+    setStepIndex(STEP_ORDER.indexOf("product"));
+  }, [categoryIdParam]);
 
   useEffect(() => {
     if (!selectedCategoryId) return;
@@ -109,6 +122,18 @@ export function ShopFlowPage() {
     ) ?? (activeProduct.specs.length === 0 ? activeProduct.skus[0] : null);
   }, [activeProduct, selectedSpecs]);
 
+  useEffect(() => {
+    setShowReviews(false);
+    setReviews([]);
+  }, [activeProduct?.id]);
+
+  useEffect(() => {
+    if (!showReviews || !activeProduct) return;
+    getShopProductReviews(activeProduct.id)
+      .then((res) => setReviews(res.reviews))
+      .catch(() => setToastText("評價載入失敗"));
+  }, [showReviews, activeProduct]);
+
   const productGroups = useMemo<ProductGroup[]>(() => {
     const groups = new Map<string, (ShopProduct & { min_unit_price: number })[]>();
     for (const product of products) {
@@ -123,6 +148,13 @@ export function ShopFlowPage() {
       offers: offers.sort((a, b) => a.min_unit_price - b.min_unit_price),
     }));
   }, [products]);
+
+  const visibleGroups = useMemo(() => {
+    if (!sortByRating) return productGroups;
+    return [...productGroups].sort(
+      (a, b) => Math.max(...b.offers.map((o) => o.rating_avg)) - Math.max(...a.offers.map((o) => o.rating_avg)),
+    );
+  }, [productGroups, sortByRating]);
 
   const comparingOffers = useMemo(() => {
     if (!comparingGroupId) return [];
@@ -279,8 +311,20 @@ export function ShopFlowPage() {
         {step === "product" && (
           <section className="flex flex-col gap-4">
             <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">請選擇商品</p>
+            <button
+              type="button"
+              onClick={() => setSortByRating((v) => !v)}
+              aria-pressed={sortByRating}
+              className={`self-start rounded-full border-2 px-4 py-2 text-sm font-bold transition ${
+                sortByRating
+                  ? "border-brand bg-brand/5 text-brand"
+                  : "border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]"
+              }`}
+            >
+              依評分排序
+            </button>
             <div className="flex flex-col gap-3">
-              {productGroups.map((group) => {
+              {visibleGroups.map((group) => {
                 if (group.offers.length > 1) {
                   const prices = group.offers.map((o) => o.min_unit_price);
                   return (
@@ -300,6 +344,7 @@ export function ShopFlowPage() {
                         NT${Math.min(...prices)}~{Math.max(...prices)}
                       </p>
                       <p className="text-xs text-[var(--color-muted-foreground)]">共 {group.offers.length} 家店販售</p>
+                      <RatingStars rating={Math.max(...group.offers.map((o) => o.rating_avg))} />
                     </button>
                   );
                 }
@@ -323,6 +368,7 @@ export function ShopFlowPage() {
                     <p className="text-base font-bold text-[var(--color-foreground)]">{product.name}</p>
                     <p className="text-sm text-[var(--color-muted-foreground)]">NT${product.skus[0]?.unit_price}</p>
                     <p className="text-xs text-[var(--color-muted-foreground)]">{product.store_name}</p>
+                    <RatingStars rating={product.rating_avg} count={product.rating_count} />
                   </button>
                 );
               })}
@@ -338,13 +384,16 @@ export function ShopFlowPage() {
                     key={offer.id}
                     className="flex items-center justify-between rounded-xl border border-[var(--color-border)] px-4 py-3"
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-[var(--color-foreground)]">{offer.store_name}</span>
-                      {index === 0 && (
-                        <span className="rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-xs font-bold text-[var(--color-success)]">
-                          最便宜
-                        </span>
-                      )}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-[var(--color-foreground)]">{offer.store_name}</span>
+                        {index === 0 && (
+                          <span className="rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-xs font-bold text-[var(--color-success)]">
+                            最便宜
+                          </span>
+                        )}
+                      </div>
+                      <RatingStars rating={offer.rating_avg} count={offer.rating_count} />
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-bold text-[var(--color-foreground)]">NT${offer.min_unit_price}</span>
@@ -429,6 +478,38 @@ export function ShopFlowPage() {
                 >
                   加入購物車{matchedSku ? `（NT$${matchedSku.unit_price * pendingQuantity}）` : ""}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowReviews((v) => !v)}
+                  className="text-sm font-bold text-brand underline"
+                >
+                  {showReviews ? "收合評價" : "查看評價"}
+                </button>
+                {showReviews && (
+                  <div className="flex flex-col gap-3 rounded-xl bg-[var(--color-canvas)] p-3">
+                    {reviews.length === 0 && (
+                      <p className="text-sm text-[var(--color-muted-foreground)]">目前還沒有評價</p>
+                    )}
+                    {reviews.map((review) => (
+                      <div
+                        key={review.review_id}
+                        className="flex flex-col gap-1 border-b border-[var(--color-border)] pb-2 last:border-b-0 last:pb-0"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-[var(--color-foreground)]">{review.author}</span>
+                          <span className="text-xs text-[var(--color-muted-foreground)]">{review.created_at}</span>
+                        </div>
+                        <RatingStars rating={review.rating} />
+                        {review.verified_purchase && (
+                          <span className="w-fit rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-xs font-bold text-[var(--color-success)]">
+                            已購買
+                          </span>
+                        )}
+                        <p className="text-sm text-[var(--color-foreground)]">{review.comment}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

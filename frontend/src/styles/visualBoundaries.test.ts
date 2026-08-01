@@ -124,6 +124,7 @@ describe("改版範圍限制（Task 12.3）", () => {
       "/services/restaurant_reservation",
       "/services/food_delivery",
       "/services/health_product_recommendation",
+      "/services/clinic_appointment",
       "/services/shop_purchase",
       "/services/:serviceId",
       "/new",
@@ -151,6 +152,7 @@ describe("改版範圍限制（Task 12.3）", () => {
 
   it("頁面檔案清單無增減（Requirement 17.3）", () => {
     const EXPECTED_PAGES = [
+      "ClinicConsultFlowPage.tsx",
       "DeliveryFlowPage.tsx",
       "HealthRecommendationPage.tsx",
       "HomePage.tsx",

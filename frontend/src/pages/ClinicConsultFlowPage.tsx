@@ -85,6 +85,7 @@ export function ClinicConsultFlowPage() {
   async function handleConfirmAppointment() {
     if (!selectedClinicId) return;
     setSubmitting(true);
+    let newRequestId: string | null = null;
     try {
       const result = await submitClinicAppointment({
         clinic_id: selectedClinicId,
@@ -94,14 +95,25 @@ export function ClinicConsultFlowPage() {
         contact_name: contactName,
         phone,
       });
+      newRequestId = result.request_id;
       setRequestId(result.request_id);
-      const crossSell = await getCrossSellRecommendations(result.request_id);
-      setCrossSellItems(crossSell.recommendations);
-      goNext();
     } catch (error) {
       setToastText(error instanceof Error ? error.message : "掛號未成功送出，請重新嘗試");
+      setSubmitting(false);
+      return;
+    }
+
+    // 掛號已成功送出（requestId 已設定），加購推薦是錦上添花的附加功能。
+    // 若加購推薦服務失敗，不應該讓使用者誤以為掛號失敗、也不應該擋住流程，
+    // 只需保留空的推薦清單並繼續往下一步走即可。
+    try {
+      const crossSell = await getCrossSellRecommendations(newRequestId);
+      setCrossSellItems(crossSell.recommendations);
+    } catch {
+      setToastText("目前無法取得加購推薦，但您的掛號已完成");
     } finally {
       setSubmitting(false);
+      goNext();
     }
   }
 
@@ -189,21 +201,36 @@ export function ClinicConsultFlowPage() {
         {step === "clinic" && (
           <section className="flex flex-col gap-4">
             <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">{advisory}</p>
-            <ClinicCardList
-              clinics={clinics}
-              selectedId={selectedClinicId}
-              recommendedId={recommendedClinicId}
-              recommendReason={recommendReason}
-              onSelect={setSelectedClinicId}
-            />
-            <button
-              type="button"
-              disabled={!selectedClinicId}
-              onClick={goNext}
-              className="mt-2 min-h-[44px] rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
-            >
-              下一步
-            </button>
+            {clinics.length === 0 ? (
+              <p className="text-base leading-relaxed text-[var(--color-muted-foreground)]">
+                目前這個地區沒有找到符合的診所，請返回調整症狀或地區。
+              </p>
+            ) : (
+              <ClinicCardList
+                clinics={clinics}
+                selectedId={selectedClinicId}
+                recommendedId={recommendedClinicId}
+                recommendReason={recommendReason}
+                onSelect={setSelectedClinicId}
+              />
+            )}
+            <div className="mt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={goBack}
+                className="min-h-[44px] flex-1 rounded-2xl border-2 border-brand px-6 py-4 text-base font-bold text-brand"
+              >
+                上一步
+              </button>
+              <button
+                type="button"
+                disabled={!selectedClinicId}
+                onClick={goNext}
+                className="min-h-[44px] flex-1 rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
+              >
+                下一步
+              </button>
+            </div>
           </section>
         )}
 

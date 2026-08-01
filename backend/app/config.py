@@ -42,6 +42,21 @@ _BUILTIN_VENDOR_ACCOUNTS: dict = {
         "name": "統一速達（黑貓宅急便）",
         "password": "vendor1234",
     },
+    "vendor22@demo.local": {
+        "vendor_id": 22,
+        "name": "22世紀風味館",
+        "password": "vendor1234",
+    },
+    "vendor30@demo.local": {
+        "vendor_id": 30,
+        "name": "美食外送物流中心",
+        "password": "vendor1234",
+    },
+    "vendor40@demo.local": {
+        "vendor_id": 40,
+        "name": "商城出貨中心",
+        "password": "vendor1234",
+    },
 }
 
 
@@ -88,6 +103,13 @@ class Settings:
 
     cognito_user_pool_id: str = os.getenv("COGNITO_USER_POOL_ID", "")
     cognito_client_id: str = os.getenv("COGNITO_CLIENT_ID", "")
+
+    # 第三方 webhook 回呼的共用密鑰；正式環境请設定 WEBHOOK_SHARED_SECRET，
+    # mock 模式沒設定時退回一組固定的示範密鑰，讓本地開發／demo 不必額外設定，
+    # 但驗證邏輯本身永遠開啟，不會因為忘記設定就變成無驗證。
+    webhook_shared_secret: str = os.getenv("WEBHOOK_SHARED_SECRET", "") or (
+        "demo-webhook-secret" if _env_flag("USE_MOCK", True) else ""
+    )
 
     # 聯絡資訊欄位級加密（Milestone 15）。兩者皆未設定時退回內建開發金鑰，
     # 詳見 services/contact_privacy.py。

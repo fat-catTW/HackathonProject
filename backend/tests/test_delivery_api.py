@@ -41,35 +41,48 @@ def _create_order(client: TestClient, headers: dict) -> dict:
     ).json()
 
 
-def test_simulate_delivery_status_advances_order_status_and_driver_info():
+def test_customer_can_no_longer_advance_delivery_status_directly():
+    """使用者端的模擬端點已經移除，狀態推進只能透過廠商後台。"""
     client = TestClient(app)
     headers = _auth_headers(client)
     created = _create_order(client, headers)
-    assert created["order_status"] == "01"
 
     response = client.post(
         f"/api/delivery/orders/{created['request_id']}/simulate",
-        json={
-            "vendor_status": 1,
-            "delivery": {"driver_name": "示範外送員", "driver_phone": "0912345678", "eta_minutes": 20},
-        },
-        headers=headers,
-    )
-    assert response.status_code == 200
-    assert response.json()["order_status"] == "02"
-
-    detail = client.get(f"/api/delivery/orders/{created['request_id']}", headers=headers).json()
-    assert detail["order_status"] == "02"
-    assert detail["vendor_data"]["delivery"]["driver_name"] == "示範外送員"
-
-
-def test_simulate_delivery_status_returns_404_for_missing_order():
-    client = TestClient(app)
-    headers = _auth_headers(client)
-
-    response = client.post(
-        "/api/delivery/orders/REQ-DOES-NOT-EXIST/simulate",
         json={"vendor_status": 1},
         headers=headers,
     )
     assert response.status_code == 404
+
+
+def test_delivery_webhook_requires_correct_secret(isolated_store):
+    client = TestClient(app)
+    headers = _auth_headers(client)
+    created = _create_order(client, headers)
+
+    # Get the current user's sub (actor_id) from the demo account, the same way
+    # test_reservations_api.py's booking-callback tests do (don't hardcode a sub).
+    demo_response = client.get("/api/auth/demo-accounts")
+    demo_token = demo_response.json()["accounts"][0]["token"]
+    from backend.app.config import get_settings
+    resident_sub = get_settings().demo_users[demo_token]["sub"]
+
+    ok = client.post(
+        "/api/webhooks/delivery-callback",
+        json={"actor_id": resident_sub, "request_id": created["request_id"], "vendor_status": 1},
+        headers={"X-Webhook-Secret": "demo-webhook-secret"},
+    )
+    assert ok.status_code == 200, ok.text
+
+    no_header = client.post(
+        "/api/webhooks/delivery-callback",
+        json={"actor_id": resident_sub, "request_id": created["request_id"], "vendor_status": 1},
+    )
+    assert no_header.status_code == 401
+
+    wrong_secret = client.post(
+        "/api/webhooks/delivery-callback",
+        json={"actor_id": resident_sub, "request_id": created["request_id"], "vendor_status": 1},
+        headers={"X-Webhook-Secret": "wrong-secret"},
+    )
+    assert wrong_secret.status_code == 401

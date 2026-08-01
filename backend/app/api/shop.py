@@ -74,13 +74,3 @@ def cancel_shop_order(request_id: str, body: dict | None = None, user: CurrentUs
         code = result["error"]["code"]
         _raise_api_error(404 if code == "REQUEST_NOT_FOUND" else 409, code, result["error"]["message"])
     return result
-
-
-@router.post("/api/shop/orders/{request_id}/simulate")
-def simulate_shop_order_progress(request_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
-    """Demo-only: advance a physical-product order to its next status."""
-    result = shop.advance_shop_order_status(user.sub, request_id)
-    if not result.get("success"):
-        code = result["error"]["code"]
-        _raise_api_error(404 if code == "REQUEST_NOT_FOUND" else 409, code, result["error"]["message"])
-    return result

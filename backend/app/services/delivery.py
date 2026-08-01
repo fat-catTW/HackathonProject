@@ -218,39 +218,52 @@ def cancel_delivery_order(actor_id: str, request_id: str, reason: str = "USER_CA
     return {"success": True, "request_id": request_id, "status": "CANCELLED"}
 
 
-def update_delivery_status_from_vendor(actor_id: str, request_id: str, vendor_status: int, delivery_info: dict | None = None) -> dict:
+def apply_vendor_status(order: dict, vendor_status: int, delivery_info: dict | None = None) -> dict | None:
+    """算出套用第三方狀態碼後的訂單，不寫入 STORE——由呼叫端決定要不要帶樂觀鎖版本寫入。
+
+    vendor_status 不是已知代碼時回傳 None，呼叫端自行決定怎麼回應錯誤。
     """
-    Webhook callback: update order from vendor status code.
-    Maps vendor_data.order_status to platform order_status using VENDOR_STATUS_MAP.
-    """
+    platform_status = VENDOR_STATUS_MAP.get(vendor_status)
+    if not platform_status:
+        return None
+
+    updated = dict(order)
+    updated["order_status"] = platform_status
+    updated["vendor_data"] = dict(order.get("vendor_data") or {})
+    updated["vendor_data"]["order_status"] = vendor_status
+
+    if delivery_info:
+        updated["vendor_data"]["delivery"] = delivery_info
+
+    if platform_status == "70":
+        updated["status"] = "COMPLETED"
+    elif platform_status == "90":
+        updated["status"] = "CANCELLED"
+        updated["cancel_reason"] = "STORE_CANCEL"
+    else:
+        updated["status"] = "IN_PROGRESS"
+
+    updated["status_history"] = list(order.get("status_history") or [])
+    updated["status_history"].append({"status": platform_status, "at": now_iso()})
+    return updated
+
+
+def update_delivery_status_from_vendor(
+    actor_id: str, request_id: str, vendor_status: int, delivery_info: dict | None = None
+) -> dict:
+    """第三方外送系統 webhook 回呼用：沒有廠商登入身分，直接信任呼叫來源、無條件寫入。"""
     order = STORE.get_request(actor_id, request_id)
     if not order:
         return _error("REQUEST_NOT_FOUND", "找不到對應的外送訂單。")
 
-    platform_status = VENDOR_STATUS_MAP.get(vendor_status)
-    if not platform_status:
+    updated = apply_vendor_status(order, vendor_status, delivery_info)
+    if updated is None:
         return _error("INVALID_VENDOR_STATUS", f"未知的第三方狀態碼: {vendor_status}")
 
-    order["order_status"] = platform_status
-    order["vendor_data"]["order_status"] = vendor_status
-
-    if delivery_info:
-        order["vendor_data"]["delivery"] = delivery_info
-
-    if platform_status == "70":
-        order["status"] = "COMPLETED"
-    elif platform_status == "90":
-        order["status"] = "CANCELLED"
-        order["cancel_reason"] = "STORE_CANCEL"
-    else:
-        order["status"] = "IN_PROGRESS"
-
-    order.setdefault("status_history", []).append({"status": platform_status, "at": now_iso()})
-    STORE.save_request(actor_id, order)
-
+    STORE.save_request(actor_id, updated)
     return {
         "success": True,
         "request_id": request_id,
-        "order_status": platform_status,
-        "order_status_label": ORDER_STATUS_LABEL.get(platform_status, ""),
+        "order_status": updated["order_status"],
+        "order_status_label": ORDER_STATUS_LABEL.get(updated["order_status"], ""),
     }

@@ -1,7 +1,8 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { listVendorRequests } from "../api/vendor";
+import { getVendorApiForKind } from "../api/vendorRouting";
+import { vendorKindOf } from "../types/vendor";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { SearchAndCategoryFilter } from "../components/SearchAndCategoryFilter";
 import { StatusBadge } from "../components/StatusBadge";
@@ -31,7 +32,8 @@ function formatTime(value: string) {
 
 export function VendorRequestsPage() {
   const navigate = useNavigate();
-  const { name, logout } = useVendorAuth();
+  const { name, vendorId, logout } = useVendorAuth();
+  const vendorApiSet = getVendorApiForKind(vendorKindOf(vendorId));
   const [scope, setScope] = useState<VendorScope>("pending");
   const [items, setItems] = useState<VendorRequestItem[]>([]);
   const [counts, setCounts] = useState<Record<VendorScope, number>>({
@@ -48,7 +50,8 @@ export function VendorRequestsPage() {
     (next: VendorScope) => {
       setLoading(true);
       setError("");
-      listVendorRequests(next)
+      vendorApiSet
+        .list(next)
         .then((r) => {
           setItems(r.items);
           setCounts(r.counts);
@@ -62,7 +65,7 @@ export function VendorRequestsPage() {
         })
         .finally(() => setLoading(false));
     },
-    [navigate],
+    [navigate, vendorApiSet],
   );
 
   useEffect(() => {

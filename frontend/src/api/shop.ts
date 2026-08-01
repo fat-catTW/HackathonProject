@@ -49,7 +49,3 @@ export function cancelShopOrder(requestId: string, reason = "USER_CANCEL"): Prom
     body: JSON.stringify({ reason }),
   });
 }
-
-export function simulateShopOrderProgress(requestId: string): Promise<{ success: boolean; status: string }> {
-  return api(`/api/shop/orders/${encodeURIComponent(requestId)}/simulate`, { method: "POST" });
-}

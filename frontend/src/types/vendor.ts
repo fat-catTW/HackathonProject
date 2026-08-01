@@ -3,7 +3,18 @@ import type { RequestStatus } from "./request";
 export type VendorScope = "pending" | "orders" | "all";
 
 /** 廠商能對案件做的狀態切換；後端的狀態機決定當下有哪些可用。 */
-export type VendorAction = "accept" | "reject";
+export type VendorAction =
+  | "accept"
+  | "reject"
+  | "start"
+  | "complete"
+  | "verify"
+  | "prepare"
+  | "pickup"
+  | "dispatch"
+  | "deliver"
+  | "confirm"
+  | "ship";
 
 export interface VendorRequestItem {
   request_id: string;
@@ -79,4 +90,16 @@ export interface VendorProfile {
   vendor_id: number;
   name: string;
   service_ids: string[];
+}
+
+export type VendorKind = "generic" | "delivery" | "shop";
+
+const DELIVERY_VENDOR_ID = 30;
+const SHOP_VENDOR_ID = 40;
+
+/** 依登入的 vendor_id 判斷這個帳號屬於哪種案件——沿用 catalog.py 裡「一個服務線一個廠商帳號」的慣例。 */
+export function vendorKindOf(vendorId: number | null): VendorKind {
+  if (vendorId === DELIVERY_VENDOR_ID) return "delivery";
+  if (vendorId === SHOP_VENDOR_ID) return "shop";
+  return "generic";
 }

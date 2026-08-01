@@ -18,7 +18,7 @@ def isolated_store(monkeypatch):
 def valid_payload(**overrides):
     payload = {
         "restaurant_id": "r001",
-        "reserved_date": "2026-08-01",
+        "reserved_date": "2026-09-15",
         "time_slot": "LUNCH",
         "specific_time": "12:30",
         "people": 4,
@@ -42,7 +42,7 @@ def test_create_reservation_order_confirms_immediately_for_supported_restaurant(
     order = reservation.get_reservation_order("user-1", result["request_id"])
     assert order["order_type"] == "02"
     assert order["order_items"]["restaurant_name"] == "22世紀風味館 信義旗艦店"
-    assert order["service_time"] == "2026-08-01T12:30:00+08:00"
+    assert order["service_time"] == "2026-09-15T12:30:00+08:00"
 
 
 def test_create_reservation_order_pending_when_restaurant_unsupported():

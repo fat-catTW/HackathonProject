@@ -36,7 +36,7 @@ def auth_headers(client: TestClient) -> dict:
 def valid_payload(**overrides):
     payload = {
         "restaurant_id": "r001",
-        "reserved_date": "2026-08-01",
+        "reserved_date": "2026-09-15",
         "time_slot": "LUNCH",
         "specific_time": "12:30",
         "people": 2,

@@ -32,7 +32,7 @@ def test_simulate_status_syncs_order_status_for_reservation():
         "/api/reservations/submit",
         json={
             "restaurant_id": "r005",
-            "reserved_date": "2026-08-01",
+            "reserved_date": "2026-09-15",
             "time_slot": "LUNCH",
             "people": 2,
             "contact_name": "王大明",

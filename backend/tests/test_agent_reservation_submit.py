@@ -69,6 +69,7 @@ def test_reservation_chat_flow_creates_confirmed_order_end_to_end():
         result = _run_turn(state, "我想訂22世紀風味館 信義旗艦店吃午餐")
         state = result["state"]
         assert state["service_id"] == "restaurant_reservation"
+        assert state["collected_fields"]["restaurant_name"] == "22世紀風味館 信義旗艦店"
 
         result = _run_turn(state, "8月1日")
         state = result["state"]
@@ -90,6 +91,120 @@ def test_reservation_chat_flow_creates_confirmed_order_end_to_end():
     assert order["order_items"]["restaurant_id"] == "r001"
     assert order["order_items"]["people"] == 4
     assert order["status"] in ("CONFIRMED", "PENDING_PROVIDER")
+
+
+_FAKE_SEARCH_RESULT = {
+    "restaurants": [
+        {"id": "r001", "name": "22世紀風味館 信義旗艦店", "address": "台北市信義區松高路12號3樓",
+         "phone": "02-2723-0022", "source": "internal", "reason": ""},
+        {"id": "ChIJ-fake-place-id", "name": "台中好料理", "address": "台中市西區某路1號",
+         "phone": "", "source": "google_places", "reason": "評價很高的台中餐廳"},
+    ]
+}
+
+
+def test_reservation_chat_flow_falls_back_to_restaurant_search_when_name_not_recognized():
+    state = agent.new_state()
+
+    with patch("backend.app.agent.agent._available_services", return_value=[
+        {"id": "restaurant_reservation", "name": "餐廳訂位", "description": "22世紀風味館 精選餐廳訂位服務"},
+    ]), patch("backend.app.agent.agent.llm.is_available", return_value=False), \
+         patch("backend.app.agent.agent.llm.extract_fields", side_effect=_fake_extract_fields), \
+         patch("backend.app.agent.agent.restaurant_search.search_restaurants", return_value=_FAKE_SEARCH_RESULT) as mock_search:
+        result = _run_turn(state, "我人在臺中，想找一家不錯的餐廳")
+        state = result["state"]
+
+    assert state["service_id"] == "restaurant_reservation"
+    assert state["pending_restaurant_options"] == _FAKE_SEARCH_RESULT["restaurants"]
+    # Restaurant details live in restaurant_cards now, not spelled out in the reply text.
+    assert "台中好料理" not in result["reply"]
+    assert result["restaurant_cards"] == _FAKE_SEARCH_RESULT["restaurants"]
+    mock_search.assert_called_once()
+    assert mock_search.call_args.args[0] == "user-1"
+
+
+def test_reservation_chat_flow_ignores_bedrock_reply_mode_when_restaurant_id_missing():
+    """Regression test: when live Bedrock is available, llm.plan_form_turn may decide
+    the message doesn't map to any field and return mode="reply" with its own free-form
+    text (which doesn't know about restaurant_search and would just read out raw
+    restaurant ids). That reply must be ignored in favor of the search flow whenever
+    restaurant_id is the field currently being collected."""
+    state = agent.new_state()
+
+    with patch("backend.app.agent.agent._available_services", return_value=[
+        {"id": "restaurant_reservation", "name": "餐廳訂位", "description": "22世紀風味館 精選餐廳訂位服務"},
+    ]), patch("backend.app.agent.agent.llm.is_available", return_value=True), \
+         patch("backend.app.agent.agent.llm.plan_turn", return_value={
+             "mode": "service_request", "reply": None, "service_id": "restaurant_reservation",
+         }), \
+         patch("backend.app.agent.agent.llm.plan_form_turn", return_value={
+             "mode": "reply",
+             "reply": "請告訴我您想選擇的餐廳編號（r001-r006）。",
+             "fields": {},
+         }), \
+         patch("backend.app.agent.agent.restaurant_search.search_restaurants", return_value=_FAKE_SEARCH_RESULT) as mock_search:
+        result = _run_turn(state, "我人在臺中，明天是父親節，我要訂有5人座的餐廳。")
+        state = result["state"]
+
+    assert state["pending_restaurant_options"] == _FAKE_SEARCH_RESULT["restaurants"]
+    assert "r001-r006" not in result["reply"]
+    assert result["restaurant_cards"] == _FAKE_SEARCH_RESULT["restaurants"]
+    mock_search.assert_called_once()
+
+
+def test_reservation_chat_flow_resolves_restaurant_pick_by_number():
+    state = agent.new_state()
+    state["service_id"] = "restaurant_reservation"
+    state["service_name"] = "餐廳訂位"
+    state["service_schema"] = {"fields": [
+        {"id": "restaurant_id", "type": "select", "options": ["r001"], "required": True},
+        {"id": "reserved_date", "type": "date", "required": True, "question": "哪一天？"},
+    ]}
+    state["collected_fields"] = {}
+    state["missing_fields"] = ["restaurant_id", "reserved_date"]
+    state["pending_restaurant_options"] = _FAKE_SEARCH_RESULT["restaurants"]
+
+    result = _run_turn(state, "2")
+
+    assert result["state"]["collected_fields"]["restaurant_id"] == "ChIJ-fake-place-id"
+    assert result["state"]["collected_fields"]["restaurant_name"] == "台中好料理"
+    assert result["state"]["pending_restaurant_options"] is None
+
+
+def test_reservation_chat_flow_resolves_restaurant_pick_by_name():
+    state = agent.new_state()
+    state["service_id"] = "restaurant_reservation"
+    state["service_name"] = "餐廳訂位"
+    state["service_schema"] = {"fields": [
+        {"id": "restaurant_id", "type": "select", "options": ["r001"], "required": True},
+        {"id": "reserved_date", "type": "date", "required": True, "question": "哪一天？"},
+    ]}
+    state["collected_fields"] = {}
+    state["missing_fields"] = ["restaurant_id", "reserved_date"]
+    state["pending_restaurant_options"] = _FAKE_SEARCH_RESULT["restaurants"]
+
+    result = _run_turn(state, "我要台中好料理那家")
+
+    assert result["state"]["collected_fields"]["restaurant_id"] == "ChIJ-fake-place-id"
+    assert result["state"]["pending_restaurant_options"] is None
+
+
+def test_reservation_chat_flow_reprompts_on_unrecognized_restaurant_pick():
+    state = agent.new_state()
+    state["service_id"] = "restaurant_reservation"
+    state["service_name"] = "餐廳訂位"
+    state["service_schema"] = {"fields": [
+        {"id": "restaurant_id", "type": "select", "options": ["r001"], "required": True},
+    ]}
+    state["collected_fields"] = {}
+    state["missing_fields"] = ["restaurant_id"]
+    state["pending_restaurant_options"] = _FAKE_SEARCH_RESULT["restaurants"]
+
+    result = _run_turn(state, "都不喜歡")
+
+    assert result["state"]["pending_restaurant_options"] == _FAKE_SEARCH_RESULT["restaurants"]
+    assert "restaurant_id" not in result["state"]["collected_fields"]
+    assert result["restaurant_cards"] == _FAKE_SEARCH_RESULT["restaurants"]
 
 
 def test_reservation_chat_flow_reports_error_without_crashing_when_order_invalid():

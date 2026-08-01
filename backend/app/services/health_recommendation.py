@@ -1,19 +1,15 @@
 """Health-need -> product recommendation engine.
 
-Ported from the standalone 711-health-mcp prototype
-(src/services/recommendationEngine.ts). Kept as a direct Gemini API call
-(not routed through app/agent/llm.py's Bedrock client) per product decision:
-this feature keeps using Gemini for now, the rest of the agent stays on
-Bedrock. Falls back to keyword/tag matching when GEMINI_API_KEY is not
-configured or the Gemini call fails for any reason, mirroring the
-original's fallback_used flag.
+Uses the shared Bedrock two-step orchestration (app/agent/llm.py's
+plan_external_query / rank_external_results) to search Google for products
+beyond the static internal catalog, then falls back to rule-based
+keyword/tag matching when Bedrock is unavailable, no Google key is
+configured, or the Google call fails for any reason.
 """
 from __future__ import annotations
 
-import json
-from functools import lru_cache
-
-from ..config import get_settings
+from ..agent import llm
+from . import external_search
 
 HEALTH_KEYWORDS: dict[str, list[str]] = {
     "減脂": ["減脂", "低碳", "低卡", "高蛋白"],
@@ -23,31 +19,18 @@ HEALTH_KEYWORDS: dict[str, list[str]] = {
     "素食": ["素食"],
     "低糖": ["低糖"],
     "高纖": ["高纖"],
+    "感冒": ["喉嚨不適", "感冒", "潤喉", "保健"],
+    "喉嚨": ["喉嚨不適", "潤喉"],
+    "咳嗽": ["喉嚨不適", "感冒", "潤喉"],
 }
 
 UNHEALTHY_TAGS = ["高糖", "高鈉", "高脂", "高熱量"]
 
-_RESPONSE_SCHEMA = {
-    "type": "OBJECT",
-    "properties": {
-        "recommendations": {
-            "type": "ARRAY",
-            "items": {
-                "type": "OBJECT",
-                "properties": {
-                    "product_id": {"type": "STRING"},
-                    "reason": {"type": "STRING"},
-                },
-                "required": ["product_id", "reason"],
-            },
-        },
-    },
-    "required": ["recommendations"],
-}
+MAX_RECOMMENDATIONS = 5
 
 
 def fallback_recommend(query: str, products: list[dict]) -> list[dict]:
-    """Rule-based keyword/tag matching, used when Gemini is unavailable."""
+    """Rule-based keyword/tag matching, used when Bedrock/Google are unavailable."""
     matched = [
         product
         for product in products
@@ -66,83 +49,66 @@ def fallback_recommend(query: str, products: list[dict]) -> list[dict]:
             "name": product["name"],
             "reason": f"關鍵字比對：商品標籤包含 {'、'.join(product['tags'])}",
             "match_tags": product["tags"],
+            "source": "internal",
         }
-        for product in pool[:5]
+        for product in pool[:MAX_RECOMMENDATIONS]
     ]
 
 
-@lru_cache
-def _get_client():
-    settings = get_settings()
-    if not settings.gemini_api_key:
-        return None
-    try:
-        from google import genai
-    except ImportError:
-        return None
-    try:
-        return genai.Client(api_key=settings.gemini_api_key)
-    except Exception:
-        return None
-
-
-def _analyze_with_gemini(query: str, products: list[dict]) -> list[dict] | None:
-    client = _get_client()
-    if client is None:
-        return None
-
-    from google.genai import types
-
-    product_list = "\n".join(
-        f"{p['id']}|{p['name']}|{p['category']}|熱量{p['calories']}kcal|"
-        f"蛋白質{p['protein_g']}g|碳水{p['carbs_g']}g|脂肪{p['fat_g']}g|"
-        f"鈉{p['sodium_mg']}mg|標籤:{','.join(p['tags'])}"
+def _internal_candidates(products: list[dict]) -> list[dict]:
+    return [
+        {
+            "product_id": p["id"],
+            "name": p["name"],
+            "source": "internal",
+            "detail": f"{p['category']}|熱量{p['calories']}kcal|標籤:{','.join(p['tags'])}",
+        }
         for p in products
-    )
-    prompt = (
-        "你是一個 7-11 商品營養顧問。根據使用者的健康需求，從以下商品清單中挑選最多 5 樣"
-        "最符合需求的商品，並用一句話說明理由。\n\n"
-        f"使用者需求：{query}\n\n"
-        f"商品清單（格式：id|名稱|分類|熱量|蛋白質|碳水|脂肪|鈉|標籤）：\n{product_list}\n\n"
-        "只能挑選清單中真實存在的 product_id，不可自行編造。"
-    )
+    ]
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_json_schema=_RESPONSE_SCHEMA,
-            ),
-        )
-        text = response.text
-        if not text:
-            return None
-        parsed = json.loads(text)
-    except Exception:
+
+def _analyze_with_bedrock_and_google(query: str, products: list[dict]) -> list[dict] | None:
+    if not llm.is_available():
         return None
 
-    by_id = {p["id"]: p for p in products}
-    items: list[dict] = []
-    for rec in parsed.get("recommendations", []):
-        product = by_id.get(rec.get("product_id"))
-        if not product:
-            continue
-        items.append(
-            {
-                "product_id": product["id"],
-                "name": product["name"],
-                "reason": rec.get("reason", ""),
-                "match_tags": product["tags"],
-            }
-        )
-    return items or None
+    candidates = _internal_candidates(products)
+    search_query = llm.plan_external_query(query, purpose="health/diet product search")
+    if search_query:
+        external_results = external_search.google_text_search(search_query)
+        if external_results:
+            for index, item in enumerate(external_results):
+                candidates.append({
+                    "product_id": f"external:{index}",
+                    "name": item["title"],
+                    "source": "google_search",
+                    "detail": item["snippet"],
+                    "link": item["link"],
+                })
+
+    picks = llm.rank_external_results(
+        query, candidates, id_key="product_id", max_results=MAX_RECOMMENDATIONS
+    )
+    if not picks:
+        return None
+
+    by_internal_id = {p["id"]: p for p in products}
+    recommendations = []
+    for pick in picks:
+        product = by_internal_id.get(pick["product_id"])
+        recommendations.append({
+            "product_id": pick["product_id"],
+            "name": pick["name"],
+            "reason": pick["reason"],
+            "match_tags": product["tags"] if product else [],
+            "source": pick["source"],
+            "link": pick.get("link"),
+        })
+    return recommendations
 
 
 def recommend(query: str, products: list[dict]) -> dict:
     """Returns {"query", "recommendations", "fallback_used"}."""
-    recommendations = _analyze_with_gemini(query, products)
+    recommendations = _analyze_with_bedrock_and_google(query, products)
     if recommendations is not None:
         return {"query": query, "recommendations": recommendations, "fallback_used": False}
     return {

@@ -368,7 +368,7 @@ def test_reservation_vendor_can_verify_after_completion(client, monkeypatch, tmp
         "/api/reservations/submit",
         json={
             "restaurant_id": "r005",
-            "reserved_date": "2026-08-01",
+            "reserved_date": "2026-09-15",
             "time_slot": "LUNCH",
             "people": 2,
             "contact_name": "王大明",

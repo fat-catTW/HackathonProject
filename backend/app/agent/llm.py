@@ -5,6 +5,7 @@ import json
 import re
 import threading
 from datetime import date
+from decimal import Decimal
 from functools import lru_cache
 
 from ..config import get_settings
@@ -121,6 +122,63 @@ _PAGE_HELP_SYSTEM = (
     "Return JSON only in the format {\"target_page_id\": string|null, \"reply\": string}."
 )
 
+_EXTERNAL_QUERY_SYSTEM = (
+    "You turn a Taiwanese user's request into a short, effective search-engine query in Traditional "
+    "Chinese, for finding real-world products or restaurants on the web. "
+    "Keep it to a few keywords, no explanations. "
+    "Return JSON only in the format {\"query\": string}."
+)
+
+_EXTERNAL_RANK_SYSTEM = (
+    "You pick and rank the best matches for a user's request from a provided candidate list. "
+    "You may ONLY choose ids that appear in the candidate list — never invent an id or describe an "
+    "item that is not in the list. "
+    "Pick at most the requested max_results items, best match first, and give each a short "
+    "one-sentence reason in Traditional Chinese. "
+    "Return JSON only in the format {\"picks\": [{\"id\": string, \"reason\": string}]}."
+)
+
+_VALID_SPECIALTIES = ("耳鼻喉科", "家醫科", "內科", "腸胃科", "皮膚科", "骨科", "眼科", "牙科")
+
+_SYMPTOM_KEYWORD_SPECIALTY: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("耳鼻喉科", ("咳嗽", "喉嚨", "鼻塞", "流鼻水", "打噴嚏")),
+    ("腸胃科", ("肚子痛", "腹瀉", "拉肚子", "胃痛", "噁心", "嘔吐")),
+    ("骨科", ("腰痛", "膝蓋", "關節", "扭傷", "骨折")),
+    ("皮膚科", ("皮膚", "紅疹", "起疹子")),
+    ("眼科", ("眼睛", "視力")),
+)
+_DEFAULT_SPECIALTY = "家醫科"
+_DEFAULT_ADVISORY = "身體不舒服要多休息、多喝溫水，有需要就去診所讓醫生看看喔。"
+
+_SYMPTOM_TRIAGE_SYSTEM = (
+    "You triage a Traditional-Chinese-speaking elderly user's described physical symptoms for a "
+    "Taiwanese home services assistant. "
+    "Choose exactly one specialty from the provided valid_specialties list that best matches the "
+    "symptoms. "
+    "Write a short, warm, one-sentence piece of advice in Traditional Chinese (e.g. suggesting rest "
+    "or drinking warm water) — do not diagnose or promise a cure. "
+    "Return JSON only in the format {\"specialty\": string, \"advisory\": string}."
+)
+
+_CLINIC_RECOMMEND_SYSTEM = (
+    "You recommend one clinic from a list of real candidate clinics for a Traditional-Chinese-speaking "
+    "elderly user in Taiwan, based on their described symptoms. "
+    "Only choose an id that appears in the provided candidates — never invent one. "
+    "Prefer clinics where is_open_now is true when possible, and give a concrete one-sentence reason "
+    "in Traditional Chinese. "
+    "Return JSON only in the format {\"id\": string, \"reason\": string}."
+)
+
+_SHOP_RECOMMEND_SYSTEM = (
+    "You are a Taiwanese shopping assistant speaking Traditional Chinese. "
+    "Given the user's need or usage scenario, pick up to 5 best-matching products "
+    "from the provided catalog (each item includes brand/store, price, average rating, "
+    "review count, and tags). Prefer higher-rated products when several fit equally well. "
+    "Justify each pick in one Traditional Chinese sentence referencing price, rating, or fit "
+    "for the user's scenario. Only choose product_id values that exist in the catalog; never invent one. "
+    "Return JSON only in the format {\"recommendations\": [{\"product_id\": string, \"reason\": string}]}."
+)
+
 _DEBUG_STATE = threading.local()
 
 
@@ -132,6 +190,25 @@ def consume_debug_info() -> dict:
     info = getattr(_DEBUG_STATE, "info", {}) or {}
     _DEBUG_STATE.info = {}
     return info
+
+
+def _json_safe(value):
+    """Recursively convert Decimal values (as returned by DynamoDB reads, see
+    store.py's convert_floats_to_decimal for the write-side counterpart) into
+    plain int/float so prompt payloads built from session state can always be
+    JSON-serialized, regardless of whether state came from the mock store or
+    real DynamoDB."""
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    return value
+
+
+def _dumps(value) -> str:
+    return json.dumps(_json_safe(value), ensure_ascii=False, indent=2)
 
 
 def _strip_fences(text: str) -> str:
@@ -214,6 +291,49 @@ def interpret_yes_no(question: str, reply: str) -> str | None:
     return intent if intent in {"yes", "no", "unclear"} else None
 
 
+def _fallback_triage_symptom(symptom_text: str) -> dict:
+    for specialty, keywords in _SYMPTOM_KEYWORD_SPECIALTY:
+        if any(keyword in symptom_text for keyword in keywords):
+            return {"specialty": specialty, "advisory": _DEFAULT_ADVISORY}
+    return {"specialty": _DEFAULT_SPECIALTY, "advisory": _DEFAULT_ADVISORY}
+
+
+def triage_symptom(symptom_text: str) -> dict:
+    payload = _converse_json(
+        _SYMPTOM_TRIAGE_SYSTEM,
+        json.dumps(
+            {"symptom_text": symptom_text, "valid_specialties": list(_VALID_SPECIALTIES)},
+            ensure_ascii=False,
+        ),
+        max_tokens=256,
+    )
+    if payload:
+        specialty = payload.get("specialty")
+        advisory = payload.get("advisory")
+        if specialty in _VALID_SPECIALTIES and isinstance(advisory, str) and advisory.strip():
+            return {"specialty": specialty, "advisory": advisory.strip()}
+    return _fallback_triage_symptom(symptom_text)
+
+
+def recommend_clinic(symptom_text: str, candidates: list[dict]) -> dict | None:
+    if not candidates:
+        return None
+    payload = _converse_json(
+        _CLINIC_RECOMMEND_SYSTEM,
+        json.dumps({"symptom_text": symptom_text, "candidates": candidates}, ensure_ascii=False),
+        max_tokens=256,
+    )
+    valid_ids = {c["id"] for c in candidates}
+    if payload:
+        clinic_id = payload.get("id")
+        reason = payload.get("reason")
+        if clinic_id in valid_ids and isinstance(reason, str) and reason.strip():
+            return {"id": clinic_id, "reason": reason.strip()}
+    open_candidates = [c for c in candidates if c.get("is_open_now")]
+    fallback = (open_candidates or candidates)[0]
+    return {"id": fallback["id"], "reason": "距離您所在地區近，且目前有看診，優先為您推薦。"}
+
+
 def choose_service(
     message: str,
     services: list[dict],
@@ -225,7 +345,7 @@ def choose_service(
         f"Today is {clock.today().isoformat()} ({clock.weekday_zh()}).\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
-        f"Available services:\n{json.dumps(services, ensure_ascii=False, indent=2)}\n\n"
+        f"Available services:\n{_dumps(services)}\n\n"
         f"User message:\n{message}"
     )
     payload = _converse_json(_SERVICE_SYSTEM, prompt, max_tokens=192)
@@ -249,7 +369,7 @@ def plan_turn(
         f"Current page id: {current_page_id or 'None'}\n\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
-        f"Available services:\n{json.dumps(services, ensure_ascii=False, indent=2)}\n\n"
+        f"Available services:\n{_dumps(services)}\n\n"
         f"Latest user message:\n{message}"
     )
     payload = _converse_json(_TURN_SYSTEM, prompt, max_tokens=320)
@@ -281,7 +401,7 @@ def plan_multi_task(
         f"Today is {date.today().isoformat()}.\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
-        f"Available services:\n{json.dumps(services, ensure_ascii=False, indent=2)}\n\n"
+        f"Available services:\n{_dumps(services)}\n\n"
         f"User message:\n{message}"
     )
     payload = _converse_json(_MULTI_TASK_SYSTEM, prompt, max_tokens=512)
@@ -318,9 +438,9 @@ def extract_fields(
     prompt = (
         f"Today is {clock.today().isoformat()} ({clock.weekday_zh()}).\n"
         f"Service name: {service_name}\n"
-        f"Form schema:\n{json.dumps(form_schema or {'fields': fields}, ensure_ascii=False, indent=2)}\n\n"
-        f"Current form draft:\n{json.dumps(form_draft or {'fields': collected_fields}, ensure_ascii=False, indent=2)}\n\n"
-        f"Already collected:\n{json.dumps(collected_fields, ensure_ascii=False, indent=2)}\n\n"
+        f"Form schema:\n{_dumps(form_schema or {'fields': fields})}\n\n"
+        f"Current form draft:\n{_dumps(form_draft or {'fields': collected_fields})}\n\n"
+        f"Already collected:\n{_dumps(collected_fields)}\n\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
         f"Latest user message:\n{message}"
@@ -347,9 +467,9 @@ def plan_form_turn(
         f"Today is {date.today().isoformat()}.\n"
         f"Service name: {service_name}\n"
         f"Active field: {active_field or 'None'}\n"
-        f"Form schema:\n{json.dumps(form_schema or {'fields': fields}, ensure_ascii=False, indent=2)}\n\n"
-        f"Current form draft:\n{json.dumps(form_draft or {'fields': collected_fields}, ensure_ascii=False, indent=2)}\n\n"
-        f"Already collected:\n{json.dumps(collected_fields, ensure_ascii=False, indent=2)}\n\n"
+        f"Form schema:\n{_dumps(form_schema or {'fields': fields})}\n\n"
+        f"Current form draft:\n{_dumps(form_draft or {'fields': collected_fields})}\n\n"
+        f"Already collected:\n{_dumps(collected_fields)}\n\n"
         f"Short-term memory:\n{short_term_memory or 'None'}\n\n"
         f"Long-term memory:\n{long_term_memory or 'None'}\n\n"
         f"Latest user message:\n{message}"
@@ -407,7 +527,7 @@ def compose_reply(
     }
     payload = _converse_json(
         _REPLY_SYSTEM,
-        json.dumps(prompt_payload, ensure_ascii=False, indent=2),
+        _dumps(prompt_payload),
         max_tokens=320,
     )
     if not payload:
@@ -430,10 +550,80 @@ def compose_page_help_reply(
     }
     payload = _converse_json(
         _PAGE_HELP_SYSTEM,
-        json.dumps(prompt_payload, ensure_ascii=False, indent=2),
+        _dumps(prompt_payload),
         max_tokens=320,
     )
     if not payload:
         return None
     reply = payload.get("reply")
     return reply.strip() if isinstance(reply, str) and reply.strip() else None
+
+
+def plan_external_query(user_text: str, *, purpose: str) -> str | None:
+    payload = _converse_json(
+        _EXTERNAL_QUERY_SYSTEM,
+        f"Purpose: {purpose}\nUser request:\n{user_text}",
+        max_tokens=128,
+    )
+    if not payload:
+        return None
+    query = payload.get("query")
+    return query.strip() if isinstance(query, str) and query.strip() else None
+
+
+def rank_external_results(
+    user_text: str, candidates: list[dict], *, id_key: str, max_results: int
+) -> list[dict] | None:
+    prompt = (
+        f"User request:\n{user_text}\n\n"
+        f"max_results: {max_results}\n\n"
+        f"Candidates (id field is \"{id_key}\"):\n"
+        + _dumps(candidates)
+    )
+    payload = _converse_json(_EXTERNAL_RANK_SYSTEM, prompt, max_tokens=768)
+    if not payload or not isinstance(payload.get("picks"), list):
+        return None
+
+    by_id = {c[id_key]: c for c in candidates}
+    picks: list[dict] = []
+    for pick in payload["picks"]:
+        if not isinstance(pick, dict):
+            continue
+        pick_id = pick.get("id")
+        if pick_id not in by_id:
+            continue
+        reason = pick.get("reason")
+        picks.append({
+            **by_id[pick_id],
+            "reason": reason.strip() if isinstance(reason, str) and reason.strip() else "",
+        })
+        if len(picks) >= max_results:
+            break
+    return picks or None
+
+
+def recommend_shop_products(query: str, products: list[dict]) -> list[dict] | None:
+    prompt = json.dumps({"query": query, "products": products}, ensure_ascii=False)
+    # Up to 5 recommendations, each with a full-sentence reason, routinely exceeds
+    # 512 tokens and gets truncated mid-JSON — which then fails to parse and looks
+    # identical to a real LLM failure. 1536 leaves headroom for the largest catalog.
+    payload = _converse_json(_SHOP_RECOMMEND_SYSTEM, prompt, max_tokens=1536)
+    if not payload or not isinstance(payload.get("recommendations"), list):
+        return None
+    raw_recommendations = payload["recommendations"]
+    by_id = {p["id"]: p for p in products}
+    items = []
+    for rec in raw_recommendations:
+        product = by_id.get(rec.get("product_id"))
+        if not product:
+            continue
+        items.append({**product, "reason": rec.get("reason", "")})
+    # A genuinely empty {"recommendations": []} means Bedrock looked at the catalog
+    # and found nothing confident to recommend — that's a real answer, not an
+    # unavailable LLM, so it must NOT collapse to `None` ("fall back to keyword
+    # matching"). But if Bedrock DID return items and every single product_id
+    # failed to resolve against the catalog, that's a bad/hallucinated response,
+    # not a confident empty answer — treat that like any other unusable payload.
+    if not items and raw_recommendations:
+        return None
+    return items

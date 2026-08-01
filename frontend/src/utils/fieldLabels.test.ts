@@ -10,6 +10,12 @@ describe("fieldLabel", () => {
     expect(fieldLabel("faq_reference")).toBe("參考 FAQ");
     expect(fieldLabel("issue_details")).toBe("問題說明");
     expect(fieldLabel("pickup_method")).toBe("取件方式");
+    expect(fieldLabel("clinic_name")).toBe("診所名稱");
+    expect(fieldLabel("clinic_address")).toBe("診所地址");
+    expect(fieldLabel("clinic_phone")).toBe("診所電話");
+    expect(fieldLabel("appointment_date")).toBe("看診日期");
+    expect(fieldLabel("appointment_time")).toBe("看診時間");
+    expect(fieldLabel("symptom_note")).toBe("症狀描述");
   });
 
   it("falls back to the raw key when unknown", () => {
@@ -89,6 +95,23 @@ describe("buildFieldRows", () => {
     expect(rows).toEqual([
       { key: "address", label: "地址", value: "台北市信義區松仁路100號" },
     ]);
+  });
+
+  it("hides the raw restaurant_id chip once restaurant_name is available", () => {
+    const rows = buildFieldRows({
+      restaurant_id: "ChIJiffoTF09aTQRCD6E8HhIDPk",
+      restaurant_name: "鴻龍宴 x 活蝦料理",
+      people: 5,
+    });
+    expect(rows).toEqual([
+      { key: "restaurant_name", label: "餐廳", value: "鴻龍宴 x 活蝦料理" },
+      { key: "people", label: "用餐人數", value: "5" },
+    ]);
+  });
+
+  it("still shows the raw restaurant_id when restaurant_name has not resolved yet", () => {
+    const rows = buildFieldRows({ restaurant_id: "r001" });
+    expect(rows).toEqual([{ key: "restaurant_id", label: "餐廳選擇", value: "r001" }]);
   });
 });
 

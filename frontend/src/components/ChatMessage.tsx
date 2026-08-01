@@ -1,4 +1,8 @@
+import { useState } from "react";
+import type { ClinicChatRecommendation } from "../types/clinic";
 import type { ChatEvent } from "../types/request";
+import { ChatRestaurantCardList } from "./ChatRestaurantCardList";
+import { ClinicCardList } from "./ClinicCardList";
 import { Mascot } from "./Mascot";
 import { ShareWithFamilyButton } from "./ShareWithFamilyButton";
 import { TaskCardList } from "./TaskCardList";
@@ -15,11 +19,20 @@ import { TaskCardList } from "./TaskCardList";
 export function ChatMessage({
   event,
   onRedirectClick,
+  onRestaurantSelect,
+  onClinicContinue,
 }: {
   event: ChatEvent;
   onRedirectClick?: (path: string) => void;
+  onRestaurantSelect?: (name: string) => void;
+  onClinicContinue?: (recommendation: ClinicChatRecommendation, clinicId: string) => void;
 }) {
   const isUser = event.role === "USER";
+  const recommendation = event.clinicRecommendation;
+  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(
+    recommendation?.recommended_clinic_id ?? recommendation?.clinics[0]?.id ?? null,
+  );
+
   return (
     <div className={`flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && (
@@ -39,15 +52,72 @@ export function ChatMessage({
       >
         {event.content}
         {event.taskCards && event.taskCards.length > 0 && <TaskCardList cards={event.taskCards} />}
+        {event.restaurantCards && event.restaurantCards.length > 0 && (
+          <ChatRestaurantCardList
+            restaurants={event.restaurantCards}
+            onSelect={(name) => onRestaurantSelect?.(name)}
+          />
+        )}
         {event.shareText && <ShareWithFamilyButton text={event.shareText} />}
+
+        {event.productRecommendations && event.productRecommendations.length > 0 && (
+          <div className="mt-3 flex flex-col gap-2.5">
+            {event.productRecommendations.map((rec, i) => (
+              <div key={rec.id ?? i} className="rounded-xl bg-[var(--color-canvas)] p-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-bold text-[var(--color-foreground)]">{rec.name}</p>
+                  {rec.price != null && (
+                    <p className="shrink-0 font-[family-name:var(--font-mono)] font-bold text-[var(--color-primary)]">
+                      NT${rec.price}
+                    </p>
+                  )}
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[var(--color-muted-foreground)]">
+                  <span>{rec.store_name}</span>
+                  {rec.rating_avg != null && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-tertiary-soft)] px-2 py-0.5 text-xs font-bold text-[var(--color-tertiary)]">
+                      ★ {rec.rating_avg}
+                      {rec.rating_count != null ? `（${rec.rating_count}）` : ""}
+                    </span>
+                  )}
+                </div>
+                {rec.reason && (
+                  <p className="mt-1.5 text-sm leading-relaxed text-[var(--color-muted-foreground)]">
+                    {rec.reason}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {event.redirectPath && (
           <button
             type="button"
             onClick={() => onRedirectClick?.(event.redirectPath!)}
             className="mt-3 block min-h-[44px] w-full rounded-2xl bg-[var(--color-primary)] px-4 py-2.5 text-base font-bold text-[var(--color-on-primary)]"
           >
-            查看完整比價 →
+            {event.redirectLabel ?? "查看完整比價 →"}
           </button>
+        )}
+        {recommendation && (
+          <div className="mt-3">
+            <ClinicCardList
+              clinics={recommendation.clinics}
+              selectedId={selectedClinicId}
+              recommendedId={recommendation.recommended_clinic_id}
+              recommendReason={recommendation.recommend_reason}
+              onSelect={setSelectedClinicId}
+            />
+            <button
+              type="button"
+              disabled={!selectedClinicId}
+              onClick={() => selectedClinicId && onClinicContinue?.(recommendation, selectedClinicId)}
+              className="mt-3 block min-h-[44px] w-full rounded-2xl bg-[var(--color-primary)] px-4 py-2.5 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
+            >
+              選這間，繼續掛號 →
+            </button>
+          </div>
         )}
       </div>
     </div>

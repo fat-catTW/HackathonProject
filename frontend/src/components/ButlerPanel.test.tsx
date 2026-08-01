@@ -29,7 +29,9 @@ const BASE_RESPONSE: ChatResponse = {
   redirect_path: null,
   redirect_requires_confirmation: false,
   task_cards: null,
+  restaurant_cards: null,
   share_text: null,
+  clinic_recommendation: null,
 };
 
 function buildController(): FormAgentController {

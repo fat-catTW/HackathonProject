@@ -40,6 +40,8 @@ def get_boto3_session():
 
 
 def has_aws_credentials() -> bool:
+    if os.getenv("AWS_BEARER_TOKEN_BEDROCK"):
+        return True
     try:
         return get_boto3_session().get_credentials() is not None
     except Exception:

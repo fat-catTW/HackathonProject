@@ -2,7 +2,8 @@
 
 廠商清單靠 save_request 時鏡射的 VENDOR#{id} 項目查詢（見 services/store.py），
 但這份索引是 Milestone 3 才加的，之前建立的案件不會有——除非它們剛好又被改過
-狀態。廠商後台上線後跑一次這支腳本即可補齊。
+狀態。廠商後台上線後、或 catalog.py 的 service_vendor_id 對應改變後，跑一次
+這支腳本即可補齊。DynamoDB 與本地 MemoryStore（USE_MOCK=true）都支援。
 
 可重複執行：每次都以案件本體覆寫索引，不會產生重複項目。
 
@@ -17,21 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import get_settings
-from app.services import catalog
-from app.services.aws import get_aws_resource
-
-
-def scan_all(table) -> list[dict]:
-    items: list[dict] = []
-    kwargs: dict = {}
-    while True:
-        response = table.scan(**kwargs)
-        items.extend(response.get("Items", []))
-        start_key = response.get("LastEvaluatedKey")
-        if not start_key:
-            return items
-        kwargs["ExclusiveStartKey"] = start_key
+from app.services import catalog, store as store_module
 
 
 def vendor_id_of(request: dict) -> int | None:
@@ -54,12 +41,10 @@ def index_item(request: dict, vendor_id: int) -> dict:
         "service_id": request.get("service_id", ""),
         "service_name": request.get("service_name", ""),
         "status": request.get("status", ""),
+        "order_status": request.get("order_status"),
         # 廠商後台接單／拒單要帶回版本比對，索引跟著鏡射（舊案件沒有就是 0）。
         "version": int(request.get("version") or 0),
-        # 聯絡欄位的密文與遮罩對照表一起鏡射（Milestone 15）。少了 form_data_masked，
-        # 廠商清單只能就地遮罩，而密文遮不出東西，摘要就會變成一排 ***。
         "form_data": request.get("form_data", {}),
-        "form_data_masked": request.get("form_data_masked", {}),
         "created_at": request.get("created_at", ""),
         "updated_at": request.get("updated_at", request.get("created_at", "")),
     }
@@ -70,18 +55,11 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="只列出要寫入的項目")
     args = parser.parse_args()
 
-    settings = get_settings()
-    if settings.use_mock:
-        print("USE_MOCK=true：本地記憶體儲存不需要回填。")
-        return 0
-
-    table = get_aws_resource("dynamodb").Table(settings.dynamodb_table_name)
-    items = scan_all(table)
-    requests = [i for i in items if i.get("entity_type") == "SERVICE_REQUEST"]
+    backend = store_module.build_store()
+    requests = backend.scan_by_entity_type("SERVICE_REQUEST")
     existing = {
         (str(i.get("PK")), str(i.get("SK")))
-        for i in items
-        if i.get("entity_type") == "VENDOR_REQUEST_INDEX"
+        for i in backend.scan_by_entity_type("VENDOR_REQUEST_INDEX")
     }
 
     to_write, skipped = [], []
@@ -94,7 +72,7 @@ def main() -> int:
         to_write.append(index_item(request, vendor_id))
 
     fresh = [i for i in to_write if (i["PK"], i["SK"]) not in existing]
-    print(f"案件 {len(requests)} 筆　可歸屬 {len(to_write)} 筆（其中新建 {len(fresh)} 筆）")
+    print(f"（backend={backend.backend_name}）案件 {len(requests)} 筆　可歸屬 {len(to_write)} 筆（其中新建 {len(fresh)} 筆）")
     if skipped:
         print(f"略過 {len(skipped)} 筆：服務目錄查不到 service_vendor_id")
         for request in skipped:
@@ -105,9 +83,8 @@ def main() -> int:
             print(f"  + {item['PK']} {item['SK']} {item['service_name']} {item['status']}")
         return 0
 
-    with table.batch_writer() as batch:
-        for item in to_write:
-            batch.put_item(Item=item)
+    for item in to_write:
+        backend.put_item(item)
     print(f"已寫入 {len(to_write)} 筆索引項目。")
     return 0
 

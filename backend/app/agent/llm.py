@@ -88,6 +88,16 @@ _PAGE_HELP_SYSTEM = (
     "Return JSON only in the format {\"target_page_id\": string|null, \"reply\": string}."
 )
 
+_SHOP_RECOMMEND_SYSTEM = (
+    "You are a Taiwanese shopping assistant speaking Traditional Chinese. "
+    "Given the user's need or usage scenario, pick up to 5 best-matching products "
+    "from the provided catalog (each item includes brand/store, price, average rating, "
+    "review count, and tags). Prefer higher-rated products when several fit equally well. "
+    "Justify each pick in one Traditional Chinese sentence referencing price, rating, or fit "
+    "for the user's scenario. Only choose product_id values that exist in the catalog; never invent one. "
+    "Return JSON only in the format {\"recommendations\": [{\"product_id\": string, \"reason\": string}]}."
+)
+
 _DEBUG_STATE = threading.local()
 
 
@@ -370,3 +380,18 @@ def compose_page_help_reply(
         return None
     reply = payload.get("reply")
     return reply.strip() if isinstance(reply, str) and reply.strip() else None
+
+
+def recommend_shop_products(query: str, products: list[dict]) -> list[dict] | None:
+    prompt = json.dumps({"query": query, "products": products}, ensure_ascii=False)
+    payload = _converse_json(_SHOP_RECOMMEND_SYSTEM, prompt, max_tokens=512)
+    if not payload or not isinstance(payload.get("recommendations"), list):
+        return None
+    by_id = {p["id"]: p for p in products}
+    items = []
+    for rec in payload["recommendations"]:
+        product = by_id.get(rec.get("product_id"))
+        if not product:
+            continue
+        items.append({**product, "reason": rec.get("reason", "")})
+    return items or None

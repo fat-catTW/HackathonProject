@@ -174,6 +174,14 @@ SHOP_REVIEWS: dict[str, list[dict]] = {
         {"review_id": "rev_sony_xm6_02", "author": "惠敏", "rating": 5, "comment": "續航力很扎實，出國一趟充電次數少很多。", "created_at": "2026-06-06", "verified_purchase": True},
         {"review_id": "rev_sony_xm6_03", "author": "靜怡", "rating": 4, "comment": "音質跟降噪都很滿意，就是價格偏高。", "created_at": "2026-06-28", "verified_purchase": True},
     ],
+    "prod_fruit_offering_set": [
+        {"review_id": "rev_fruit_offering_set_01", "author": "秀蘭", "rating": 5, "comment": "水果都很新鮮，提籃包裝拿去掃墓很體面。", "created_at": "2026-03-28", "verified_purchase": True},
+        {"review_id": "rev_fruit_offering_set_02", "author": "文山", "rating": 4, "comment": "份量剛好，就是配送時間比想像中緊湊，建議提早訂。", "created_at": "2026-04-03", "verified_purchase": True},
+    ],
+    "prod_three_sacrifice_set": [
+        {"review_id": "rev_three_sacrifice_set_01", "author": "陳媽媽", "rating": 5, "comment": "三牲都處理得很乾淨，冷藏配送到府很方便，祭祖省了不少事。", "created_at": "2026-03-30", "verified_purchase": True},
+        {"review_id": "rev_three_sacrifice_set_02", "author": "阿勇", "rating": 4, "comment": "品質不錯，價格比自己去市場買貴一些但省時間值得。", "created_at": "2026-04-06", "verified_purchase": True},
+    ],
 }
 
 

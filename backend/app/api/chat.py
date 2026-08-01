@@ -50,6 +50,7 @@ def _chat_response(session_id: str, result: dict) -> ChatResponse:
         redirect_path=result.get("redirect_path"),
         redirect_requires_confirmation=bool(result.get("redirect_requires_confirmation")),
         clinic_recommendation=result.get("clinic_recommendation"),
+        product_recommendations=result.get("product_recommendations"),
         debug_trace=result.get("debug_trace", state.get("debug_trace", {})),
         task_cards=result.get("task_cards"),
         restaurant_cards=result.get("restaurant_cards"),

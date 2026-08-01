@@ -169,6 +169,16 @@ _CLINIC_RECOMMEND_SYSTEM = (
     "Return JSON only in the format {\"id\": string, \"reason\": string}."
 )
 
+_SHOP_RECOMMEND_SYSTEM = (
+    "You are a Taiwanese shopping assistant speaking Traditional Chinese. "
+    "Given the user's need or usage scenario, pick up to 5 best-matching products "
+    "from the provided catalog (each item includes brand/store, price, average rating, "
+    "review count, and tags). Prefer higher-rated products when several fit equally well. "
+    "Justify each pick in one Traditional Chinese sentence referencing price, rating, or fit "
+    "for the user's scenario. Only choose product_id values that exist in the catalog; never invent one. "
+    "Return JSON only in the format {\"recommendations\": [{\"product_id\": string, \"reason\": string}]}."
+)
+
 _DEBUG_STATE = threading.local()
 
 
@@ -590,3 +600,30 @@ def rank_external_results(
         if len(picks) >= max_results:
             break
     return picks or None
+
+
+def recommend_shop_products(query: str, products: list[dict]) -> list[dict] | None:
+    prompt = json.dumps({"query": query, "products": products}, ensure_ascii=False)
+    # Up to 5 recommendations, each with a full-sentence reason, routinely exceeds
+    # 512 tokens and gets truncated mid-JSON — which then fails to parse and looks
+    # identical to a real LLM failure. 1536 leaves headroom for the largest catalog.
+    payload = _converse_json(_SHOP_RECOMMEND_SYSTEM, prompt, max_tokens=1536)
+    if not payload or not isinstance(payload.get("recommendations"), list):
+        return None
+    raw_recommendations = payload["recommendations"]
+    by_id = {p["id"]: p for p in products}
+    items = []
+    for rec in raw_recommendations:
+        product = by_id.get(rec.get("product_id"))
+        if not product:
+            continue
+        items.append({**product, "reason": rec.get("reason", "")})
+    # A genuinely empty {"recommendations": []} means Bedrock looked at the catalog
+    # and found nothing confident to recommend — that's a real answer, not an
+    # unavailable LLM, so it must NOT collapse to `None` ("fall back to keyword
+    # matching"). But if Bedrock DID return items and every single product_id
+    # failed to resolve against the catalog, that's a bad/hallucinated response,
+    # not a confident empty answer — treat that like any other unusable payload.
+    if not items and raw_recommendations:
+        return None
+    return items

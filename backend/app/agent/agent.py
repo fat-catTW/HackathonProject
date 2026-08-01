@@ -1996,6 +1996,24 @@ def _dispatch_message(
         if one_shot_result is not None:
             return one_shot_result
 
+        if service_id == "shop_product_advisor":
+            # One-shot query-and-answer service (like health_product_recommendation
+            # and shop_price_compare): answer directly with recommendations instead
+            # of collecting form fields.
+            reply, redirect_path, product_recommendations = _answer_shop_product_advisor(text, auth_token)
+            state["service_id"] = None
+            state["service_name"] = None
+            state["service_schema"] = None
+            state["collected_fields"] = {}
+            state["missing_fields"] = []
+            return _reply(
+                state,
+                reply,
+                redirect_path=redirect_path,
+                redirect_requires_confirmation=redirect_path is not None,
+                product_recommendations=product_recommendations,
+            )
+
     if llm.is_available():
         active_field = current_active_field(state) or ""
         form_plan = llm.plan_form_turn(
@@ -2671,6 +2689,59 @@ def _format_health_recommendation_reply(result: dict) -> str:
     return "\n".join(lines)
 
 
+def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str | None]:
+    result = tools.call("compare_product_prices", {"query": query}, auth_token=auth_token)
+    if not result.get("success"):
+        return f"抱歉，沒有找到「{query}」的比價資訊，要不要換個商品名稱再試一次？", None
+    offers = result["offers"]
+    lines = [f"「{result['product_name']}」目前有 {len(offers)} 家店販售："]
+    for index, offer in enumerate(offers):
+        tag = "（最便宜）" if index == 0 else ""
+        lines.append(f"　{offer['store_name']} NT${offer['unit_price']}{tag}")
+    lines.append("我幫你打開比價頁面，可以直接選店家下單。")
+    return "\n".join(lines), f"/services/shop_purchase?compare={result['group_id']}"
+
+
+def _format_shop_advisor_reply(result: dict) -> str:
+    recommendations = result.get("recommendations") or []
+    if not recommendations:
+        return "很抱歉，目前商城沒有找到符合這個需求的商品，要不要換個方式描述你的需求？"
+    lines = ["這是我幫你比較後找到的推薦："]
+    if result.get("fallback_used"):
+        lines.append("（這次是用關鍵字與評分挑選的，僅供參考）")
+    return "\n".join(lines)
+
+
+def _build_shop_advisor_cards(result: dict) -> list[dict]:
+    cards = []
+    for rec in result.get("recommendations") or []:
+        cards.append(
+            {
+                "id": rec.get("id"),
+                "name": rec.get("name", ""),
+                "store_name": rec.get("store_name", ""),
+                "price": rec.get("skus", [{}])[0].get("unit_price"),
+                "rating_avg": rec.get("rating_avg"),
+                "rating_count": rec.get("rating_count"),
+                "reason": rec.get("reason", ""),
+            }
+        )
+    return cards
+
+
+def _answer_shop_product_advisor(query: str, auth_token: str | None) -> tuple[str, str | None, list[dict]]:
+    result = tools.call("recommend_shop_products_by_need", {"query": query}, auth_token=auth_token)
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "查詢失敗")
+        return f"抱歉，這次查詢沒有成功，原因是：{message}。你可以稍後再試一次。", None, []
+    reply = _format_shop_advisor_reply(result)
+    cards = _build_shop_advisor_cards(result)
+    recommendations = result.get("recommendations") or []
+    category_id = recommendations[0].get("category_id") if recommendations else None
+    redirect_path = f"/services/shop_purchase?category_id={category_id}" if category_id else "/services/shop_purchase"
+    return reply, redirect_path, cards
+
+
 def _answer_health_recommendation(state: dict, query: str, auth_token: str | None) -> str:
     result = tools.call("recommend_products_by_health_need", {"query": query}, auth_token=auth_token)
     if not result.get("success"):
@@ -2794,6 +2865,7 @@ def _reply(
     restaurant_cards: list[dict] | None = None,
     share_text: str | None = None,
     clinic_recommendation: dict | None = None,
+    product_recommendations: list[dict] | None = None,
 ) -> dict:
     return {
         "reply": reply,
@@ -2801,6 +2873,7 @@ def _reply(
         "redirect_path": redirect_path,
         "redirect_requires_confirmation": redirect_requires_confirmation,
         "clinic_recommendation": clinic_recommendation,
+        "product_recommendations": product_recommendations,
         "debug_trace": state.get("debug_trace", {}),
         "task_cards": task_cards,
         "restaurant_cards": restaurant_cards,

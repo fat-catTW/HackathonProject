@@ -431,6 +431,29 @@ SERVICES: list[dict] = [
         },
     },
     {
+        "id": "shop_product_advisor",
+        "name": "AI 選購顧問",
+        "description": "說出你的使用情境或想要的商品，AI 幫你比較不同品牌、參考評分與評價推薦",
+        "service_vendor_id": None,
+        "cms_type": None,
+        "enabled": True,
+        "keywords": [
+            "推薦", "選購", "選購建議", "評價", "評分", "哪款好", "哪個牌子",
+            "怎麼選", "幫我選", "AI選購", "麥克風", "耳機", "3C", "電子產品",
+        ],
+        "schema": {
+            "fields": [
+                {
+                    "id": "query",
+                    "label": "想選購的商品或情境",
+                    "type": "textarea",
+                    "required": True,
+                    "question": "請問想要什麼樣的商品？可以描述你的使用情境，例如「我想要錄 podcast 用的麥克風」。",
+                },
+            ],
+        },
+    },
+    {
         "id": "restaurant_reservation",
         "name": "餐廳訂位",
         "description": "22世紀風味館 精選餐廳訂位服務",

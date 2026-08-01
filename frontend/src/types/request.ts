@@ -32,6 +32,16 @@ export interface ChatRestaurantCard {
   source?: string;
 }
 
+export interface ProductRecommendation {
+  id: string | null;
+  name: string;
+  store_name: string;
+  price: number | string | null;
+  rating_avg: number | null;
+  rating_count: number | null;
+  reason: string;
+}
+
 export interface ChatEvent {
   role: "USER" | "ASSISTANT";
   content: string;
@@ -40,6 +50,8 @@ export interface ChatEvent {
   restaurantCards?: ChatRestaurantCard[];
   shareText?: string;
   clinicRecommendation?: ClinicChatRecommendation;
+  redirectLabel?: string;
+  productRecommendations?: ProductRecommendation[];
 }
 
 export interface RequestDetail extends RequestListItem {
@@ -86,4 +98,5 @@ export interface ChatResponse {
   restaurant_cards: ChatRestaurantCard[] | null;
   share_text: string | null;
   clinic_recommendation: ClinicChatRecommendation | null;
+  product_recommendations?: ProductRecommendation[] | null;
 }

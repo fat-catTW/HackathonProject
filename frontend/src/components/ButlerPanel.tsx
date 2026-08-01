@@ -90,6 +90,9 @@ export function ButlerPanel({
         restaurantCards: r.restaurant_cards ?? undefined,
         shareText: r.share_text ?? undefined,
         clinicRecommendation: r.clinic_recommendation ?? undefined,
+        redirectLabel:
+          showsRedirectButton && r.product_recommendations?.length ? "前往商城選購 →" : undefined,
+        productRecommendations: r.product_recommendations ?? undefined,
       });
       saveButlerTurn({
         sessionId: r.session_id,

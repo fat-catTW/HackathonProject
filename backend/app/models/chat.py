@@ -54,6 +54,7 @@ class ChatResponse(BaseModel):
     redirect_path: str | None = None
     redirect_requires_confirmation: bool = False
     clinic_recommendation: dict | None = None
+    product_recommendations: list[dict] | None = None
     debug_trace: dict = {}
     task_cards: list[dict] | None = None
     restaurant_cards: list[dict] | None = None

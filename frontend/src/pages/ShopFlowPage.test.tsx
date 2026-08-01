@@ -25,6 +25,8 @@ const products = [
     image: null,
     specs: [],
     skus: [{ sku_id: "sku_a", attributes: {}, unit_price: 50, unit_points: 5 }],
+    rating_avg: 4.5,
+    rating_count: 10,
   },
   {
     id: "prod_b",
@@ -38,6 +40,8 @@ const products = [
     image: null,
     specs: [],
     skus: [{ sku_id: "sku_b", attributes: {}, unit_price: 80, unit_points: 8 }],
+    rating_avg: 4.0,
+    rating_count: 5,
   },
 ];
 
@@ -54,6 +58,8 @@ const dailyProducts = [
     image: null,
     specs: [],
     skus: [{ sku_id: "sku_c", attributes: {}, unit_price: 100, unit_points: 10 }],
+    rating_avg: 4.8,
+    rating_count: 20,
   },
 ];
 
@@ -74,9 +80,11 @@ function renderPageAtRoute(route: string) {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   vi.mocked(shopApi.listShopCategories).mockResolvedValue({ categories });
   vi.mocked(shopApi.listShopProducts).mockResolvedValue({ products });
   vi.mocked(shopApi.getShopPoints).mockResolvedValue({ balance: 0 });
+  vi.mocked(shopApi.getShopProductReviews).mockResolvedValue({ reviews: [] });
 });
 
 describe("ShopFlowPage", () => {
@@ -153,6 +161,8 @@ describe("ShopFlowPage", () => {
       image: null,
       specs: [],
       skus: [{ sku_id: "sku_x1", attributes: {}, unit_price: 100, unit_points: 10 }],
+      rating_avg: 3.5,
+      rating_count: 8,
     },
     {
       id: "prod_x2",
@@ -166,6 +176,41 @@ describe("ShopFlowPage", () => {
       image: null,
       specs: [],
       skus: [{ sku_id: "sku_x2", attributes: {}, unit_price: 80, unit_points: 8 }],
+      rating_avg: 4.9,
+      rating_count: 30,
+    },
+  ];
+
+  const sortableProducts = [
+    {
+      id: "prod_low",
+      store_id: "store_low",
+      store_name: "Low 店家",
+      category_id: "cat_daily",
+      compare_group_id: null,
+      name: "評分較低商品",
+      description: "描述 Low",
+      product_type: "SERIAL_CODE" as const,
+      image: null,
+      specs: [],
+      skus: [{ sku_id: "sku_low", attributes: {}, unit_price: 50, unit_points: 5 }],
+      rating_avg: 3.0,
+      rating_count: 4,
+    },
+    {
+      id: "prod_high",
+      store_id: "store_high",
+      store_name: "High 店家",
+      category_id: "cat_daily",
+      compare_group_id: null,
+      name: "評分較高商品",
+      description: "描述 High",
+      product_type: "SERIAL_CODE" as const,
+      image: null,
+      specs: [],
+      skus: [{ sku_id: "sku_high", attributes: {}, unit_price: 60, unit_points: 6 }],
+      rating_avg: 4.9,
+      rating_count: 40,
     },
   ];
 
@@ -233,5 +278,76 @@ describe("ShopFlowPage", () => {
     renderPageAtRoute("/services/shop_purchase?compare=cmp_x");
 
     expect(await screen.findByText("比價資料載入失敗")).toBeInTheDocument();
+  });
+
+  it("shows the rating on each product card", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("飲品兌換"));
+
+    expect(await screen.findByText(/4\.5/)).toBeInTheDocument();
+  });
+
+  it("sorts product cards by rating, highest first, when the sort toggle is on", async () => {
+    const user = userEvent.setup();
+    vi.mocked(shopApi.listShopProducts).mockResolvedValue({ products: sortableProducts });
+    renderPage();
+
+    await user.click(await screen.findByText("飲品兌換"));
+    await screen.findByText("評分較低商品");
+
+    const beforeOrder = screen.getAllByText(/評分較(低|高)商品/).map((el) => el.textContent);
+    expect(beforeOrder).toEqual(["評分較低商品", "評分較高商品"]); // default order matches API response order
+
+    await user.click(screen.getByText("依評分排序"));
+
+    const afterOrder = screen.getAllByText(/評分較(低|高)商品/).map((el) => el.textContent);
+    expect(afterOrder).toEqual(["評分較高商品", "評分較低商品"]); // now sorted highest-rated first
+  });
+
+  it("shows reviews when the review panel is expanded", async () => {
+    const user = userEvent.setup();
+    vi.mocked(shopApi.getShopProductReviews).mockResolvedValue({
+      reviews: [
+        {
+          review_id: "rev_1",
+          author: "小明",
+          rating: 5,
+          comment: "很好用！",
+          created_at: "2026-05-01",
+          verified_purchase: true,
+        },
+      ],
+    });
+    renderPage();
+
+    await user.click(await screen.findByText("飲品兌換"));
+    await user.click(await screen.findByText("商品 A"));
+    await user.click(screen.getByText("查看評價"));
+
+    expect(await screen.findByText("很好用！")).toBeInTheDocument();
+    expect(screen.getByText("小明")).toBeInTheDocument();
+    expect(shopApi.getShopProductReviews).toHaveBeenCalledWith("prod_a");
+  });
+
+  it("does not fetch reviews until the review panel is opened", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("飲品兌換"));
+    await user.click(await screen.findByText("商品 A"));
+
+    expect(shopApi.getShopProductReviews).not.toHaveBeenCalled();
+  });
+
+  it("opens directly to the product list for a category when the URL has a category_id param", async () => {
+    vi.mocked(shopApi.listShopProducts).mockResolvedValue({ products: dailyProducts });
+
+    renderPageAtRoute("/services/shop_purchase?category_id=cat_daily");
+
+    expect(await screen.findByText("商品 C")).toBeInTheDocument();
+    expect(shopApi.listShopProducts).toHaveBeenCalledWith("cat_daily");
+    expect(screen.queryByText("請選擇商品類型")).not.toBeInTheDocument();
   });
 });

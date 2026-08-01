@@ -41,34 +41,14 @@ def _create_order(client: TestClient, headers: dict) -> dict:
     ).json()
 
 
-def test_simulate_delivery_status_advances_order_status_and_driver_info():
+def test_customer_can_no_longer_advance_delivery_status_directly():
+    """使用者端的模擬端點已經移除，狀態推進只能透過廠商後台。"""
     client = TestClient(app)
     headers = _auth_headers(client)
     created = _create_order(client, headers)
-    assert created["order_status"] == "01"
 
     response = client.post(
         f"/api/delivery/orders/{created['request_id']}/simulate",
-        json={
-            "vendor_status": 1,
-            "delivery": {"driver_name": "示範外送員", "driver_phone": "0912345678", "eta_minutes": 20},
-        },
-        headers=headers,
-    )
-    assert response.status_code == 200
-    assert response.json()["order_status"] == "02"
-
-    detail = client.get(f"/api/delivery/orders/{created['request_id']}", headers=headers).json()
-    assert detail["order_status"] == "02"
-    assert detail["vendor_data"]["delivery"]["driver_name"] == "示範外送員"
-
-
-def test_simulate_delivery_status_returns_404_for_missing_order():
-    client = TestClient(app)
-    headers = _auth_headers(client)
-
-    response = client.post(
-        "/api/delivery/orders/REQ-DOES-NOT-EXIST/simulate",
         json={"vendor_status": 1},
         headers=headers,
     )

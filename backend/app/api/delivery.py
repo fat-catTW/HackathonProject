@@ -68,25 +68,6 @@ def cancel_delivery_order(request_id: str, body: dict = None, user: CurrentUser 
     return result
 
 
-@router.post("/api/delivery/orders/{request_id}/simulate")
-def simulate_delivery_status(
-    request_id: str,
-    body: dict,
-    user: CurrentUser = Depends(get_current_user),
-):
-    """Demo 用：手動推進外送訂單的第三方狀態碼，內部走的路徑與真實 webhook 完全相同。"""
-    vendor_status = body.get("vendor_status")
-    if vendor_status is None:
-        _raise_api_error(400, "INVALID_FORM_DATA", "缺少 vendor_status。")
-    delivery_info = body.get("delivery")
-    result = delivery.update_delivery_status_from_vendor(user.sub, request_id, int(vendor_status), delivery_info)
-    if not result.get("success"):
-        error = result.get("error", {})
-        status_code = 404 if error.get("code") == "REQUEST_NOT_FOUND" else 400
-        _raise_api_error(status_code, error.get("code", "UPDATE_FAILED"), error.get("message", "狀態更新失敗"))
-    return result
-
-
 @router.post("/api/webhooks/delivery-callback")
 def delivery_webhook(body: dict):
     """第三方外送系統回呼：更新訂單狀態與外送員資訊。"""

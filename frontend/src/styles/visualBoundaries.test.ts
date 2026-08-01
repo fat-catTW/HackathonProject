@@ -8,7 +8,8 @@ import { describe, expect, it } from "vitest";
  * 這組測試不渲染任何元件，而是直接讀取原始碼字串做斷言，用來守住三類「不該退化」的規則：
  * 1. 視覺特效邊界：資料密集區塊不得套玻璃擬態或 backdrop-filter（Requirement 15.1–15.3）
  * 2. 無硬編碼色碼：元件與頁面一律引用語意色 Token（Requirement 6.6）
- * 3. 改版範圍限制：Route 定義、api 層與頁面檔案清單不得變動（Requirement 17.1–17.3）
+ * 3. 路由/頁面清單與 api 層規範：Route 定義與頁面檔案清單是活的允許清單，新增頁面時
+ *    應同步更新這份清單；api 層則不得含有樣式或色彩相關字串（Requirement 17.1–17.3）
  */
 const SRC = resolve(__dirname, "..");
 const COMPONENTS = join(SRC, "components");
@@ -107,13 +108,14 @@ describe("硬編碼色碼掃描（Task 12.2）", () => {
   );
 });
 
-describe("改版範圍限制（Task 12.3）", () => {
-  it("App.tsx 的 Route 定義未變更（Requirement 17.1）", () => {
+describe("路由/頁面清單（Task 12.3）", () => {
+  it("App.tsx 的 Route 定義符合目前的允許清單（Requirement 17.1）", () => {
     const source = read(join(SRC, "App.tsx"));
 
     /*
-      逐一列出改版前既有的 route path，任何新增/刪除/改名都會讓本測試失敗。
-      清單以 `<Route path="...">` 的字面值為準（四個具名 /services/* 路徑各自導向專屬流程頁，
+      這份清單會隨功能新增而更動——新增頁面/路由時要同步更新這裡，
+      任何未同步更新的新增/刪除/改名才會讓本測試失敗。
+      清單以 `<Route path="...">` 的字面值為準（幾個具名 /services/* 路徑各自導向專屬流程頁，
       並保留 /services/:serviceId 作為通用表單頁的 fallback，因此數量多於頁面檔案數）。
     */
     const EXPECTED_PATHS = [
@@ -150,7 +152,7 @@ describe("改版範圍限制（Task 12.3）", () => {
     }
   });
 
-  it("頁面檔案清單無增減（Requirement 17.3）", () => {
+  it("頁面檔案清單符合目前的允許清單，新增頁面時應同步更新（Requirement 17.3）", () => {
     const EXPECTED_PAGES = [
       "ClinicConsultFlowPage.tsx",
       "DeliveryFlowPage.tsx",

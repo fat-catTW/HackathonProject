@@ -42,14 +42,3 @@ export interface ClinicAppointmentOrder {
     appointment_time: string;
   };
 }
-
-export interface HealthProductRecommendationItem {
-  product_id: string;
-  name: string;
-  reason: string;
-}
-
-export interface CrossSellResult {
-  recommendations: HealthProductRecommendationItem[];
-  fallback_used: boolean;
-}

@@ -7,18 +7,11 @@ import { ServiceIcon } from "../components/ServiceIcon";
 import { ShareWithFamilyButton } from "../components/ShareWithFamilyButton";
 import { Toast } from "../components/Toast";
 import { VoiceButton } from "../components/VoiceButton";
-import {
-  getCrossSellRecommendations,
-  submitClinicAppointment,
-  triageSymptom,
-} from "../api/clinics";
+import { submitClinicAppointment, triageSymptom } from "../api/clinics";
 import { counties, getDistrictsByCountyName } from "../data/twRegions";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
-import type { ClinicInfo, HealthProductRecommendationItem } from "../types/clinic";
+import type { ClinicInfo } from "../types/clinic";
 
-// 「crosssell」與「share」在流程規劃上是兩個不同的關注點（加購推薦 / 分享給家人），
-// 但送出掛號成功後，兩者要同時呈現在同一個結果畫面上，不需要使用者再多按一次「下一步」，
-// 因此在實作上合併成同一個 "result" 步驟畫面（畫面內容涵蓋 crosssell + share 兩者）。
 type Step = "symptom" | "clinic" | "datetime" | "contact" | "summary" | "result";
 const STEP_ORDER: Step[] = ["symptom", "clinic", "datetime", "contact", "summary", "result"];
 
@@ -66,8 +59,6 @@ export function ClinicConsultFlowPage() {
   const [submitting, setSubmitting] = useState(false);
   const [requestId, setRequestId] = useState<string | null>(null);
 
-  const [crossSellItems, setCrossSellItems] = useState<HealthProductRecommendationItem[]>([]);
-
   const step = STEP_ORDER[stepIndex];
   const goNext = () => setStepIndex((i) => Math.min(i + 1, STEP_ORDER.length - 1));
   const goBack = () => setStepIndex((i) => Math.max(i - 1, 0));
@@ -97,7 +88,6 @@ export function ClinicConsultFlowPage() {
   async function handleConfirmAppointment() {
     if (!selectedClinicId) return;
     setSubmitting(true);
-    let newRequestId: string | null = null;
     try {
       const result = await submitClinicAppointment({
         clinic_id: selectedClinicId,
@@ -107,25 +97,12 @@ export function ClinicConsultFlowPage() {
         contact_name: contactName,
         phone,
       });
-      newRequestId = result.request_id;
       setRequestId(result.request_id);
+      goNext();
     } catch (error) {
       setToastText(error instanceof Error ? error.message : "掛號未成功送出，請重新嘗試");
-      setSubmitting(false);
-      return;
-    }
-
-    // 掛號已成功送出（requestId 已設定），加購推薦是錦上添花的附加功能。
-    // 若加購推薦服務失敗，不應該讓使用者誤以為掛號失敗、也不應該擋住流程，
-    // 只需保留空的推薦清單並繼續往下一步走即可。
-    try {
-      const crossSell = await getCrossSellRecommendations(newRequestId);
-      setCrossSellItems(crossSell.recommendations);
-    } catch {
-      setToastText("目前無法取得加購推薦，但您的掛號已完成");
     } finally {
       setSubmitting(false);
-      goNext();
     }
   }
 
@@ -354,17 +331,8 @@ export function ClinicConsultFlowPage() {
         {step === "result" && requestId && (
           <section className="flex flex-col gap-4">
             <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">
-              掛號已完成！針對您的狀況，為您推薦以下商品：
+              掛號已完成！
             </p>
-            {crossSellItems.map((item) => (
-              <div
-                key={item.product_id}
-                className="rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-4"
-              >
-                <p className="text-base font-bold text-[var(--color-foreground)]">{item.name}</p>
-                <p className="text-sm leading-relaxed text-[var(--color-muted-foreground)]">{item.reason}</p>
-              </div>
-            ))}
             <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">{familyShareText}</p>
             <ShareWithFamilyButton text={familyShareText} />
             <button

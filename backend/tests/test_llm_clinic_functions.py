@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 from backend.app.agent import llm
-from backend.app.services import health_catalog
 
 
 def test_triage_symptom_falls_back_to_keyword_rules_without_bedrock():
@@ -67,23 +66,3 @@ def test_recommend_clinic_ignores_bedrock_choice_with_unknown_id():
     ):
         result = llm.recommend_clinic("咳嗽", candidates)
     assert result["id"] == "c1"
-
-
-def test_recommend_health_products_falls_back_to_keyword_matching_without_bedrock():
-    products = health_catalog.list_products()
-    with patch("backend.app.agent.llm._converse_json", return_value=None):
-        result = llm.recommend_health_products_for_symptom("喉嚨癢癢的，一直咳嗽", products)
-    assert result["fallback_used"] is True
-    assert len(result["recommendations"]) > 0
-
-
-def test_recommend_health_products_uses_bedrock_choice_when_valid():
-    products = health_catalog.list_products()
-    valid_id = products[0]["id"]
-    with patch(
-        "backend.app.agent.llm._converse_json",
-        return_value={"recommendations": [{"product_id": valid_id, "reason": "適合喉嚨不適"}]},
-    ):
-        result = llm.recommend_health_products_for_symptom("喉嚨癢", products)
-    assert result["fallback_used"] is False
-    assert result["recommendations"] == [{"product_id": valid_id, "reason": "適合喉嚨不適"}]

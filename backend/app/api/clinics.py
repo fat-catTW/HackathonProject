@@ -1,9 +1,9 @@
-"""Clinic directory, symptom triage, appointment, and cross-sell API endpoints."""
+"""Clinic directory, symptom triage, and appointment API endpoints."""
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..agent import llm
 from ..auth.cognito import CurrentUser, get_current_user
-from ..services import clinic_appointment, clinic_catalog, health_catalog
+from ..services import clinic_appointment, clinic_catalog
 
 router = APIRouter()
 
@@ -59,17 +59,3 @@ def get_clinic_appointment_detail(request_id: str, user: CurrentUser = Depends(g
     if not order:
         _raise_api_error(404, "REQUEST_NOT_FOUND", "找不到對應的掛號紀錄。")
     return order
-
-
-@router.post("/api/clinic-appointments/{request_id}/cross-sell")
-def cross_sell(request_id: str, user: CurrentUser = Depends(get_current_user)):
-    order = clinic_appointment.get_appointment(user.sub, request_id)
-    if not order:
-        _raise_api_error(404, "REQUEST_NOT_FOUND", "找不到對應的掛號紀錄。")
-    symptom_text = order["form_data"].get("symptom_note", "")
-    products = health_catalog.list_products()
-    result = llm.recommend_health_products_for_symptom(symptom_text, products)
-    name_by_product_id = {product["id"]: product["name"] for product in products}
-    for rec in result["recommendations"]:
-        rec["name"] = name_by_product_id.get(rec["product_id"], "")
-    return result

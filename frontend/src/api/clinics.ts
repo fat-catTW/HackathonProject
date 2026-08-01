@@ -3,7 +3,6 @@ import type {
   ClinicAppointmentPayload,
   ClinicAppointmentResult,
   ClinicInfo,
-  CrossSellResult,
   SymptomTriageResult,
 } from "../types/clinic";
 import { api } from "./client";
@@ -30,10 +29,4 @@ export function submitClinicAppointment(payload: ClinicAppointmentPayload) {
 
 export function getClinicAppointment(requestId: string) {
   return api<ClinicAppointmentOrder>(`/api/clinic-appointments/${encodeURIComponent(requestId)}`);
-}
-
-export function getCrossSellRecommendations(requestId: string) {
-  return api<CrossSellResult>(`/api/clinic-appointments/${encodeURIComponent(requestId)}/cross-sell`, {
-    method: "POST",
-  });
 }

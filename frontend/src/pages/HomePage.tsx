@@ -177,8 +177,6 @@ export function HomePage() {
           </button>
         </section>
 
-        <WeatherGreetingCard userName={name} />
-
         {/*
           服務捷徑列：份量刻意比管家小一號，只露出前 4 個服務圖示 + 「還有幾個」提示，
           整張卡是一個按鈕，點哪裡都開啟「所有服務」視窗（AllServicesModal）。
@@ -219,6 +217,8 @@ export function HomePage() {
             </div>
           </button>
         </section>
+
+        <WeatherGreetingCard userName={name} />
 
         {/*
           「我的服務」／「客服中心」改成彩色插畫卡（參考稿：色塊卡右下角探出一隻大隻的

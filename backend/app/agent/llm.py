@@ -122,14 +122,6 @@ _CLINIC_RECOMMEND_SYSTEM = (
     "Return JSON only in the format {\"id\": string, \"reason\": string}."
 )
 
-_HEALTH_PRODUCT_SYSTEM = (
-    "You are a product advisor recommending convenience-store products for a Traditional-Chinese-"
-    "speaking elderly user based on their described physical symptoms. "
-    "Only choose product_id values that appear in the provided products list — never invent one. "
-    "Choose up to 3 products and explain each in one short Traditional Chinese sentence. "
-    "Return JSON only in the format {\"recommendations\": [{\"product_id\": string, \"reason\": string}]}."
-)
-
 _DEBUG_STATE = threading.local()
 
 
@@ -264,34 +256,6 @@ def recommend_clinic(symptom_text: str, candidates: list[dict]) -> dict | None:
     open_candidates = [c for c in candidates if c.get("is_open_now")]
     fallback = (open_candidates or candidates)[0]
     return {"id": fallback["id"], "reason": "距離您所在地區近，且目前有看診，優先為您推薦。"}
-
-
-def recommend_health_products_for_symptom(symptom_text: str, products: list[dict]) -> dict:
-    payload = _converse_json(
-        _HEALTH_PRODUCT_SYSTEM,
-        json.dumps({"symptom_text": symptom_text, "products": products}, ensure_ascii=False),
-        max_tokens=400,
-    )
-    valid_ids = {p["id"] for p in products}
-    if payload and isinstance(payload.get("recommendations"), list):
-        items = []
-        for rec in payload["recommendations"]:
-            if not isinstance(rec, dict):
-                continue
-            product_id = rec.get("product_id")
-            reason = rec.get("reason")
-            if product_id in valid_ids and isinstance(reason, str) and reason.strip():
-                items.append({"product_id": product_id, "reason": reason.strip()})
-        if items:
-            return {"recommendations": items, "fallback_used": False}
-
-    from ..services import health_recommendation
-
-    fallback_items = health_recommendation.fallback_recommend(symptom_text, products)
-    return {
-        "recommendations": [{"product_id": r["product_id"], "reason": r["reason"]} for r in fallback_items],
-        "fallback_used": True,
-    }
 
 
 def choose_service(

@@ -159,3 +159,25 @@ def test_three_categories_each_have_one_comparison_group_of_three_vendors():
         assert len(offers) == 3
         assert all(o["category_id"] == category_id for o in offers)
         assert len({o["store_id"] for o in offers}) == 3
+
+
+def test_electronics_category_registered():
+    category_ids = {c["id"] for c in shop_catalog.list_categories()}
+    assert "cat_electronics" in category_ids
+
+
+def test_electronics_category_has_seven_distinct_vendors():
+    products = shop_catalog.list_products(category_id="cat_electronics")
+    assert len(products) == 7
+    assert len({p["store_id"] for p in products}) == 7
+
+
+def test_electronics_products_have_descriptive_tags():
+    mic = next(p for p in shop_catalog.SHOP_PRODUCTS if p["id"] == "prod_mic_fifine_k669b")
+    assert "麥克風" in mic["tags"]
+    assert "podcast" in mic["tags"]
+
+
+def test_electronics_products_have_no_compare_group_id():
+    products = shop_catalog.list_products(category_id="cat_electronics")
+    assert all(p["compare_group_id"] is None for p in products)

@@ -2342,14 +2342,9 @@ def _handle_restaurant_search(actor_id: str, state: dict, latest_user_message: s
 
 
 def _format_restaurant_options_reply(options: list[dict]) -> str:
-    lines = ["這是我幫你找到的餐廳，想訂哪一間？可以直接說編號或店名："]
-    for index, restaurant in enumerate(options, start=1):
-        address_suffix = f"（{restaurant['address']}）" if restaurant.get("address") else ""
-        line = f"{index}. {restaurant.get('name', '')}{address_suffix}"
-        if restaurant.get("reason"):
-            line += f"：{restaurant['reason']}"
-        lines.append(line)
-    return "\n".join(lines)
+    # 詳細店名／地址／理由改交給 restaurant_cards 顯示（見 ChatRestaurantCardList），
+    # 這裡只留一句引導文字，避免跟卡片內容重複列一次。
+    return "這是我幫你找到的餐廳，想訂哪一間？可以直接點卡片，或說編號、店名。"
 
 
 def _match_restaurant_pick(text: str, options: list[dict]) -> dict | None:

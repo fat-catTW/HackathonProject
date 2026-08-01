@@ -116,8 +116,8 @@ def test_reservation_chat_flow_falls_back_to_restaurant_search_when_name_not_rec
 
     assert state["service_id"] == "restaurant_reservation"
     assert state["pending_restaurant_options"] == _FAKE_SEARCH_RESULT["restaurants"]
-    assert "台中好料理" in result["reply"]
-    assert "22世紀風味館 信義旗艦店" in result["reply"]
+    # Restaurant details live in restaurant_cards now, not spelled out in the reply text.
+    assert "台中好料理" not in result["reply"]
     assert result["restaurant_cards"] == _FAKE_SEARCH_RESULT["restaurants"]
     mock_search.assert_called_once()
     assert mock_search.call_args.args[0] == "user-1"
@@ -147,8 +147,8 @@ def test_reservation_chat_flow_ignores_bedrock_reply_mode_when_restaurant_id_mis
         state = result["state"]
 
     assert state["pending_restaurant_options"] == _FAKE_SEARCH_RESULT["restaurants"]
-    assert "台中好料理" in result["reply"]
     assert "r001-r006" not in result["reply"]
+    assert result["restaurant_cards"] == _FAKE_SEARCH_RESULT["restaurants"]
     mock_search.assert_called_once()
 
 
@@ -204,7 +204,7 @@ def test_reservation_chat_flow_reprompts_on_unrecognized_restaurant_pick():
 
     assert result["state"]["pending_restaurant_options"] == _FAKE_SEARCH_RESULT["restaurants"]
     assert "restaurant_id" not in result["state"]["collected_fields"]
-    assert "台中好料理" in result["reply"]
+    assert result["restaurant_cards"] == _FAKE_SEARCH_RESULT["restaurants"]
 
 
 def test_reservation_chat_flow_reports_error_without_crashing_when_order_invalid():

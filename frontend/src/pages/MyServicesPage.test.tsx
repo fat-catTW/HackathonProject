@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -67,10 +67,11 @@ describe("MyServicesPage 分類與搜尋", () => {
     renderPage();
     await waitFor(() => expect(screen.getAllByText("居家清潔").length).toBeGreaterThan(0));
 
-    const allChip = screen.getByRole("button", { name: /全部/ });
+    const group = screen.getByRole("group", { name: "服務種類篩選" });
+    const allChip = within(group).getByRole("button", { name: /全部/ });
     expect(allChip).toHaveTextContent("4");
 
-    const cleaningChip = screen.getByRole("button", { name: /居家清潔/ });
+    const cleaningChip = within(group).getByRole("button", { name: /居家清潔/ });
     expect(cleaningChip).toHaveTextContent("2");
   });
 
@@ -106,6 +107,45 @@ describe("MyServicesPage 分類與搜尋", () => {
     await user.type(screen.getByLabelText("搜尋服務名稱"), "不存在的服務");
 
     expect(screen.getByText(/找不到符合的服務案件/)).toBeInTheDocument();
+  });
+});
+
+describe("MyServicesPage 狀態篩選", () => {
+  it("shows one status chip per group that actually has items, plus 全部 with the total count", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("居家清潔").length).toBeGreaterThan(0));
+
+    const group = screen.getByRole("group", { name: "案件狀態篩選" });
+    expect(within(group).getByRole("button", { name: /全部/ })).toHaveTextContent("4");
+    expect(within(group).getByRole("button", { name: /待確認/ })).toHaveTextContent("1");
+    expect(within(group).getByRole("button", { name: /已確認/ })).toHaveTextContent("1");
+    expect(within(group).getByRole("button", { name: /已完成/ })).toHaveTextContent("2");
+    expect(within(group).queryByRole("button", { name: /已婉拒/ })).not.toBeInTheDocument();
+  });
+
+  it("filters the list when a status chip is clicked", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("居家清潔").length).toBeGreaterThan(0));
+
+    const group = screen.getByRole("group", { name: "案件狀態篩選" });
+    await user.click(within(group).getByRole("button", { name: /已確認/ }));
+
+    expect(screen.getByRole("link", { name: /居家清潔/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /水電修繕/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /冷氣清洗/ })).not.toBeInTheDocument();
+  });
+
+  it("combines the status filter with the category filter", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getAllByText("居家清潔").length).toBeGreaterThan(0));
+
+    await user.click(screen.getByRole("button", { name: /^已完成/ }));
+    await user.click(screen.getByRole("button", { name: /冷氣清洗/ }));
+
+    expect(screen.getByRole("link", { name: /冷氣清洗/ })).toBeInTheDocument();
+    expect(screen.queryAllByRole("link", { name: /居家清潔/ })).toHaveLength(0);
   });
 });
 

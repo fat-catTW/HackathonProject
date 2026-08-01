@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 
+from . import external_search_cache
 from . import reservation_validators as validators
 from . import restaurant_catalog
 from . import retry_service
@@ -48,12 +49,29 @@ def _error(code: str, message: str) -> dict:
     return {"success": False, "error": {"code": code, "message": message}}
 
 
-def _validate_payload(payload: dict) -> dict | None:
+def _resolve_restaurant(actor_id: str, restaurant_id: str) -> dict | None:
+    restaurant = restaurant_catalog.get_restaurant(restaurant_id)
+    if restaurant:
+        return {**restaurant, "source": "internal"}
+    cached = external_search_cache.get_result(actor_id, "restaurant_search", restaurant_id)
+    if cached and cached.get("source") == "google_places":
+        return {
+            "id": cached["id"],
+            "name": cached["name"],
+            "address": cached.get("address", ""),
+            "phone": cached.get("phone", ""),
+            "supports_booking_api": False,
+            "source": "google_places",
+        }
+    return None
+
+
+def _validate_payload(actor_id: str, payload: dict) -> dict | None:
     for field_id in _REQUIRED_FIELDS:
         if payload.get(field_id) in (None, ""):
             return _error("INVALID_FORM_DATA", f"Missing required field: {field_id}")
 
-    restaurant = restaurant_catalog.get_restaurant(payload["restaurant_id"])
+    restaurant = _resolve_restaurant(actor_id, payload["restaurant_id"])
     if not restaurant:
         return _error("RESTAURANT_NOT_FOUND", "找不到指定的餐廳。")
 
@@ -100,11 +118,11 @@ def check_duplicate(actor_id: str, restaurant_id: str, reserved_date: str, time_
 
 
 def create_reservation_order(actor_id: str, payload: dict) -> dict:
-    validation_error = _validate_payload(payload)
+    validation_error = _validate_payload(actor_id, payload)
     if validation_error:
         return validation_error
 
-    restaurant = restaurant_catalog.get_restaurant(payload["restaurant_id"])
+    restaurant = _resolve_restaurant(actor_id, payload["restaurant_id"])
 
     if check_duplicate(actor_id, payload["restaurant_id"], payload["reserved_date"], payload["time_slot"]):
         return _error("DUPLICATE_RESERVATION", "這筆訂位已經成功送出囉，無需重複提交。")
@@ -115,6 +133,7 @@ def create_reservation_order(actor_id: str, payload: dict) -> dict:
         "restaurant_name": restaurant["name"],
         "restaurant_phone": restaurant["phone"],
         "restaurant_address": restaurant["address"],
+        "source": restaurant["source"],
         "people": payload["people"],
         "is_premium": is_premium,
         "reserved_date": payload["reserved_date"],

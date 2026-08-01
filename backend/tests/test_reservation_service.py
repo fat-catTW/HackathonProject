@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.app.services import reservation, store as store_module
+from backend.app.services import external_search_cache, reservation, store as store_module
 
 
 @pytest.fixture(autouse=True)
@@ -152,3 +152,34 @@ def test_create_reservation_order_rejects_preference_note_too_long():
     result = reservation.create_reservation_order("user-1", valid_payload(preference_note=long_note))
     assert result["success"] is False
     assert result["error"]["code"] == "PREFERENCE_TOO_LONG"
+
+
+def test_create_reservation_order_for_cached_google_restaurant_is_pending():
+    external_search_cache.store_results(
+        "user-1",
+        "restaurant_search",
+        [{"id": "g-place-1", "name": "路邊小吃店", "address": "台中市西區", "phone": "",
+          "source": "google_places", "reason": "評價高"}],
+        id_key="id",
+    )
+    result = reservation.create_reservation_order("user-1", valid_payload(restaurant_id="g-place-1"))
+
+    assert result["success"] is True
+    assert result["status"] == "PENDING_PROVIDER"
+    assert result["booking_url"] is None
+
+    order = reservation.get_reservation_order("user-1", result["request_id"])
+    assert order["order_items"]["restaurant_name"] == "路邊小吃店"
+    assert order["order_items"]["source"] == "google_places"
+
+
+def test_create_reservation_order_unknown_restaurant_not_found():
+    result = reservation.create_reservation_order("user-1", valid_payload(restaurant_id="does-not-exist"))
+    assert result["success"] is False
+    assert result["error"]["code"] == "RESTAURANT_NOT_FOUND"
+
+
+def test_create_reservation_order_expired_cache_is_not_found():
+    result = reservation.create_reservation_order("user-1", valid_payload(restaurant_id="never-cached"))
+    assert result["success"] is False
+    assert result["error"]["code"] == "RESTAURANT_NOT_FOUND"

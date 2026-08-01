@@ -125,6 +125,8 @@ RULE_SERVICE_KEYWORDS = (
 #  猜測容易產生格式不符的字串，直接排除避免污染 collected_fields）。
 _LLM_EXCLUDED_FIELDS = {"store_id", "goods"}
 FREE_TEXT_FIELD_IDS = {"issue_description", "notes", "note", "issue_details"}
+# 比對「模型填的自由文字是不是使用者剛剛說的」時忽略的標點與空白。
+_GROUNDING_NOISE_RE = re.compile(r"[\s，。、！？!?,.:：；;~～「」『』（）()]+")
 
 
 def _reset_debug_trace(state: dict, message: str) -> None:
@@ -370,6 +372,32 @@ def _safe_memory_snapshot(actor_id: str) -> dict:
 
 def _safe_preferences(actor_id: str) -> dict:
     return _safe_memory_snapshot(actor_id).get("preferences") or {}
+
+
+# 只有這三項可以沿用上次，而且沿用時一律標註來源（見 _autofill_from_preferences）
+# 或先問過使用者（pending_pref_question）。
+REUSABLE_PREFERENCE_LABELS = (
+    ("last_address", "常用地址"),
+    ("last_phone", "常用電話"),
+    ("preferred_time_slot", "偏好時間"),
+)
+
+
+def _reusable_preference_context(actor_id: str) -> str:
+    """抽欄位時只給模型「可以沿用的偏好」，不給上一張單的內容。
+
+    完整的長期記憶帶著 `上次摘要`，裡面是上一次每一格填了什麼（問題描述、日期、
+    數量…）。模型看到那行就會照抄，於是使用者只說「幫我填」，問題描述卻冒出上次的
+    文字——那是使用者這次沒說過的話。其他地方（服務判斷、回覆生成、記憶問答）仍用
+    完整記憶，只有寫入表單這條路徑要收斂。
+    """
+    prefs = _safe_preferences(actor_id)
+    lines = [
+        f"{label}: {prefs[key]}"
+        for key, label in REUSABLE_PREFERENCE_LABELS
+        if prefs.get(key)
+    ]
+    return "\n".join(lines) if lines else "None"
 
 
 def _normalize_saved_time_value(value: str) -> str:
@@ -691,7 +719,7 @@ def _detect_service(text: str, services: list[dict], short_term_context: str, lo
 def _extract_fields(actor_id: str, state: dict, text: str, events: list[dict] | None) -> dict:
     fields = state["service_schema"]["fields"]
     short_term_context = _short_term_context(state, events, text)
-    long_term_context = _long_term_memory_context(actor_id, text)
+    long_term_context = _reusable_preference_context(actor_id)
     form_schema = build_form_schema(state)
     form_draft = build_form_draft(state)
 
@@ -750,10 +778,26 @@ def _normalize_candidate_fields(
         if not _field_is_visible(field, state["collected_fields"] | normalized_found | additions):
             continue
         normalized = _normalize_field_value(field, raw_fields[field_id], original_text)
-        if normalized is not None:
-            additions[field_id] = normalized
-            _trace_field_source(state, field_id, source)
+        if normalized is None:
+            continue
+        if source == "llm_extract_fields" and not _free_text_is_grounded(field_id, normalized, original_text):
+            _trace_fallback(state, f"ungrounded_free_text:{field_id}")
+            continue
+        additions[field_id] = normalized
+        _trace_field_source(state, field_id, source)
     return additions
+
+
+def _free_text_is_grounded(field_id: str, value, original_text: str) -> bool:
+    """自由文字欄位只能寫使用者這次說出口的內容。
+
+    模型手上有偏好記憶與畫面草稿，遇到「幫我填」這種本身沒有描述內容的訊息時，
+    容易生出一段問題描述（多半是抄記憶或草稿）。描述類欄位寧可留空、讓管家再問一次，
+    也不要填一句使用者沒說過的話——那會直接被送進案件給廠商看。
+    """
+    if field_id not in FREE_TEXT_FIELD_IDS or not isinstance(value, str):
+        return True
+    return _GROUNDING_NOISE_RE.sub("", value) in _GROUNDING_NOISE_RE.sub("", original_text)
 
 
 def _capture_active_free_text_field(state: dict, text: str, found: dict) -> tuple[str, str] | None:
@@ -767,6 +811,9 @@ def _capture_active_free_text_field(state: dict, text: str, found: dict) -> tupl
         return None
 
     normalized = text.strip()
+    if form_autopilot.looks_like_autofill_request(normalized):
+        # 「幫我填」是指令不是描述：只剩指令就別填，夾帶內容時只取內容那一段。
+        normalized = form_autopilot.strip_autofill_hints(normalized)
     if len(normalized) < 3:
         return None
     if _is_yes(normalized) or _is_no(normalized):

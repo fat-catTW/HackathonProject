@@ -43,6 +43,9 @@ AUTOFILL_HINTS = (
     "幫我把資料填",
 )
 
+# 拿掉指令字樣後兩端要一起清掉的標點與空白。
+_AUTOFILL_TRIM_CHARS = " 　，。、,.!！?？~～：:；;"
+
 # 帶這些字代表使用者是在「問」而不是在「叫我做」。
 # 例：「可以用語音幫我填嗎」問的是功能，該回頁面說明；「用語音幫我填，兩台壁掛式冷氣」是要現在填。
 QUESTION_MARKERS = (
@@ -74,6 +77,18 @@ def supports_autopilot(service_id: str | None) -> bool:
 def looks_like_autofill_request(message: str) -> bool:
     text = (message or "").strip()
     return bool(text) and any(hint in text for hint in AUTOFILL_HINTS)
+
+
+def strip_autofill_hints(message: str) -> str:
+    """把「幫我填」這類指令字樣拿掉，只留使用者真正交代的內容。
+
+    「幫我填，廚房水管漏水」的問題描述是「廚房水管漏水」——指令本身不是描述，
+    填進去廠商看到的就是一句「幫我填」。
+    """
+    text = (message or "").strip()
+    for hint in AUTOFILL_HINTS:
+        text = text.replace(hint, "")
+    return text.strip(_AUTOFILL_TRIM_CHARS)
 
 
 def looks_like_question(message: str) -> bool:

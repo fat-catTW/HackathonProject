@@ -10,6 +10,16 @@ from functools import lru_cache
 from ..config import get_settings
 from ..services.aws import get_aws_client, has_aws_credentials
 
+_DIALECT_GLOSSARY = (
+    "The user may speak Taiwanese-Hokkien-influenced Mandarin (台語腔國語), transcribed by a "
+    "Mandarin speech recognizer that may render it imperfectly. Recognize these common patterns: "
+    "\"三牲\" (three-sacrifice ritual offering), \"透天厝\" (a multi-floor townhouse), "
+    "\"逗陣\" (together/along), \"愛\" used to mean \"want/need\" (e.g. \"我愛買\" = \"我要買\"), "
+    "\"甲意\" (like/prefer), \"呷飯\" (to eat a meal), \"歹勢\" (sorry/excuse me), "
+    "and looser word order than standard Mandarin. Interpret the intended meaning, not the literal "
+    "transcription."
+)
+
 _YES_NO_SYSTEM = (
     "You classify whether the user confirmed a booking summary. "
     "Return JSON only in the format {\"intent\":\"yes|no|unclear\"}."
@@ -20,6 +30,7 @@ _SERVICE_SYSTEM = (
     "Choose the best matching service_id from the provided list. "
     "If the user has not clearly chosen a service, return null. "
     "Return JSON only in the format {\"service_id\": string|null}."
+    "\n\n" + _DIALECT_GLOSSARY
 )
 
 _TURN_SYSTEM = (
@@ -38,6 +49,7 @@ _TURN_SYSTEM = (
     "Do not invent unsupported services. "
     "Return JSON only in the format "
     "{\"mode\":\"chat|service_request|page_help|memory_query|multi_task|unknown\",\"reply\":string|null,\"service_id\":string|null}."
+    "\n\n" + _DIALECT_GLOSSARY
 )
 
 _MULTI_TASK_SYSTEM = (
@@ -51,6 +63,7 @@ _MULTI_TASK_SYSTEM = (
     "Do not invent unsupported services. "
     "Return JSON only in the format "
     "{\"tasks\": [{\"service_id\": string, \"hint_fields\": object}]}."
+    "\n\n" + _DIALECT_GLOSSARY
 )
 
 _FIELD_SYSTEM = (
@@ -64,6 +77,7 @@ _FIELD_SYSTEM = (
     "Do not overwrite an existing value unless the user clearly changes it. "
     "Do not answer questions or explain anything outside the JSON. "
     "Return JSON only in the format {\"fields\": { ... }}."
+    "\n\n" + _DIALECT_GLOSSARY
 )
 
 _FORM_TURN_SYSTEM = (

@@ -162,6 +162,8 @@ def _prefer_current_page(text: str) -> bool:
         return True
     if any(hint in text for hint in CURRENT_PAGE_HINTS):
         return True
+    if is_navigation_query(text):
+        return False
     if any(hint in text for hint in PAGE_ACTION_HINTS) and not any(keyword in text for keyword in page_keywords()):
         return True
     return False
@@ -231,9 +233,6 @@ def _format_search_reply(
         f"\u548c\u4f60\u7684\u554f\u984c\u6700\u76f8\u95dc\u7684\u662f\u300c{top['title']}\u300d\u3002",
         top["summary"],
     ]
-    reason = top.get("relevance_reason")
-    if reason:
-        lines.append(f"\u6211\u6703\u9019\u6a23\u5224\u65b7\uff1a{reason}")
     if top.get("page_id") != current_page_id:
         lines.append(
             f"\u5982\u679c\u4f60\u8981\u627e\u9019\u500b\u529f\u80fd\uff0c\u512a\u5148\u524d\u5f80\u9019\u4e00\u9801\uff1a{top['title']}\u3002"

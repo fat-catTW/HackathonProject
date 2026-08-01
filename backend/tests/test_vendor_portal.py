@@ -91,7 +91,9 @@ def test_vendor_list_carries_customer_and_summary(client):
     item = next(i for i in res.json()["items"] if i["request_id"] == request_id)
     assert item["customer_name"] == "Vincent"
     assert item["status_label"] == "等待廠商確認"
-    assert "台北市信義區市府路1號" in item["summary"]
+    # 地址在清單上只到行政區（Milestone 15），完整門牌要開明細解密才看得到。
+    assert "台北市信義區…" in item["summary"]
+    assert "市府路1號" not in item["summary"]
     assert "上午" in item["summary"]  # MORNING 轉成中文標籤
 
 
@@ -104,7 +106,10 @@ def test_vendor_detail_lists_form_fields_in_schema_order(client):
     assert res.status_code == 200
     fields = res.json()["fields"]
     assert [f["id"] for f in fields] == list(AC_CLEANING_FORM)
-    assert dict(zip([f["id"] for f in fields], [f["value"] for f in fields]))["phone"] == "0912345678"
+    phone = next(f for f in fields if f["id"] == "phone")
+    # 明細也只給遮罩值；完整號碼走 /contact（見 test_contact_privacy.py）。
+    assert phone["value"] == "0912***678"
+    assert phone["masked"] is True
 
 
 def test_status_change_propagates_to_vendor_list(client):

@@ -27,12 +27,23 @@ export interface ShopProduct {
   store_id: string;
   store_name: string;
   category_id: string;
+  compare_group_id: string | null;
   name: string;
   description: string;
   product_type: "PHYSICAL" | "SERIAL_CODE";
   image: string | null;
   specs: ShopSpec[];
   skus: ShopSku[];
+}
+
+export interface ShopCompareOffer extends ShopProduct {
+  min_unit_price: number;
+}
+
+export interface ShopCompareGroup {
+  group_id: string;
+  category_id: string;
+  offers: ShopCompareOffer[];
 }
 
 export interface ShopCartLine {

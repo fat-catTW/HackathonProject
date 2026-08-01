@@ -25,6 +25,7 @@ export interface RequestListItem {
 export interface ChatEvent {
   role: "USER" | "ASSISTANT";
   content: string;
+  redirectPath?: string;
 }
 
 export interface RequestDetail extends RequestListItem {
@@ -46,4 +47,5 @@ export interface ChatResponse {
   request_id: string | null;
   status: string;
   redirect_path: string | null;
+  redirect_requires_confirmation: boolean;
 }

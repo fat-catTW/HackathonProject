@@ -19,6 +19,53 @@ interface Props {
   onCategoryChange: (id: string) => void;
 }
 
+interface FilterChipGroupProps {
+  /** chip 群組的 aria-label，讓螢幕閱讀器與測試都能把這排按鈕跟頁面上其他按鈕區分開。 */
+  groupLabel: string;
+  options: CategoryOption[];
+  activeId: string;
+  onChange: (id: string) => void;
+}
+
+/**
+ * 一排可橫向捲動的篩選 chip，供分類篩選與狀態篩選共用同一套樣式與互動。
+ * 選項清單由呼叫端動態算出（僅列出目前資料中實際出現的選項），本元件只負責呈現與互動。
+ */
+export function FilterChipGroup({ groupLabel, options, activeId, onChange }: FilterChipGroupProps) {
+  if (options.length === 0) return null;
+  return (
+    <div role="group" aria-label={groupLabel} className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+      {options.map((option) => {
+        const isActive = option.id === activeId;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onChange(option.id)}
+            aria-pressed={isActive}
+            className={`flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-base font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] ${
+              isActive
+                ? "bg-[var(--color-primary)] text-[var(--color-on-primary)]"
+                : "bg-[var(--color-surface)] text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)]"
+            }`}
+          >
+            {option.label}
+            <span
+              className={`rounded-full px-2 py-0.5 text-sm ${
+                isActive
+                  ? "bg-[var(--color-surface-glass)]"
+                  : "bg-[var(--color-canvas)] text-[var(--color-muted-foreground)]"
+              }`}
+            >
+              {option.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * 搜尋框＋分類 chip 列，供「我的服務」與「廠商後台」共用同一套篩選互動。
  * 分類清單由呼叫端動態算出（僅列出目前資料中實際出現的分類），本元件只負責呈現與互動。
@@ -54,41 +101,12 @@ export function SearchAndCategoryFilter({
         />
       </div>
 
-      {categories.length > 0 && (
-        <div
-          role="group"
-          aria-label={categoryGroupLabel}
-          className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1"
-        >
-          {categories.map((category) => {
-            const isActive = category.id === activeCategory;
-            return (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => onCategoryChange(category.id)}
-                aria-pressed={isActive}
-                className={`flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-base font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] ${
-                  isActive
-                    ? "bg-[var(--color-primary)] text-[var(--color-on-primary)]"
-                    : "bg-[var(--color-surface)] text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)]"
-                }`}
-              >
-                {category.label}
-                <span
-                  className={`rounded-full px-2 py-0.5 text-sm ${
-                    isActive
-                      ? "bg-[var(--color-surface-glass)]"
-                      : "bg-[var(--color-canvas)] text-[var(--color-muted-foreground)]"
-                  }`}
-                >
-                  {category.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <FilterChipGroup
+        groupLabel={categoryGroupLabel}
+        options={categories}
+        activeId={activeCategory}
+        onChange={onCategoryChange}
+      />
     </div>
   );
 }

@@ -68,7 +68,15 @@ export function ButlerPanel({
 
     try {
       const r = await sendMessage(sessionId, message, currentPageId);
-      setEvents((prev) => [...prev, { role: "ASSISTANT", content: r.reply }]);
+      const showsRedirectButton = Boolean(r.redirect_path) && r.redirect_requires_confirmation;
+      setEvents((prev) => [
+        ...prev,
+        {
+          role: "ASSISTANT",
+          content: r.reply,
+          redirectPath: showsRedirectButton ? r.redirect_path! : undefined,
+        },
+      ]);
       setServiceName(r.service_name);
       setCollected(r.collected_fields);
       setMissing(r.missing_fields);
@@ -80,7 +88,7 @@ export function ButlerPanel({
           onClose?.();
           navigate(`/requests/${r.request_id}`);
         }, 900);
-      } else if (r.redirect_path) {
+      } else if (r.redirect_path && !r.redirect_requires_confirmation) {
         setToastText("正在帶你前往專屬頁面。");
         setTimeout(() => {
           onClose?.();
@@ -211,7 +219,14 @@ export function ButlerPanel({
           <div className="min-h-0 flex-1 overflow-y-auto bg-transparent p-5">
             <div className="space-y-3.5">
               {events.map((e, i) => (
-                <ChatMessage key={i} event={e} />
+                <ChatMessage
+                  key={i}
+                  event={e}
+                  onRedirectClick={(path) => {
+                    onClose?.();
+                    navigate(path);
+                  }}
+                />
               ))}
               {sending && (
                 <p className="text-sm text-[var(--color-muted-foreground)]">AI 管家整理中…</p>

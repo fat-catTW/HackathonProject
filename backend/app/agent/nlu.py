@@ -41,6 +41,20 @@ _CN_MINUTE = {
     "五十五": 55,
 }
 
+OPTION_ALIASES = {
+    "水管": ("排水", "排水孔", "排水管", "地漏"),
+    "水龍頭": ("龍頭",),
+    "馬桶": ("便桶", "廁所"),
+    "洗手台": ("水槽", "洗臉盆", "面盆"),
+    "流理臺": ("流理台", "廚房水槽", "廚房流理台"),
+    "浴廁設備": ("浴缸", "浴室", "浴室設備", "衛浴", "衛浴設備", "淋浴", "蓮蓬頭", "花灑"),
+    "電熱水器": ("熱水器",),
+    "天花板嵌入式": ("天花板的", "天花板式", "嵌入式", "吊隱式", "吊隱"),
+    "四方吹業務型": ("四方吹的", "四方吹", "業務型"),
+    "地板清潔": ("地板清理", "清地板"),
+    "廁所清潔": ("浴室清潔",),
+}
+
 
 def parse_quantity(text: str, unit_chars: str = "台臺部間") -> int | None:
     """擷取「兩台」「3 台」等數量。"""
@@ -221,13 +235,22 @@ def parse_option(text: str, options: list[str]) -> str | None:
     for option in options:
         if option == normalized or option in normalized or normalized in option:
             return option
+    for option, aliases in OPTION_ALIASES.items():
+        if option not in options:
+            continue
+        for alias in aliases:
+            if alias == normalized or alias in normalized or normalized in alias:
+                return option
     return None
 
 
 def parse_yes_no_option(text: str) -> str | None:
     if re.search(r"不要|不用|不需要|先不要", text):
         return "NO"
-    if re.search(r"要|需要|加購|加買|好", text):
+    normalized = text.strip()
+    if normalized in {"要", "需要", "好", "好啊", "可以", "可", "加購", "加買", "要加購", "需要加購"}:
+        return "YES"
+    if re.search(r"加購|加買", text):
         return "YES"
     return None
 
@@ -276,7 +299,9 @@ def detect_service(text: str) -> tuple[str | None, list[dict]]:
         if not s["enabled"]:
             continue
         score = 0
-        for kw in s["keywords"]:
+        # 沒列 keywords 的服務不參與關鍵字比對（例如 customer_support，只從 FAQ
+        # 升級流程建立，不該被「我想…」這類自由輸入誤觸）。
+        for kw in s.get("keywords", ()):
             if kw in text:
                 score += len(kw)
         if score:

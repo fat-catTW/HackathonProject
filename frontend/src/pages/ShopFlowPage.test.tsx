@@ -18,6 +18,7 @@ const products = [
     store_id: "store_a",
     store_name: "A 店家",
     category_id: "cat_beverage",
+    compare_group_id: null,
     name: "商品 A",
     description: "描述 A",
     product_type: "SERIAL_CODE" as const,
@@ -30,6 +31,7 @@ const products = [
     store_id: "store_b",
     store_name: "B 店家",
     category_id: "cat_beverage",
+    compare_group_id: null,
     name: "商品 B",
     description: "描述 B",
     product_type: "SERIAL_CODE" as const,
@@ -45,6 +47,7 @@ const dailyProducts = [
     store_id: "store_c",
     store_name: "C 店家",
     category_id: "cat_daily",
+    compare_group_id: null,
     name: "商品 C",
     description: "描述 C",
     product_type: "PHYSICAL" as const,
@@ -57,6 +60,14 @@ const dailyProducts = [
 function renderPage() {
   return render(
     <MemoryRouter>
+      <ShopFlowPage />
+    </MemoryRouter>,
+  );
+}
+
+function renderPageAtRoute(route: string) {
+  return render(
+    <MemoryRouter initialEntries={[route]}>
       <ShopFlowPage />
     </MemoryRouter>,
   );
@@ -127,5 +138,100 @@ describe("ShopFlowPage", () => {
 
     expect(await screen.findByText("商品 C")).toBeInTheDocument();
     expect(screen.queryByText(/加入購物車/)).not.toBeInTheDocument();
+  });
+
+  const comparableProducts = [
+    {
+      id: "prod_x1",
+      store_id: "store_x1",
+      store_name: "X1 店家",
+      category_id: "cat_daily",
+      compare_group_id: "cmp_x",
+      name: "比價商品",
+      description: "描述 X",
+      product_type: "PHYSICAL" as const,
+      image: null,
+      specs: [],
+      skus: [{ sku_id: "sku_x1", attributes: {}, unit_price: 100, unit_points: 10 }],
+    },
+    {
+      id: "prod_x2",
+      store_id: "store_x2",
+      store_name: "X2 店家",
+      category_id: "cat_daily",
+      compare_group_id: "cmp_x",
+      name: "比價商品",
+      description: "描述 X",
+      product_type: "PHYSICAL" as const,
+      image: null,
+      specs: [],
+      skus: [{ sku_id: "sku_x2", attributes: {}, unit_price: 80, unit_points: 8 }],
+    },
+  ];
+
+  it("combines identical products from different vendors into one comparison card", async () => {
+    const user = userEvent.setup();
+    vi.mocked(shopApi.listShopProducts).mockResolvedValue({ products: comparableProducts });
+    renderPage();
+
+    await user.click(await screen.findByText("飲品兌換"));
+
+    expect(await screen.findByText("比價商品")).toBeInTheDocument();
+    expect(screen.getByText("NT$80~100")).toBeInTheDocument();
+    expect(screen.getByText("共 2 家店販售")).toBeInTheDocument();
+    expect(screen.queryByText("X1 店家")).not.toBeInTheDocument();
+  });
+
+  it("opens a per-vendor price list when a comparison card is clicked, cheapest offer first", async () => {
+    const user = userEvent.setup();
+    vi.mocked(shopApi.listShopProducts).mockResolvedValue({ products: comparableProducts });
+    renderPage();
+
+    await user.click(await screen.findByText("飲品兌換"));
+    await user.click(await screen.findByText("比價商品"));
+
+    const offerRows = await screen.findAllByText(/店家/);
+    expect(offerRows.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("X2 店家")).toBeInTheDocument();
+    expect(screen.getByText("X1 店家")).toBeInTheDocument();
+    expect(screen.getByText("最便宜")).toBeInTheDocument();
+  });
+
+  it("selecting a vendor from the comparison list opens the normal add-to-cart panel", async () => {
+    const user = userEvent.setup();
+    vi.mocked(shopApi.listShopProducts).mockResolvedValue({ products: comparableProducts });
+    renderPage();
+
+    await user.click(await screen.findByText("飲品兌換"));
+    await user.click(await screen.findByText("比價商品"));
+
+    const selectButtons = await screen.findAllByText("選這家");
+    await user.click(selectButtons[0]);
+
+    expect(await screen.findByText("加入購物車（NT$80）")).toBeInTheDocument();
+  });
+
+  it("opens directly to the comparison list when the URL has a compare param", async () => {
+    vi.mocked(shopApi.getShopCompareGroup).mockResolvedValue({
+      group_id: "cmp_x",
+      category_id: "cat_daily",
+      offers: comparableProducts.map((p) => ({ ...p, min_unit_price: p.skus[0].unit_price })),
+    });
+    vi.mocked(shopApi.listShopProducts).mockResolvedValue({ products: comparableProducts });
+
+    renderPageAtRoute("/services/shop_purchase?compare=cmp_x");
+
+    expect(await screen.findByText("X2 店家")).toBeInTheDocument();
+    expect(screen.getByText("X1 店家")).toBeInTheDocument();
+    expect(screen.getByText("最便宜")).toBeInTheDocument();
+    expect(screen.queryByText("請選擇商品類型")).not.toBeInTheDocument();
+  });
+
+  it("shows a toast and doesn't crash when the compare deep link fails to load", async () => {
+    vi.mocked(shopApi.getShopCompareGroup).mockRejectedValue(new Error("network error"));
+
+    renderPageAtRoute("/services/shop_purchase?compare=cmp_x");
+
+    expect(await screen.findByText("比價資料載入失敗")).toBeInTheDocument();
   });
 });

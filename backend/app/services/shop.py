@@ -184,7 +184,7 @@ def cancel_shop_order(actor_id: str, request_id: str, reason: str = "USER_CANCEL
     if order.get("status") not in CANCELLABLE_STATUSES:
         return _error("CANCEL_NOT_ALLOWED", "目前狀態無法取消訂單")
 
-    for line in order["form_data"]["cart"]:
+    for line in order["form_data"].get("cart") or []:
         STORE.restock_sku(line["sku_id"], line["quantity"])
 
     points_discount = order.get("points_discount", 0)

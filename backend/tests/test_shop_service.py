@@ -188,6 +188,40 @@ def test_cancel_shop_order_rejects_completed_serial_code_order(isolated_store):
     assert result["error"]["code"] == "CANCEL_NOT_ALLOWED"
 
 
+def test_cancel_shop_order_succeeds_for_external_quick_purchase_without_cart(isolated_store):
+    # Mirrors backend/app/services/quick_purchase.py::_create_external_quick_purchase_order:
+    # externally-sourced quick-purchase cases use query_matched_name/external_detail/
+    # external_link/contact_name/phone/address in form_data -- no "cart" key at all.
+    order = {
+        "request_id": isolated_store.next_request_id(),
+        "service_id": "shop_purchase",
+        "service_name": "商城購物（網路搜尋商品）",
+        "order_type": "10",
+        "status": "PENDING_PROVIDER",
+        "source": "google_search",
+        "form_data": {
+            "query_matched_name": "現烤供品組合",
+            "external_detail": "在地烘焙供品組合",
+            "external_link": "https://example.com/x",
+            "contact_name": "王大明",
+            "phone": "0912345678",
+            "address": "台北市",
+        },
+        "status_history": [{"status": "PENDING_PROVIDER", "at": store_module.now_iso()}],
+        "created_at": store_module.now_iso(),
+    }
+    isolated_store.save_request("user-1", order)
+
+    # Vendor accepts the case: PENDING_PROVIDER -> CONFIRMED (see app/services/statuses.py's
+    # VENDOR_TRANSITIONS). CONFIRMED is in CANCELLABLE_STATUSES, so cancellation becomes reachable.
+    order["status"] = "CONFIRMED"
+    order["status_history"].append({"status": "CONFIRMED", "at": store_module.now_iso()})
+    isolated_store.save_request("user-1", order)
+
+    result = shop.cancel_shop_order("user-1", order["request_id"])
+    assert result["success"] is True
+
+
 def test_advance_shop_order_status_progresses_through_fixed_sequence():
     created = shop.create_shop_order("user-a", physical_cart_payload())
     assert created["status"] == "SUBMITTED"

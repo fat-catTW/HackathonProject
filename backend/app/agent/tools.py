@@ -7,7 +7,7 @@ import uuid
 import httpx
 
 from ..config import get_settings
-from ..services import catalog, health_catalog, health_recommendation, shop_catalog
+from ..services import catalog, health_catalog, health_recommendation, shop_catalog, shop_recommendation
 from ..services.aws import get_aws_client, get_aws_resource
 from ..services.store import STORE, now_iso
 from .page_catalog import load_page, search_pages
@@ -157,6 +157,14 @@ def _embedded_compare_product_prices(params: dict) -> dict:
             for o in offers
         ],
     }
+
+
+def _embedded_recommend_shop_products_by_need(params: dict) -> dict:
+    query = str(params.get("query") or "").strip()
+    if not query:
+        return {"success": False, "error": {"code": "INVALID_QUERY", "message": "query is required."}}
+    result = shop_recommendation.recommend(query, shop_catalog.list_products())
+    return {"success": True, **result}
 
 
 def _embedded_get_page_context(params: dict) -> dict:
@@ -542,6 +550,7 @@ _EMBEDDED_TOOLS = {
     "recommend_products_by_health_need": _embedded_recommend_products_by_health_need,
     "get_product_nutrition": _embedded_get_product_nutrition,
     "compare_product_prices": _embedded_compare_product_prices,
+    "recommend_shop_products_by_need": _embedded_recommend_shop_products_by_need,
 }
 
 _DYNAMODB_TOOLS = {

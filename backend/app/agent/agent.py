@@ -1288,6 +1288,23 @@ def handle_message(
                 redirect_requires_confirmation=redirect_path is not None,
             )
 
+        if service_id == "shop_product_advisor":
+            # One-shot query-and-answer service (like health_product_recommendation
+            # and shop_price_compare): answer directly with recommendations instead
+            # of collecting form fields.
+            reply, redirect_path = _answer_shop_product_advisor(text, auth_token)
+            state["service_id"] = None
+            state["service_name"] = None
+            state["service_schema"] = None
+            state["collected_fields"] = {}
+            state["missing_fields"] = []
+            return _reply(
+                state,
+                reply,
+                redirect_path=redirect_path,
+                redirect_requires_confirmation=redirect_path is not None,
+            )
+
     if llm.is_available():
         active_field = current_active_field(state) or ""
         form_plan = llm.plan_form_turn(
@@ -1681,6 +1698,35 @@ def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str 
         lines.append(f"　{offer['store_name']} NT${offer['unit_price']}{tag}")
     lines.append("我幫你打開比價頁面，可以直接選店家下單。")
     return "\n".join(lines), f"/services/shop_purchase?compare={result['group_id']}"
+
+
+def _format_shop_advisor_reply(result: dict) -> str:
+    recommendations = result.get("recommendations") or []
+    if not recommendations:
+        return "很抱歉，目前商城沒有找到符合這個需求的商品，要不要換個方式描述你的需求？"
+    lines = ["這是我幫你比較後找到的推薦："]
+    for index, rec in enumerate(recommendations, start=1):
+        price = rec.get("skus", [{}])[0].get("unit_price", "?")
+        lines.append(
+            f"{index}. {rec.get('name', '')}（{rec.get('store_name', '')}）NT${price} "
+            f"★{rec.get('rating_avg')}（{rec.get('rating_count')} 則評價）\n　{rec.get('reason', '')}"
+        )
+    if result.get("fallback_used"):
+        lines.append("（這次是用關鍵字與評分挑選的，僅供參考）")
+    lines.append("我幫你打開商城，可以直接比較選購。")
+    return "\n".join(lines)
+
+
+def _answer_shop_product_advisor(query: str, auth_token: str | None) -> tuple[str, str | None]:
+    result = tools.call("recommend_shop_products_by_need", {"query": query}, auth_token=auth_token)
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "查詢失敗")
+        return f"抱歉，這次查詢沒有成功，原因是：{message}。你可以稍後再試一次。", None
+    reply = _format_shop_advisor_reply(result)
+    recommendations = result.get("recommendations") or []
+    category_id = recommendations[0].get("category_id") if recommendations else None
+    redirect_path = f"/services/shop_purchase?category_id={category_id}" if category_id else "/services/shop_purchase"
+    return reply, redirect_path
 
 
 def _answer_health_recommendation(state: dict, query: str, auth_token: str | None) -> str:

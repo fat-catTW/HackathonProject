@@ -10,7 +10,7 @@ import re
 from datetime import date, timedelta
 from pathlib import Path
 
-from ..services import delivery_catalog
+from ..services import clock, delivery_catalog
 from ..services.catalog import SERVICES
 from ..services.restaurant_catalog import RESTAURANTS
 
@@ -84,9 +84,26 @@ def parse_hours(text: str) -> int | None:
 _WEEKDAYS = {"一": 0, "二": 1, "三": 2, "四": 3, "五": 4, "六": 5, "日": 6, "天": 6}
 
 
+_RELATIVE_DATE_RE = re.compile(
+    r"今天|今日|明天|明日|後天|大後天|(?:這|本|下|下下)?(?:週|周|星期|禮拜)[一二三四五六日天]"
+)
+
+
+def has_relative_date(text: str) -> bool:
+    """這句話裡有「明天」「這禮拜三」這類相對日期嗎？
+
+    有的話一律以規則解析為準：把「禮拜三」換算成日期是決定性的計算，
+    交給模型自己推「某個日期是星期幾」很容易算錯（見 agent._normalize_field_value）。
+    """
+    return bool(_RELATIVE_DATE_RE.search(text or ""))
+
+
 def parse_date(text: str, today: date | None = None) -> str | None:
-    """相對日期 → ISO 日期字串（設計書 14.3：相對日期需轉成明確日期）。"""
-    today = today or date.today()
+    """相對日期 → ISO 日期字串（設計書 14.3：相對日期需轉成明確日期）。
+
+    `today` 未指定時用台灣當地日期，不是伺服器所在時區的日期。
+    """
+    today = today or clock.today()
     if "大後天" in text:
         return (today + timedelta(days=3)).isoformat()
     if "後天" in text:
@@ -96,15 +113,27 @@ def parse_date(text: str, today: date | None = None) -> str | None:
     if "今天" in text or "今日" in text:
         return today.isoformat()
 
-    m = re.search(r"(下)?(?:週|周|星期|禮拜)([一二三四五六日天])", text)
+    m = re.search(r"(這|本|下下|下)?(?:週|周|星期|禮拜)([一二三四五六日天])", text)
     if m:
+        prefix = m.group(1) or ""
         target = _WEEKDAYS[m.group(2)]
-        delta = (target - today.weekday()) % 7
-        if delta == 0:
-            delta = 7
-        if m.group(1):  # 「下週X」再加一週
-            delta += 7 if delta <= 7 else 0
-        return (today + timedelta(days=delta)).isoformat()
+        # 以「本週一」為基準推算，「下禮拜三」才會落在下一個日曆週，而不是從今天再往後推兩週。
+        this_monday = today - timedelta(days=today.weekday())
+
+        if prefix in ("這", "本"):
+            candidate = this_monday + timedelta(days=target)
+            if candidate < today:
+                # 這週的那一天已經過了，取最近的下一次，不回傳過去的日期。
+                candidate += timedelta(days=7)
+        elif prefix == "下":
+            candidate = this_monday + timedelta(days=7 + target)
+        elif prefix == "下下":
+            candidate = this_monday + timedelta(days=14 + target)
+        else:
+            # 只說「禮拜三」：取下一個禮拜三；今天剛好是禮拜三時視為下一週。
+            candidate = today + timedelta(days=(target - today.weekday()) % 7 or 7)
+
+        return candidate.isoformat()
 
     m = re.search(r"(\d{1,2})\s*月\s*(\d{1,2})\s*[日號]", text)
     if m:

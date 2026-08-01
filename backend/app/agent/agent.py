@@ -5,10 +5,11 @@ import re
 from datetime import date
 
 from ..config import get_settings
-from ..services import catalog
+from ..services import catalog, clock
 from ..services import delivery, delivery_catalog, reservation, shipping
 from ..services.conversation_memory import MEMORY
-from . import llm, nlu, tools
+from . import form_autopilot, llm, nlu, tools
+from .page_catalog import search_pages
 from .page_help import (
     answer_page_question,
     build_page_tool_request,
@@ -221,7 +222,7 @@ def _display_field_label(field_id: str, fields: list[dict]) -> str:
     return (field or {}).get("label") or fallback_labels.get(field_id) or field_id
 
 
-def _display_value(field_id: str, value, fields: list[dict]) -> str:
+def _display_field_value(field_id: str, value, fields: list[dict]) -> str:
     if isinstance(value, str):
         display_names = {
             "TOP_LOAD": "直立式",
@@ -233,11 +234,14 @@ def _display_value(field_id: str, value, fields: list[dict]) -> str:
             "EVENING": "晚上",
         }
         value = display_names.get(value, catalog.SELECT_LABELS.get(value, value))
-    label = _display_field_label(field_id, fields)
     if field_id == "issue_photo" and isinstance(value, str) and value.startswith("data:image/"):
         value = "已上傳照片"
     unit = " 台" if field_id == "quantity" else " 個" if field_id == "antibacterial_film_quantity" else ""
-    return f"{label}：{value}{unit}"
+    return f"{value}{unit}"
+
+
+def _display_value(field_id: str, value, fields: list[dict]) -> str:
+    return f"{_display_field_label(field_id, fields)}：{_display_field_value(field_id, value, fields)}"
 
 
 def _build_summary_text(state: dict) -> str:
@@ -570,14 +574,23 @@ def _normalize_field_value(field: dict, value, original_text: str):
         )
 
     if field["type"] == "date":
+        today = clock.today()
+        # 使用者講的是「這禮拜三」「明天」這種相對日期時，一律以規則解析為準。
+        # 「某個日期是星期幾」對模型來說是很容易算錯的推理，但這裡是決定性的計算；
+        # 之前直接採信模型回的 YYYY-MM-DD，就會填出對不上使用者當下星期幾的日期。
+        if nlu.has_relative_date(original_text):
+            parsed_from_text = nlu.parse_date(original_text, today=today)
+            if parsed_from_text:
+                return parsed_from_text
+
         if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
             try:
                 normalized_date = date.fromisoformat(value)
-                if normalized_date >= date.today():
+                if normalized_date >= today:
                     return value
             except ValueError:
                 pass
-        return nlu.parse_date(str(value), today=date.today()) or nlu.parse_date(original_text, today=date.today())
+        return nlu.parse_date(str(value), today=today) or nlu.parse_date(original_text, today=today)
 
     if field["type"] == "time":
         if isinstance(value, str) and re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
@@ -783,19 +796,11 @@ def _apply_found_fields_and_continue(
     *,
     reply_prefix: str | None = None,
 ) -> dict:
-    if state.get("service_id") == "package_shipping" and "item_description" in found:
-        matched = shipping.contains_prohibited_keywords(found["item_description"])
-        if matched:
-            state["pending_prohibited_item"] = found.pop("item_description")
-            state["collected_fields"].update(found)
-            _recompute_missing(state)
-            categories = "、".join(matched)
-            result = _reply(
-                state,
-                f"你提到的內容物可能屬於「{categories}」類別，這類物品寄送有限制。"
-                "請問已詳讀寄送規範，確認可以寄送嗎？如果不確定，也可以直接重新描述內容物。",
-            )
-            return _prepend_reply(result, reply_prefix)
+    prohibited_reply = _hold_prohibited_item(state, found)
+    if prohibited_reply:
+        state["collected_fields"].update(found)
+        _recompute_missing(state)
+        return _prepend_reply(_reply(state, prohibited_reply), reply_prefix)
 
     state["collected_fields"].update(found)
     _recompute_missing(state)
@@ -901,6 +906,9 @@ def new_state() -> dict:
         "prohibited_item_acknowledged": False,
         "request_id": None,
         "status": "COLLECTING_INFORMATION",
+        # 代操表單模式：使用者說「幫我填」之後，這一段會記住正在代操哪一張表單，
+        # 之後同一張表單的每一句話都會繼續同步前端欄位（見 _plan_form_autopilot）。
+        "form_autopilot": None,
         "short_term_memory": [],
         # health_product_recommendation is a one-shot query-and-answer service
         # (see catalog.py), not a form-and-submit one. It never sets request_id;
@@ -966,6 +974,24 @@ def _explicit_service_request_id(text: str, services: list[dict]) -> str | None:
             scores.append((score, service["id"]))
     scores.sort(reverse=True)
     return scores[0][1] if scores else None
+
+
+def _looks_like_other_service_request(text: str, service_id: str) -> bool:
+    """這句話聽起來是在講「另一種服務」嗎？
+
+    代操表單時用來擋掉誤判：使用者站在冷氣表單頁卻說「我要預約居家清潔」，
+    不該被當成冷氣表單的欄位內容。
+    """
+    if not _looks_like_new_service_request(text):
+        return False
+    keywords_by_service = dict(RULE_SERVICE_KEYWORDS)
+    if any(keyword in text for keyword in keywords_by_service.get(service_id, ())):
+        return False
+    return any(
+        any(keyword in text for keyword in keywords)
+        for other_service_id, keywords in RULE_SERVICE_KEYWORDS
+        if other_service_id != service_id
+    )
 
 
 _PAGE_ID_REDIRECT_ROUTES = {
@@ -1045,7 +1071,480 @@ def _invalid_number_field_message(state: dict, latest_user_message: str) -> str 
     return None
 
 
+def _reset_conversation_state(state: dict) -> None:
+    """清空這段對話收到的資料，只留下短期對話記憶。"""
+    short_term_memory = state.get("short_term_memory") or []
+    state.clear()
+    state.update(new_state())
+    state["short_term_memory"] = short_term_memory
+
+
+def _reset_state_for_service(state: dict, service_id: str, schema: dict) -> None:
+    """把 session 換成另一張表單，只留下短期對話記憶。"""
+    _reset_conversation_state(state)
+    state["service_id"] = service_id
+    state["service_name"] = _display_service_name(service_id, schema.get("title"))
+    state["service_schema"] = {"fields": schema["fields"]}
+
+
+def _seed_from_form_values(state: dict, form_values: dict) -> None:
+    """把前端表單目前的內容同步進 collected_fields，畫面是唯一真相。
+
+    使用者可能手動先填了幾格、也可能在代操後又自己改過或清空，Agent 要以畫面上的值為準，
+    才不會重複問已經填好的欄位、或把使用者清掉的值當成還在（那會讓 Agent 以為表單填完了，
+    送出時卻缺欄位）。
+
+    前端會把「這張表單認得的每一格」都放進 form_values（空的就送空字串），只有照片
+    （data URL）和過長的值會被略過——那些 key 不會出現，代表「不要動這一格」。
+    """
+    fields = (state.get("service_schema") or {}).get("fields") or []
+    for field in fields:
+        field_id = field["id"]
+        if field_id not in form_values:
+            continue
+        raw_value = form_values[field_id]
+        if raw_value is None or not str(raw_value).strip():
+            state["collected_fields"].pop(field_id, None)
+            continue
+        normalized = _normalize_field_value(field, raw_value, str(raw_value))
+        if normalized is None:
+            continue
+        state["collected_fields"][field_id] = normalized
+
+
+def _hold_prohibited_item(state: dict, found: dict) -> str | None:
+    """寄件內容物疑似違禁品時扣住這個值，並回傳要先問使用者的話。
+
+    代填與畫面同步都要經過這一關：`shipping._validate_payload` 需要
+    `prohibited_item_ack`，少了這關就會出現「表單看起來填完了、送出卻永遠失敗」。
+    """
+    if state.get("service_id") != "package_shipping":
+        return None
+    if state.get("prohibited_item_acknowledged"):
+        return None
+
+    description = found.get("item_description") or (state.get("collected_fields") or {}).get(
+        "item_description"
+    )
+    if not description:
+        return None
+    matched = shipping.contains_prohibited_keywords(description)
+    if not matched:
+        return None
+
+    found.pop("item_description", None)
+    state["collected_fields"].pop("item_description", None)
+    if state.get("pending_prohibited_item"):
+        # 已經問過、正在等回覆，不重複發問。
+        return None
+
+    state["pending_prohibited_item"] = description
+    categories = "、".join(matched)
+    return (
+        f"你提到的內容物可能屬於「{categories}」類別，這類物品寄送有限制。"
+        "請問已詳讀寄送規範，確認可以寄送嗎？如果不確定，也可以直接重新描述內容物。"
+    )
+
+
+def _time_option_values(field: dict) -> list[str]:
+    """表單時間下拉選單真的有的選項（和前端 buildTimeOptions 同一套規則）。"""
+
+    def minutes_of(value: str) -> int | None:
+        try:
+            hours, minutes = (int(part) for part in value.split(":"))
+        except (ValueError, AttributeError):
+            return None
+        return hours * 60 + minutes
+
+    start = minutes_of(field.get("minValue") or "00:00")
+    end = minutes_of(field.get("maxValue") or "23:55")
+    step = max(int(field.get("step") or 300) // 60, 1)
+    if start is None or end is None or start > end:
+        return []
+    return [f"{value // 60:02d}:{value % 60:02d}" for value in range(start, end + 1, step)]
+
+
+def _snap_values_to_form_options(state: dict) -> None:
+    """把時間對齊表單下拉選單真的有的那一格。
+
+    LLM 可能回 14:03，後端只檢查營業時間範圍所以會收下，但畫面上的時間是每 5 分鐘一格的
+    下拉選單，沒有 14:03 這個選項——代填就會變成「說有填、其實那格還是空的」。這裡先對齊到
+    選單有的時間（往前取），Agent 認知與畫面才會一致。
+    """
+    fields = (state.get("service_schema") or {}).get("fields") or []
+    collected = state.get("collected_fields") or {}
+    for field in fields:
+        if field.get("type") != "time":
+            continue
+        value = collected.get(field["id"])
+        if not isinstance(value, str) or not value:
+            continue
+        options = _time_option_values(field)
+        if not options or value in options:
+            continue
+        earlier = [option for option in options if option <= value]
+        if earlier:
+            collected[field["id"]] = earlier[-1]
+        else:
+            collected.pop(field["id"], None)
+
+
+def _autofill_from_preferences(actor_id: str, state: dict) -> dict:
+    """代操模式直接沿用上次的地址／電話／時間，不像對話流程那樣一項一項先問。
+
+    回傳 {field_id: 說明文字}，讓前端在該欄位旁標註資料來源。
+    """
+    prefs = _safe_preferences(actor_id)
+    fields = (state.get("service_schema") or {}).get("fields") or []
+    field_map = {field["id"]: field for field in fields}
+    asked = state.setdefault("asked_pref_fields", [])
+    notes: dict[str, str] = {}
+
+    for field_id, pref_key in (
+        ("address", "last_address"),
+        ("phone", "last_phone"),
+        ("preferred_time_slot", "preferred_time_slot"),
+    ):
+        if field_id not in state["missing_fields"]:
+            continue
+        raw_value = prefs.get(pref_key)
+        field = field_map.get(field_id)
+        if not raw_value or not field:
+            continue
+        if field_id == "preferred_time_slot":
+            raw_value = _normalize_saved_time_value(str(raw_value))
+        normalized = _normalize_field_value(field, raw_value, "")
+        if normalized is None:
+            continue
+        state["collected_fields"][field_id] = normalized
+        # 標記成「已經問過」，避免之後的對話流程又問一次「要沿用上次的嗎」。
+        if field_id not in asked:
+            asked.append(field_id)
+        notes[field_id] = "沿用你上次填的資料"
+
+    return notes
+
+
+def _detect_autopilot_service(
+    actor_id: str,
+    state: dict,
+    text: str,
+    events: list[dict] | None,
+    auth_token: str | None,
+) -> str | None:
+    """這句話指的是哪一張服務表單？
+
+    先用頁面知識庫的別名比對（`search_pages` 認得「冷氣」「洗衣機」「包裹」這種說法，
+    而且是加權比分，不會像 RULE_SERVICE_KEYWORDS 那樣被「清洗」這種共用字先搶走），
+    比不到才退回一般的服務判斷。
+
+    回傳的服務不保證能代填（可能是有專屬流程頁的服務），由呼叫端決定怎麼處理。
+    """
+    for match in search_pages(text):
+        service_id = form_autopilot.page_service_id(match.get("page_id"))
+        if service_id:
+            return service_id
+
+    services = _available_services(auth_token)
+    if not services:
+        return None
+    return _detect_service(
+        text,
+        services,
+        _short_term_context(state, events, text),
+        _long_term_memory_context(actor_id, text),
+    )
+
+
+def _autofill_service_options(auth_token: str | None) -> list[str]:
+    """可以代填的服務名稱，用在「你要填哪一種」的回問。"""
+    services = _available_services(auth_token) or []
+    return [
+        service["name"]
+        for service in services
+        if form_autopilot.supports_autopilot(service.get("id"))
+    ]
+
+
+def _can_adopt_form_page(
+    text: str,
+    form_context: dict | None,
+    current_page_id: str | None,
+) -> bool:
+    """使用者沒說「幫我填」，但這一句仍然應該當成在改這張表單嗎？
+
+    對話 session 會在重新整理後重來一次，這時使用者常常直接接著說「時間改成下午三點」。
+    畫面上表單已經有資料、這句話又不是在問問題時，就把這張表單接手過來繼續收單，
+    避免掉回「我目前只支援這幾種服務」。接手不等於代填——是否主動幫忙補資料由
+    `entering` 決定（見 `_plan_form_autopilot`）。
+
+    問句一律不接手：「冷氣清洗多少錢？」是在問事情，不是在給欄位值。
+    """
+    values = (form_context or {}).get("values") or {}
+    if not any(str(value).strip() for value in values.values()):
+        return False
+    if form_autopilot.looks_like_question(text):
+        return False
+    return not looks_like_page_question(text, current_page_id=current_page_id)
+
+
+def _switch_target_service(
+    actor_id: str,
+    state: dict,
+    text: str,
+    current_service_id: str,
+    events: list[dict] | None,
+    auth_token: str | None,
+) -> str | None:
+    """這句話是不是在改口要「另一張表單」？是的話回傳新的 service_id。
+
+    先用便宜的關鍵字預篩（避免每句話都跑一次服務判斷），真的像在講別的服務時才確認一次。
+    只有確認到「不同且可代操」的服務才算數，否則維持目前這張表單——否則像包裹寄送頁回答
+    「我需要到府收件」這種正常答案（「到府」剛好是居家清潔的關鍵字）就會被誤判成換服務。
+    """
+    if not _looks_like_other_service_request(text, current_service_id):
+        return None
+    detected = _detect_autopilot_service(actor_id, state, text, events, auth_token)
+    return detected if detected and detected != current_service_id else None
+
+
+def _plan_form_autopilot(
+    actor_id: str,
+    state: dict,
+    text: str,
+    current_page_id: str | None,
+    form_context: dict | None,
+    events: list[dict] | None,
+    auth_token: str | None,
+) -> dict | None:
+    """決定這一輪要不要代操表單，並先把 Agent 狀態和畫面上的表單對齊。
+
+    回傳 None 代表這一輪走原本的對話流程（頁面問答、一般收單…）。
+    """
+    if is_voice_filling_question(text) and form_autopilot.looks_like_question(text):
+        # 「可以用語音幫我填嗎」問的是功能，交給頁面問答回答。
+        # 但「我用說的，幫我填兩台壁掛式冷氣」是要現在填，不能因為提到語音就擋掉。
+        return None
+
+    wants_autofill = form_autopilot.looks_like_autofill_request(text)
+
+    if state.get("request_id"):
+        # 這段對話已經送出過案件。使用者明講「幫我填」代表要開新的一張單，
+        # 就從乾淨的狀態重來——不然會掉回頁面問答，變成只告訴他「表單在哪裡」。
+        if not wants_autofill:
+            return None
+        _reset_conversation_state(state)
+
+    context_service_id = (form_context or {}).get("service_id") or None
+    form_service_id = context_service_id or form_autopilot.page_service_id(current_page_id)
+    if not form_autopilot.supports_autopilot(form_service_id):
+        form_service_id = None
+
+    active_service_id = (state.get("form_autopilot") or {}).get("service_id")
+
+    if form_service_id:
+        # 已經站在表單頁：明講「幫我填」才會主動代填；沒明講但畫面上已經有資料時，
+        # 仍然把這張表單接手過來繼續收單（重新打開管家或重整後接得下去），只是不會
+        # 主動幫忙補偏好資料。
+        if not wants_autofill and active_service_id != form_service_id:
+            if not _can_adopt_form_page(text, form_context, current_page_id):
+                return None
+        target_service_id = form_service_id
+    elif wants_autofill:
+        target_service_id = active_service_id or ""
+    else:
+        # 人已經不在那張表單頁上（換頁、回首頁…）：結束代操，之後的對話不再驅動畫面。
+        # 已經收到的資料留著，使用者可以繼續用對話把案件講完。
+        state["form_autopilot"] = None
+        return None
+
+    # 改口要別的服務（「算了，我要預約居家清潔」／站在 A 表單頁說「幫我填冷氣清洗」）：
+    # 換成那張表單並導頁過去，而不是把新需求硬塞進眼前這張表單。
+    switched_service_id = (
+        _switch_target_service(actor_id, state, text, target_service_id, events, auth_token)
+        if target_service_id
+        else None
+    )
+    if not target_service_id or switched_service_id:
+        target_service_id = switched_service_id or _detect_autopilot_service(
+            actor_id, state, text, events, auth_token
+        )
+        if not target_service_id:
+            # 聽得出要代填、但聽不出是哪一種服務：直接問他要哪一種，
+            # 不要回一段「表單在那邊」的頁面說明打發他。
+            options = _autofill_service_options(auth_token)
+            if not options:
+                return None
+            return {
+                "service_id": None,
+                "redirect_path": None,
+                "clarify_reply": (
+                    f"好，我可以直接幫你把表單填好。目前可以代填的服務有：{'、'.join(options)}。"
+                    "請問你要申請哪一種？也可以直接把需求說完，例如「幫我填冷氣清洗，兩台壁掛式，明天下午三點」。"
+                ),
+                "entering": False,
+            }
+
+    if not form_autopilot.supports_autopilot(target_service_id):
+        # 餐廳訂位、美食外送、商城購物、健康推薦在前端是專屬流程頁（挑店家、購物車…），
+        # 沒有可以逐格代填的欄位。帶他過去並用對話接手，一樣不要只丟一句頁面說明。
+        service_name = _display_service_name(target_service_id)
+        return {
+            "service_id": target_service_id,
+            "redirect_path": f"/services/{target_service_id}",
+            "clarify_reply": (
+                f"「{service_name}」需要挑選店家與品項，不是一張可以直接代填的表單，"
+                "我先帶你到那一頁，接著用對話一步一步幫你完成。"
+            ),
+            "entering": False,
+        }
+
+    redirect_path = None if target_service_id == form_service_id else f"/services/{target_service_id}"
+
+    if state.get("service_id") != target_service_id or not state.get("service_schema"):
+        schema = _service_schema(target_service_id, auth_token)
+        if not schema:
+            return None
+        _reset_state_for_service(state, target_service_id, schema)
+
+    state["form_autopilot"] = {"service_id": target_service_id, "notes": {}}
+    prohibited_reply = None
+    if target_service_id == form_service_id:
+        _seed_from_form_values(state, (form_context or {}).get("values") or {})
+        # 畫面上打的內容物同樣要過違禁品這一關，不能因為是「同步進來的」就跳過。
+        prohibited_reply = _hold_prohibited_item(state, {})
+    _snap_values_to_form_options(state)
+    _recompute_missing(state)
+
+    return {
+        "service_id": target_service_id,
+        "redirect_path": redirect_path,
+        "prohibited_reply": prohibited_reply,
+        # 只有明講「幫我填」才跑代填流程（自動帶入偏好、逐格寫入）；其餘情況維持
+        # 原本一次問一格的對話流程，只是欄位變動一樣會同步到畫面上。
+        "entering": wants_autofill,
+    }
+
+
+def _run_form_autopilot(
+    actor_id: str,
+    state: dict,
+    text: str,
+    plan: dict,
+    before: dict,
+    events: list[dict] | None,
+) -> dict:
+    """「幫我填」這一輪：把訊息裡的資料和使用者偏好一次補進表單。"""
+    fields = state["service_schema"]["fields"]
+
+    found = _extract_fields(actor_id, state, text, events)
+    held_reply = _hold_prohibited_item(state, found)
+    state["collected_fields"].update(found)
+    _snap_values_to_form_options(state)
+    _recompute_missing(state)
+
+    if held_reply:
+        # 寄件內容物疑似違禁品：先確認過才繼續，不能默默代填送出。
+        return _reply(state, held_reply, redirect_path=plan.get("redirect_path"))
+
+    notes = _autofill_from_preferences(actor_id, state)
+    _snap_values_to_form_options(state)
+    _recompute_missing(state)
+    state["form_autopilot"]["notes"] = notes
+
+    missing_label = ""
+    missing_question = ""
+    if state["missing_fields"]:
+        state["status"] = "COLLECTING_INFORMATION"
+        state["awaiting_confirmation"] = False
+        next_field = next(field for field in fields if field["id"] == state["missing_fields"][0])
+        missing_label = _display_field_label(next_field["id"], fields)
+        missing_question = _build_field_question(next_field)
+    else:
+        state["status"] = "AWAITING_USER_CONFIRMATION"
+        state["awaiting_confirmation"] = True
+
+    # 回覆文案要和畫面上正在跑的動作完全一致，所以用同一份 before/after 差異算動作清單。
+    actions = _build_form_actions(state, before)
+    reply = form_autopilot.compose_reply(
+        service_title=_display_service_name(state["service_id"], state["service_name"]),
+        actions=actions,
+        missing_label=missing_label,
+        missing_question=missing_question,
+        redirecting=bool(plan.get("redirect_path")),
+    )
+    return _reply(state, reply, redirect_path=plan.get("redirect_path"))
+
+
+def _build_form_actions(state: dict, before: dict) -> list[dict]:
+    autopilot = state.get("form_autopilot") or {}
+    schema = state.get("service_schema")
+    if not autopilot or not schema or state.get("service_id") != autopilot.get("service_id"):
+        return []
+
+    fields = schema["fields"]
+    collected = state.get("collected_fields") or {}
+    return form_autopilot.build_actions(
+        fields,
+        before,
+        collected,
+        label_of=lambda field_id: _display_field_label(field_id, fields),
+        display_of=lambda field_id, value: _display_field_value(field_id, value, fields),
+        is_visible=lambda field: _field_is_visible(field, collected),
+        notes=autopilot.get("notes") or {},
+    )
+
+
 def handle_message(
+    actor_id: str,
+    session_id: str,
+    state: dict,
+    message: str,
+    events: list[dict] | None = None,
+    current_page_id: str | None = None,
+    auth_token: str | None = None,
+    form_context: dict | None = None,
+) -> dict:
+    """對話入口。
+
+    代操表單模式下，這一輪造成的 collected_fields 變動會一併轉成 form_actions，
+    由前端逐格高亮填進畫面上的表單。
+    """
+    text = message.strip()
+    plan = _plan_form_autopilot(actor_id, state, text, current_page_id, form_context, events, auth_token)
+
+    # before 一定要在「同步前端表單值」之後才拍快照：使用者自己打的字已經在畫面上了，
+    # 不該再被當成 AI 的動作回填一次。
+    before = dict(state.get("collected_fields") or {})
+
+    if plan and plan.get("clarify_reply"):
+        result = _reply(state, plan["clarify_reply"], redirect_path=plan.get("redirect_path"))
+    elif plan and plan.get("prohibited_reply"):
+        result = _reply(state, plan["prohibited_reply"], redirect_path=plan.get("redirect_path"))
+    elif plan and plan["entering"]:
+        result = _run_form_autopilot(actor_id, state, text, plan, before, events)
+    else:
+        result = _dispatch_message(
+            actor_id,
+            session_id,
+            state,
+            message,
+            events,
+            current_page_id=current_page_id,
+            auth_token=auth_token,
+        )
+
+    if plan and plan.get("redirect_path") and not result.get("redirect_path"):
+        # 換到另一張表單時，不管這一輪是代填還是一般收單，都要把使用者帶過去。
+        result["redirect_path"] = plan["redirect_path"]
+
+    # 沒有 plan 代表這一輪不是在操作畫面上的表單（人已經離開表單頁、或這句話走的是頁面問答），
+    # 這時就算 collected_fields 有變動也不該回動作，否則前端會莫名關掉面板等一張不存在的表單。
+    result["form_actions"] = _build_form_actions(result["state"], before) if plan else []
+    return result
+
+
+def _dispatch_message(
     actor_id: str,
     session_id: str,
     state: dict,

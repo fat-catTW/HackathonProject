@@ -75,11 +75,6 @@ beforeEach(() => {
     cancel_reason: null,
     created_at: "2026-07-30T00:00:00Z",
   });
-  vi.mocked(deliveryApi.simulateDeliveryStatus).mockResolvedValue({
-    success: true,
-    order_status: "02",
-    order_status_label: "已接單",
-  });
 });
 
 describe("DeliveryFlowPage", () => {

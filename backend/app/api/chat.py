@@ -48,6 +48,8 @@ def _chat_response(session_id: str, result: dict) -> ChatResponse:
         redirect_path=result.get("redirect_path"),
         redirect_requires_confirmation=bool(result.get("redirect_requires_confirmation")),
         debug_trace=result.get("debug_trace", state.get("debug_trace", {})),
+        task_cards=result.get("task_cards"),
+        share_text=result.get("share_text"),
     )
 
 

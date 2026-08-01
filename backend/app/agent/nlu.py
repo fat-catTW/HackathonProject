@@ -21,6 +21,50 @@ _REGIONS = json.loads(
 COUNTY_NAMES = [c["name"] for c in _REGIONS["counties"]]
 # 台/臺 互換
 _COUNTY_ALT = {n.replace("台", "臺"): n for n in COUNTY_NAMES if "台" in n}
+_TAICHUNG_COUNTY_CODE = next((c["code"] for c in _REGIONS["counties"] if c["name"] == "台中市"), None)
+_DISTRICT_SUFFIXES = ("區", "市", "鎮", "鄉")
+
+
+def _district_search_terms(name: str) -> list[str]:
+    """口語常常省略「區/市/鎮/鄉」（「我住豐原」而不是「我住豐原區」），
+    所以除了完整名稱，長度夠長時也生一個去掉字尾的版本一起比對。
+    只在去掉字尾後還有兩個字以上時才生成，避免「南區」被削成單一個字「南」
+    這種容易在無關句子裡誤觸的短詞。
+    """
+    terms = [name]
+    if len(name) > 2 and name[-1] in _DISTRICT_SUFFIXES:
+        terms.append(name[:-1])
+    return terms
+
+
+def parse_city_district(text: str) -> tuple[str, str] | None:
+    """從文字裡找「縣市＋鄉鎮市區」，例如「我住豐原」→ (台中市, 豐原區)。
+
+    使用者通常只講鄉鎮市區、不講縣市；多個縣市剛好同名這個地區時（例如「東區」
+    台南、新竹、嘉義都有），沒講縣市就優先挑台中市（這個 demo 場景的預設地區），
+    否則用第一個候選。
+    """
+    norm = text
+    for alt, std in _COUNTY_ALT.items():
+        norm = norm.replace(alt, std)
+    mentioned_county = next((c for c in COUNTY_NAMES if c in norm), None)
+    candidates = [
+        d
+        for d in _REGIONS["districts"]
+        if d.get("name") and any(term in norm for term in _district_search_terms(d["name"]))
+    ]
+    if not candidates:
+        return None
+
+    if mentioned_county:
+        county_code = next((c["code"] for c in _REGIONS["counties"] if c["name"] == mentioned_county), None)
+        match = next((d for d in candidates if d["county_code"] == county_code), None)
+        if match:
+            return mentioned_county, match["name"]
+
+    chosen = next((d for d in candidates if d["county_code"] == _TAICHUNG_COUNTY_CODE), candidates[0])
+    county_name = next((c["name"] for c in _REGIONS["counties"] if c["code"] == chosen["county_code"]), None)
+    return (county_name, chosen["name"]) if county_name else None
 
 _CN_NUM = {"一": 1, "兩": 2, "二": 2, "三": 3, "四": 4, "五": 5,
            "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}

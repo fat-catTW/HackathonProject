@@ -86,6 +86,7 @@ export function ButlerPanel({
         role: "ASSISTANT",
         content: r.reply,
         redirectPath: showsRedirectButton ? r.redirect_path! : undefined,
+        clinicRecommendation: r.clinic_recommendation ?? undefined,
       });
       saveButlerTurn({
         sessionId: r.session_id,
@@ -260,6 +261,21 @@ export function ButlerPanel({
                   onRedirectClick={(path) => {
                     onClose?.();
                     navigate(path);
+                  }}
+                  onClinicContinue={(recommendation, clinicId) => {
+                    onClose?.();
+                    navigate("/services/clinic_appointment", {
+                      state: {
+                        symptomNote: recommendation.symptom_note,
+                        city: recommendation.city,
+                        district: recommendation.district,
+                        advisory: recommendation.advisory,
+                        clinics: recommendation.clinics,
+                        recommendedClinicId: recommendation.recommended_clinic_id,
+                        recommendReason: recommendation.recommend_reason,
+                        selectedClinicId: clinicId,
+                      },
+                    });
                   }}
                 />
               ))}

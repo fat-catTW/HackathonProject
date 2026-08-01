@@ -5,7 +5,7 @@ import re
 from datetime import date
 
 from ..config import get_settings
-from ..services import catalog, clock
+from ..services import catalog, clinic_catalog, clock
 from ..services import delivery, delivery_catalog, reservation, shipping
 from ..services.conversation_memory import MEMORY
 from . import form_autopilot, llm, nlu, tools
@@ -21,6 +21,11 @@ from .page_catalog import is_navigation_query
 DECIMAL_NUMBER_RE = re.compile(r"\d+\.\d+")
 SERVICE_TIME_MIN = "08:30"
 SERVICE_TIME_MAX = "18:00"
+
+# 對話中描述症狀時沒有地區可問（不像手動掛號頁面有縣市/鄉鎮選單），
+# 先以這個預設地區查詢，使用者仍可在導頁後的掛號頁面換地區重新查詢。
+CLINIC_DEFAULT_CITY = "台中市"
+CLINIC_DEFAULT_DISTRICT = "西屯區"
 
 CONFIRM_WORDS = ("確認", "確定", "好", "可以", "沒問題", "送出", "ok", "OK", "yes", "Yes")
 DENY_WORDS = ("不要", "不用", "取消", "改一下", "先不要", "no", "No")
@@ -118,6 +123,29 @@ RULE_SERVICE_KEYWORDS = (
     ("washing_machine_cleaning", ("洗衣機", "清洗", "滾筒式", "直立式", "內槽")),
     ("air_conditioner_cleaning", ("冷氣", "清洗", "保養", "壁掛式", "室內機")),
     ("home_cleaning", ("清潔", "居家", "打掃", "整理", "到府")),
+    (
+        "clinic_appointment",
+        (
+            "掛號",
+            "看醫生",
+            "診所",
+            "看診",
+            "身體不舒服",
+            "門診",
+            "咳嗽",
+            "喉嚨痛",
+            "肚子痛",
+            "頭痛",
+            "腰痛",
+            "背痛",
+            "膝蓋痛",
+            "發燒",
+            "拉肚子",
+            "很痛",
+            "會痛",
+            "不舒服",
+        ),
+    ),
 )
 
 # goods/store_id 一律透過下方的購物車收集子流程取得，不透過 LLM 猜測
@@ -1819,9 +1847,14 @@ def _dispatch_message(
             )
 
         if service_id == "clinic_appointment":
-            # Same treatment as shop_purchase: this needs a district/specialty
-            # picker and a real-clinic recommendation step, not conversational
-            # field collection — redirect to the dedicated flow page.
+            # One-shot query-and-answer (like health_product_recommendation):
+            # the triggering message is itself the symptom description, so
+            # run the same Bedrock triage + clinic recommendation the manual
+            # flow page uses and answer immediately instead of collecting a form.
+            # The clinic list renders as cards in the chat panel (not text);
+            # only redirect straight to the manual page when there's nothing
+            # to show a card for (no candidates in the detected district).
+            reply, clinic_recommendation = _answer_clinic_recommendation(text, auth_token)
             state["service_id"] = None
             state["service_name"] = None
             state["service_schema"] = None
@@ -1829,8 +1862,10 @@ def _dispatch_message(
             state["missing_fields"] = []
             return _reply(
                 state,
-                "掛號需要先描述症狀、挑選診所和看診時段，這部分請到「診所掛號」頁面操作會更方便，我幫你導過去囉！",
-                redirect_path="/services/clinic_appointment",
+                reply,
+                redirect_path="/services/clinic_appointment" if clinic_recommendation is None else None,
+                redirect_requires_confirmation=clinic_recommendation is None,
+                clinic_recommendation=clinic_recommendation,
             )
 
         if service_id == "shop_price_compare":
@@ -2253,6 +2288,37 @@ def _answer_price_compare(query: str, auth_token: str | None) -> tuple[str, str 
     return "\n".join(lines), f"/services/shop_purchase?compare={result['group_id']}"
 
 
+def _answer_clinic_recommendation(symptom_text: str, auth_token: str | None) -> tuple[str, dict | None]:
+    """回傳 (聊天室文字回覆, 卡片資料)。
+
+    卡片資料是 None 時代表這個地區查無診所，前端這時改用文字回覆裡的說明，
+    並讓使用者到手動掛號頁換地區重查（呼叫端會補上 redirect_path）。
+    """
+    city, district = nlu.parse_city_district(symptom_text) or (CLINIC_DEFAULT_CITY, CLINIC_DEFAULT_DISTRICT)
+    triage = llm.triage_symptom(symptom_text)
+    candidates = clinic_catalog.list_clinics(city, district, triage["specialty"])
+    if not candidates:
+        return (
+            f"{triage['advisory']}\n目前在{city}{district}沒有找到符合的診所，"
+            "我幫你打開診所掛號頁面，你可以在那邊換個地區查詢。",
+            None,
+        )
+
+    recommendation = llm.recommend_clinic(symptom_text, candidates)
+    reply = f"{triage['advisory']}\n幫你找了附近的診所，可以直接選一間繼續掛號："
+    clinic_recommendation = {
+        "specialty": triage["specialty"],
+        "advisory": triage["advisory"],
+        "city": city,
+        "district": district,
+        "symptom_note": symptom_text,
+        "clinics": candidates,
+        "recommended_clinic_id": recommendation["id"] if recommendation else None,
+        "recommend_reason": recommendation["reason"] if recommendation else None,
+    }
+    return reply, clinic_recommendation
+
+
 def _format_health_nutrition_reply(product: dict) -> str:
     lines = [
         f"{product.get('name', '')} 的營養資訊：",
@@ -2332,11 +2398,13 @@ def _reply(
     reply: str,
     redirect_path: str | None = None,
     redirect_requires_confirmation: bool = False,
+    clinic_recommendation: dict | None = None,
 ) -> dict:
     return {
         "reply": reply,
         "state": state,
         "redirect_path": redirect_path,
         "redirect_requires_confirmation": redirect_requires_confirmation,
+        "clinic_recommendation": clinic_recommendation,
         "debug_trace": state.get("debug_trace", {}),
     }

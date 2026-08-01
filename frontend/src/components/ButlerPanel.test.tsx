@@ -28,6 +28,7 @@ const BASE_RESPONSE: ChatResponse = {
   status: "COLLECTING_INFORMATION",
   redirect_path: null,
   redirect_requires_confirmation: false,
+  clinic_recommendation: null,
 };
 
 function buildController(): FormAgentController {

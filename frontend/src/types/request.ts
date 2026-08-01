@@ -1,3 +1,4 @@
+import type { ClinicChatRecommendation } from "./clinic";
 import type { CollectedFieldValue } from "../utils/fieldLabels";
 
 export type RequestStatus =
@@ -26,6 +27,7 @@ export interface ChatEvent {
   role: "USER" | "ASSISTANT";
   content: string;
   redirectPath?: string;
+  clinicRecommendation?: ClinicChatRecommendation;
 }
 
 export interface RequestDetail extends RequestListItem {
@@ -68,4 +70,5 @@ export interface ChatResponse {
   status: string;
   redirect_path: string | null;
   redirect_requires_confirmation: boolean;
+  clinic_recommendation: ClinicChatRecommendation | null;
 }

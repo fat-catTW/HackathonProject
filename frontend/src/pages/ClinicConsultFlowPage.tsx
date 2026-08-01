@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ButlerLauncher } from "../components/ButlerLauncher";
 import { ClinicCardList } from "../components/ClinicCardList";
 import { ClinicSummaryCard } from "../components/ClinicSummaryCard";
@@ -17,6 +17,19 @@ const STEP_ORDER: Step[] = ["symptom", "clinic", "datetime", "contact", "summary
 
 const DEFAULT_CITY = "台中市";
 const DEFAULT_DISTRICT = "西屯區";
+
+/** AI 管家在聊天室推薦診所卡片、使用者選了一間之後，帶過來這個頁面繼續掛號的資料。
+ * 有這筆資料時，症狀跟診所都已經確定了，直接跳到約看診時間，不用再問一次。 */
+interface IncomingClinicSelection {
+  symptomNote: string;
+  city: string;
+  district: string;
+  advisory: string;
+  clinics: ClinicInfo[];
+  recommendedClinicId: string | null;
+  recommendReason: string | null;
+  selectedClinicId: string;
+}
 
 /** 把第一人稱症狀描述（例如「我一直咳嗽」「我的膝蓋痛」）轉成適合傳給家人看的簡短敘述（「咳嗽」「膝蓋痛」）。 */
 function toShareSymptomPhrase(note: string): string {
@@ -39,17 +52,25 @@ function formatShareDateTime(date: string, time: string): string {
 
 export function ClinicConsultFlowPage() {
   const navigate = useNavigate();
-  const [stepIndex, setStepIndex] = useState(0);
+  const location = useLocation();
+  // 只在第一次掛載時讀取——AI 管家帶使用者過來時，症狀跟診所都已經選好了，
+  // 直接跳到「約看診時間」，不用再走一次症狀輸入跟診所選擇。
+  const [incoming] = useState<IncomingClinicSelection | null>(
+    () => (location.state as IncomingClinicSelection | null) ?? null,
+  );
+  const [stepIndex, setStepIndex] = useState(incoming ? STEP_ORDER.indexOf("datetime") : 0);
   const [toastText, setToastText] = useState<string | null>(null);
 
-  const [symptomNote, setSymptomNote] = useState("");
-  const [city, setCity] = useState(DEFAULT_CITY);
-  const [district, setDistrict] = useState(DEFAULT_DISTRICT);
-  const [advisory, setAdvisory] = useState("");
-  const [clinics, setClinics] = useState<ClinicInfo[]>([]);
-  const [recommendedClinicId, setRecommendedClinicId] = useState<string | null>(null);
-  const [recommendReason, setRecommendReason] = useState<string | null>(null);
-  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
+  const [symptomNote, setSymptomNote] = useState(incoming?.symptomNote ?? "");
+  const [city, setCity] = useState(incoming?.city ?? DEFAULT_CITY);
+  const [district, setDistrict] = useState(incoming?.district ?? DEFAULT_DISTRICT);
+  const [advisory, setAdvisory] = useState(incoming?.advisory ?? "");
+  const [clinics, setClinics] = useState<ClinicInfo[]>(incoming?.clinics ?? []);
+  const [recommendedClinicId, setRecommendedClinicId] = useState<string | null>(
+    incoming?.recommendedClinicId ?? null,
+  );
+  const [recommendReason, setRecommendReason] = useState<string | null>(incoming?.recommendReason ?? null);
+  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(incoming?.selectedClinicId ?? null);
   const [triaging, setTriaging] = useState(false);
 
   const [date, setDate] = useState("");

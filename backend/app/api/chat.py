@@ -49,6 +49,7 @@ def _chat_response(session_id: str, result: dict) -> ChatResponse:
         status=state["status"],
         redirect_path=result.get("redirect_path"),
         redirect_requires_confirmation=bool(result.get("redirect_requires_confirmation")),
+        clinic_recommendation=result.get("clinic_recommendation"),
         debug_trace=result.get("debug_trace", state.get("debug_trace", {})),
     )
 

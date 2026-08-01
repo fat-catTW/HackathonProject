@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Spec 任務完成後執行前端測試",
+      "trigger": "PostTaskExec",
+      "action": {
+        "type": "command",
+        "command": "npm --prefix frontend test"
+      }
+    }
+  ]
+}

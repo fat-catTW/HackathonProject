@@ -223,24 +223,6 @@ def cancel_shop_order(
     return {"success": True, "status": "CANCELLED"}
 
 
-STATUS_PROGRESSION = ("SUBMITTED", "CONFIRMED", "IN_PROGRESS", "COMPLETED")
-
-
-def advance_shop_order_status(actor_id: str, request_id: str) -> dict:
-    """Demo-only: advance a physical-product order to the next status."""
-    order = STORE.get_request(actor_id, request_id)
-    if not order:
-        return _error("REQUEST_NOT_FOUND", "找不到這筆訂單")
-    current = order.get("status")
-    if current not in STATUS_PROGRESSION or current == STATUS_PROGRESSION[-1]:
-        return _error("STATUS_ADVANCE_NOT_ALLOWED", "目前狀態無法再往下推進")
-    next_status = STATUS_PROGRESSION[STATUS_PROGRESSION.index(current) + 1]
-    order["status"] = next_status
-    order.setdefault("status_history", []).append({"status": next_status, "at": now_iso()})
-    STORE.save_request(actor_id, order)
-    return {"success": True, "status": next_status}
-
-
 def advance_shop_order_for_vendor(actor_id: str, request_id: str, action: str, expected_version: int) -> dict:
     order = STORE.get_request(actor_id, request_id)
     if not order:

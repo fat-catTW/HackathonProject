@@ -16,6 +16,7 @@ from .api import (
     shop,
     vendor,
     vendor_delivery,
+    vendor_shop,
 )
 from .config import get_settings
 from .services.aws import has_aws_credentials
@@ -43,6 +44,7 @@ app.include_router(shop.router)
 app.include_router(health.router)
 app.include_router(vendor.router)
 app.include_router(vendor_delivery.router)
+app.include_router(vendor_shop.router)
 app.include_router(onboarding.router)
 
 

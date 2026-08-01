@@ -6,7 +6,7 @@ from datetime import date
 
 from ..config import get_settings
 from ..services import catalog
-from ..services import delivery, delivery_catalog, reservation, shipping
+from ..services import delivery, delivery_catalog, quick_purchase, reservation, shipping
 from ..services.conversation_memory import MEMORY
 from . import llm, nlu, tools
 from .page_help import (
@@ -44,6 +44,7 @@ SERVICE_DISPLAY_NAMES = {
     "air_conditioner_cleaning": "冷氣清洗",
     "home_cleaning": "居家清潔",
     "food_delivery": "美食外送",
+    "quick_purchase": "快速下單",
 }
 
 FIELD_DISPLAY_NAMES = {
@@ -123,7 +124,7 @@ RULE_SERVICE_KEYWORDS = (
 # （store_id 沒有靜態 options 所以本來就猜不中；goods 是清單型別，讓 LLM
 #  猜測容易產生格式不符的字串，直接排除避免污染 collected_fields）。
 _LLM_EXCLUDED_FIELDS = {"store_id", "goods"}
-FREE_TEXT_FIELD_IDS = {"issue_description", "notes", "note", "issue_details"}
+FREE_TEXT_FIELD_IDS = {"issue_description", "notes", "note", "issue_details", "query"}
 
 
 def _reset_debug_trace(state: dict, message: str) -> None:
@@ -194,6 +195,7 @@ def _display_service_name(service_id: str | None, fallback: str | None = None) -
         "washing_machine_cleaning": "洗衣機清洗",
         "air_conditioner_cleaning": "冷氣清洗",
         "home_cleaning": "居家清潔",
+        "quick_purchase": "快速下單",
     }
     if service_id and service_id in names:
         return names[service_id]
@@ -1509,6 +1511,9 @@ def _submit(
     if state["service_id"] == "package_shipping":
         return _submit_package_shipping(actor_id, state, latest_user_message)
 
+    if state["service_id"] == "quick_purchase":
+        return _submit_quick_purchase(actor_id, state, latest_user_message)
+
     result = tools.call(
         "submit_service_request",
         {
@@ -1561,6 +1566,42 @@ def _submit(
             request_id=result["request_id"],
         ),
     )
+
+
+def _submit_quick_purchase(actor_id: str, state: dict, latest_user_message: str) -> dict:
+    collected = state["collected_fields"]
+    result = quick_purchase.create_quick_purchase_order(
+        actor_id,
+        collected.get("query", ""),
+        contact_name="住戶",
+        phone=collected.get("phone", ""),
+        address=collected.get("address", ""),
+    )
+
+    if not result.get("success"):
+        message = result.get("error", {}).get("message", "下單失敗")
+        return _reply(
+            state,
+            _model_reply(
+                actor_id,
+                state,
+                "submit_error",
+                latest_user_message=latest_user_message,
+                error_message=message,
+            ),
+        )
+
+    state["request_id"] = result["request_id"]
+    state["status"] = result["status"]
+    state["awaiting_confirmation"] = False
+    reply = _model_reply(
+        actor_id,
+        state,
+        "submit_success",
+        latest_user_message=latest_user_message,
+        request_id=result["request_id"],
+    )
+    return _reply(state, f"{reply}\n已幫您選購「{result.get('bundle_name', '')}」。")
 
 
 def _submit_reservation(actor_id: str, state: dict, latest_user_message: str) -> dict:

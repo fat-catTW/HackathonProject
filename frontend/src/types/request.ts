@@ -22,10 +22,22 @@ export interface RequestListItem {
   updated_at: string;
 }
 
+export interface ProductRecommendation {
+  id: string | null;
+  name: string;
+  store_name: string;
+  price: number | string | null;
+  rating_avg: number | null;
+  rating_count: number | null;
+  reason: string;
+}
+
 export interface ChatEvent {
   role: "USER" | "ASSISTANT";
   content: string;
   redirectPath?: string;
+  redirectLabel?: string;
+  productRecommendations?: ProductRecommendation[];
 }
 
 export interface RequestDetail extends RequestListItem {
@@ -48,4 +60,5 @@ export interface ChatResponse {
   status: string;
   redirect_path: string | null;
   redirect_requires_confirmation: boolean;
+  product_recommendations: ProductRecommendation[] | null;
 }

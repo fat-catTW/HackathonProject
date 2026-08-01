@@ -75,6 +75,9 @@ export function ButlerPanel({
           role: "ASSISTANT",
           content: r.reply,
           redirectPath: showsRedirectButton ? r.redirect_path! : undefined,
+          redirectLabel:
+            showsRedirectButton && r.product_recommendations?.length ? "前往商城選購 →" : undefined,
+          productRecommendations: r.product_recommendations ?? undefined,
         },
       ]);
       setServiceName(r.service_name);

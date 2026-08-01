@@ -123,9 +123,8 @@ def test_status_change_propagates_to_vendor_list(client):
     pending = client.get("/api/vendor/requests?scope=pending", headers=auth(token))
     assert request_id in [i["request_id"] for i in pending.json()["items"]]
 
-    confirmed = client.post(
-        f"/api/requests/{request_id}/simulate/CONFIRMED", headers=auth(RESIDENT_TOKEN)
-    )
+    version = vendor_detail(client, token, request_id)["version"]
+    confirmed = vendor_act(client, token, request_id, "accept", version)
     assert confirmed.status_code == 200
 
     orders = client.get("/api/vendor/requests?scope=orders", headers=auth(token))

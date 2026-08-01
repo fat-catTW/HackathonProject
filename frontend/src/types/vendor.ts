@@ -3,7 +3,18 @@ import type { RequestStatus } from "./request";
 export type VendorScope = "pending" | "orders" | "all";
 
 /** 廠商能對案件做的狀態切換；後端的狀態機決定當下有哪些可用。 */
-export type VendorAction = "accept" | "reject";
+export type VendorAction =
+  | "accept"
+  | "reject"
+  | "start"
+  | "complete"
+  | "verify"
+  | "prepare"
+  | "pickup"
+  | "dispatch"
+  | "deliver"
+  | "confirm"
+  | "ship";
 
 export interface VendorRequestItem {
   request_id: string;

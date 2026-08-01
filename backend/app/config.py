@@ -98,6 +98,9 @@ class Settings:
         "BEDROCK_MODEL_ID",
         "apac.amazon.nova-pro-v1:0",
     )
+    google_search_api_key: str = os.getenv("GOOGLE_SEARCH_API_KEY", "")
+    google_search_engine_id: str = os.getenv("GOOGLE_SEARCH_ENGINE_ID", "")
+    google_maps_api_key: str = os.getenv("GOOGLE_MAPS_API_KEY", "")
     dynamodb_table_name: str = os.getenv("DYNAMODB_TABLE_NAME", "ServiceAssistant")
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     mock_store_path: Path = _BACKEND_ROOT / os.getenv("MOCK_STORE_PATH", ".local-store.json")

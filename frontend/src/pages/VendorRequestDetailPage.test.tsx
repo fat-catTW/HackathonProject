@@ -11,6 +11,7 @@ vi.mock("../api/vendor", () => ({
   getVendorRequest: vi.fn(),
   actOnVendorRequest: vi.fn(),
   revealVendorContact: vi.fn(),
+  listVendorRequests: vi.fn(),
 }));
 
 const PENDING: VendorRequestDetail = {
@@ -62,12 +63,12 @@ describe("VendorRequestDetailPage 接單／拒單", () => {
     vi.mocked(actOnVendorRequest).mockResolvedValue({ ...CONFIRMED, success: true });
     renderPage();
 
-    await user.click(await screen.findByText("接下這張單"));
+    await user.click(await screen.findByText("接單"));
 
     expect(actOnVendorRequest).toHaveBeenCalledWith(PENDING.request_id, "accept", 1);
     expect(await screen.findByText("已確認")).toBeInTheDocument();
-    expect(screen.queryByText("接下這張單")).not.toBeInTheDocument();
-    expect(screen.queryByText("婉拒這張單")).not.toBeInTheDocument();
+    expect(screen.queryByText("接單")).not.toBeInTheDocument();
+    expect(screen.queryByText("婉拒")).not.toBeInTheDocument();
   });
 
   it("婉拒需要二次確認", async () => {
@@ -80,10 +81,14 @@ describe("VendorRequestDetailPage 接單／拒單", () => {
     });
     renderPage();
 
-    await user.click(await screen.findByText("婉拒這張單"));
+    // Click the first "婉拒" button (action button) to trigger the modal
+    const rejectButtons = await screen.findAllByText("婉拒");
+    await user.click(rejectButtons[0]);
     expect(actOnVendorRequest).not.toHaveBeenCalled();
 
-    await user.click(screen.getByText("婉拒"));
+    // Click the second "婉拒" button (confirm button in modal)
+    const allRejectButtons = screen.getAllByText("婉拒");
+    await user.click(allRejectButtons[1]);
     expect(actOnVendorRequest).toHaveBeenCalledWith(PENDING.request_id, "reject", 1);
     expect(await screen.findByText("廠商已婉拒")).toBeInTheDocument();
   });
@@ -105,11 +110,11 @@ describe("VendorRequestDetailPage 接單／拒單", () => {
     );
     renderPage();
 
-    await user.click(await screen.findByText("接下這張單"));
+    await user.click(await screen.findByText("接單"));
 
     expect(await screen.findByText("案件目前是「已取消」，無法接單。")).toBeInTheDocument();
     expect(screen.getByText("已取消")).toBeInTheDocument();
-    expect(screen.queryByText("接下這張單")).not.toBeInTheDocument();
+    expect(screen.queryByText("接單")).not.toBeInTheDocument();
   });
 });
 

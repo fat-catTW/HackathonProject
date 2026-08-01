@@ -51,6 +51,9 @@ vi.mock("../api/vendor", () => ({
     items: ITEMS,
     counts: { pending: 3, orders: 0, all: 3 },
   })),
+  getVendorRequest: vi.fn(),
+  actOnVendorRequest: vi.fn(),
+  revealVendorContact: vi.fn(),
 }));
 
 import { VendorRequestsPage } from "./VendorRequestsPage";

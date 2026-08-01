@@ -44,6 +44,12 @@ const FIELD_LABELS: Record<string, string> = {
   issue_topic: "問題分類",
   issue_summary: "問題摘要",
   issue_details: "問題說明",
+  clinic_name: "診所名稱",
+  clinic_address: "診所地址",
+  clinic_phone: "診所電話",
+  appointment_date: "看診日期",
+  appointment_time: "看診時間",
+  symptom_note: "症狀描述",
 };
 
 const VALUE_LABELS: Record<string, string> = {

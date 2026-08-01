@@ -45,6 +45,7 @@ export interface ClinicAppointmentOrder {
 
 export interface HealthProductRecommendationItem {
   product_id: string;
+  name: string;
   reason: string;
 }
 

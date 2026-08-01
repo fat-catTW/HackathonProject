@@ -41,7 +41,7 @@ beforeEach(() => {
     status: "CONFIRMED",
   });
   vi.mocked(clinicsApi.getCrossSellRecommendations).mockResolvedValue({
-    recommendations: [{ product_id: "P039", reason: "適合喉嚨不適" }],
+    recommendations: [{ product_id: "P039", name: "蜂蜜潤喉糖", reason: "適合喉嚨不適" }],
     fallback_used: false,
   });
 });
@@ -84,7 +84,9 @@ describe("ClinicConsultFlowPage", () => {
 
     await waitFor(() => expect(clinicsApi.submitClinicAppointment).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(/適合喉嚨不適/)).toBeInTheDocument();
+    expect(screen.getByText("蜂蜜潤喉糖")).toBeInTheDocument();
     expect(screen.getByText(/爸爸今天有點咳嗽/)).toBeInTheDocument();
+    expect(screen.getByText(/8月2日 下午3點/)).toBeInTheDocument();
   });
 
   it("still advances past summary when appointment succeeds but cross-sell fails", async () => {
@@ -115,6 +117,7 @@ describe("ClinicConsultFlowPage", () => {
     // Should advance to the result step (family-share text renders there), not stay stuck
     // on the summary screen with a false booking-failure error.
     expect(await screen.findByText(/爸爸今天有點咳嗽/)).toBeInTheDocument();
+    expect(screen.getByText(/8月2日 下午3點/)).toBeInTheDocument();
     expect(screen.queryByText("掛號未成功送出，請重新嘗試")).not.toBeInTheDocument();
 
     // Confirm no duplicate appointment submission occurs, even after the cross-sell

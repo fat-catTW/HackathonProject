@@ -25,11 +25,23 @@ const STEP_ORDER: Step[] = ["symptom", "clinic", "datetime", "contact", "summary
 const DEFAULT_CITY = "台中市";
 const DEFAULT_DISTRICT = "西屯區";
 
-/** 把第一人稱症狀描述（例如「我一直咳嗽」）轉成適合傳給家人看的簡短敘述（「咳嗽」）。 */
+/** 把第一人稱症狀描述（例如「我一直咳嗽」「我的膝蓋痛」）轉成適合傳給家人看的簡短敘述（「咳嗽」「膝蓋痛」）。 */
 function toShareSymptomPhrase(note: string): string {
   const trimmed = note.trim();
-  const stripped = trimmed.replace(/^我(一直|已經|已经|覺得|感覺|好像|最近|有點|有点)*/, "");
+  const stripped = trimmed.replace(/^我(?:的)?(一直|已經|已经|覺得|感覺|好像|最近|有點|有点)*/, "");
   return stripped || trimmed;
+}
+
+/** 把 ISO 日期/時間轉成「8月2日 下午3點」這種給家人看的口語格式。 */
+function formatShareDateTime(date: string, time: string): string {
+  const [, month, day] = date.match(/^\d{4}-(\d{2})-(\d{2})$/) ?? [];
+  const [, hourStr, minute] = time.match(/^(\d{2}):(\d{2})$/) ?? [];
+  if (!month || !day || !hourStr) return `${date} ${time}`;
+  const hour = Number(hourStr);
+  const period = hour < 12 ? "上午" : "下午";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  const minuteText = minute === "00" ? "" : `${Number(minute)}分`;
+  return `${Number(month)}月${Number(day)}日 ${period}${displayHour}點${minuteText}`;
 }
 
 export function ClinicConsultFlowPage() {
@@ -118,7 +130,7 @@ export function ClinicConsultFlowPage() {
   }
 
   const familyShareText = selectedClinic
-    ? `爸爸今天有點${toShareSymptomPhrase(symptomNote)}，已預約${date} ${time}去${selectedClinic.name}看診，請不用擔心。`
+    ? `爸爸今天有點${toShareSymptomPhrase(symptomNote)}，已預約${formatShareDateTime(date, time)}去${selectedClinic.name}看診，請不用擔心。`
     : "";
 
   return (
@@ -189,7 +201,7 @@ export function ClinicConsultFlowPage() {
             </div>
             <button
               type="button"
-              disabled={!symptomNote.trim() || triaging}
+              disabled={!symptomNote.trim() || !district || triaging}
               onClick={() => void submitSymptom()}
               className="min-h-[44px] rounded-2xl bg-brand px-6 py-4 text-base font-bold text-[var(--color-on-primary)] disabled:opacity-40"
             >
@@ -349,7 +361,8 @@ export function ClinicConsultFlowPage() {
                 key={item.product_id}
                 className="rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-4"
               >
-                <p className="text-sm leading-relaxed text-[var(--color-foreground)]">{item.reason}</p>
+                <p className="text-base font-bold text-[var(--color-foreground)]">{item.name}</p>
+                <p className="text-sm leading-relaxed text-[var(--color-muted-foreground)]">{item.reason}</p>
               </div>
             ))}
             <p className="text-base font-bold leading-relaxed text-[var(--color-foreground)]">{familyShareText}</p>

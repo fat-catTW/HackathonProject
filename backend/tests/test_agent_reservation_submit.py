@@ -1,5 +1,5 @@
 import tempfile
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -63,6 +63,12 @@ def _fake_extract_fields(*, message, fields, collected_fields, **_kwargs):
 def test_reservation_chat_flow_creates_confirmed_order_end_to_end():
     state = agent.new_state()
 
+    # 日期要相對今天算，不能寫死。訂位服務只收「未來 60 天內」的日期，而
+    # nlu.parse_date 讀到已經過去的月日會自動跳到明年——寫死「8月1日」的話，
+    # 一過 8/1 就會被推成明年、超出 60 天，送出必定失敗（這條測試就是這樣紅的）。
+    reserved_date = date.today() + timedelta(days=7)
+    date_message = f"{reserved_date.month}月{reserved_date.day}日"
+
     with patch("backend.app.agent.agent._available_services", return_value=[
         {"id": "restaurant_reservation", "name": "餐廳訂位", "description": "22世紀風味館 精選餐廳訂位服務"},
     ]), patch("backend.app.agent.agent.llm.extract_fields", side_effect=_fake_extract_fields):
@@ -71,8 +77,9 @@ def test_reservation_chat_flow_creates_confirmed_order_end_to_end():
         assert state["service_id"] == "restaurant_reservation"
         assert state["collected_fields"]["restaurant_name"] == "22世紀風味館 信義旗艦店"
 
-        result = _run_turn(state, "8月1日")
+        result = _run_turn(state, date_message)
         state = result["state"]
+        assert state["collected_fields"]["reserved_date"] == reserved_date.isoformat()
         result = _run_turn(state, "4位")
         state = result["state"]
         result = _run_turn(state, "王大明")

@@ -25,6 +25,13 @@ def _env_flag(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _default_asr_model_id() -> str:
+    local_model = _BACKEND_ROOT / "models" / "Breeze-ASR-26"
+    if local_model.exists():
+        return str(local_model)
+    return "MediaTek-Research/Breeze-ASR-26"
+
+
 # 內建的示範廠商帳號，對應 services/catalog.py 的 service_vendor_id。
 _BUILTIN_VENDOR_ACCOUNTS: dict = {
     "vendor1@demo.local": {
@@ -140,6 +147,11 @@ class Settings:
     list_shop_stores_lambda_name: str = os.getenv("LIST_SHOP_STORES_LAMBDA_NAME", "")
     get_shop_products_lambda_name: str = os.getenv("GET_SHOP_PRODUCTS_LAMBDA_NAME", "")
     get_user_points_lambda_name: str = os.getenv("GET_USER_POINTS_LAMBDA_NAME", "")
+
+    asr_model_id: str = os.getenv("ASR_MODEL_ID", _default_asr_model_id())
+    asr_device: str = os.getenv("ASR_DEVICE", "auto")
+    asr_compute_type: str = os.getenv("ASR_COMPUTE_TYPE", "float32")
+    asr_max_upload_bytes: int = int(os.getenv("ASR_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
 
     # AgentCore integration.
     agentcore_runtime_arn: str = os.getenv("AGENTCORE_RUNTIME_ARN", "")

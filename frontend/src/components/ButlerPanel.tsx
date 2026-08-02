@@ -21,6 +21,7 @@ import {
   useButlerConversation,
 } from "../hooks/useButlerConversation";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
+import type { SpeechLanguage } from "../api/speech";
 
 interface ButlerPanelProps {
   autoMessage?: string;
@@ -40,6 +41,7 @@ export function ButlerPanel({
   const { sessionId, events, serviceName, collected, missing, status } = useButlerConversation();
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [speechLanguage, setSpeechLanguage] = useState<SpeechLanguage>("zh");
   const [toastText, setToastText] = useState<string | null>(null);
   const autoSentRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -158,9 +160,13 @@ export function ButlerPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoMessage, sessionId]);
 
-  const speech = useSpeechRecognition((text) => void send(text));
+  const speech = useSpeechRecognition((text) => void send(text), speechLanguage);
   const isConfirming = status === "AWAITING_USER_CONFIRMATION" && missing.length === 0;
   const closeLabel = overlay ? "關閉" : "返回";
+
+  useEffect(() => {
+    if (speech.error) setToastText(speech.error);
+  }, [speech.error]);
 
   function handleClose() {
     if (onClose) {
@@ -307,11 +313,21 @@ export function ButlerPanel({
             }}
           >
             <VoiceButton
-              listening={speech.listening}
+              listening={speech.listening || speech.transcribing}
               supported={speech.supported}
               onStart={speech.start}
               onStop={speech.stop}
             />
+            <select
+              value={speechLanguage}
+              onChange={(e) => setSpeechLanguage(e.target.value as SpeechLanguage)}
+              disabled={speech.listening || speech.transcribing || sending}
+              aria-label="語音語言"
+              className="h-12 shrink-0 rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-sm font-bold text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)] disabled:opacity-50"
+            >
+              <option value="zh">中文</option>
+              <option value="nan">台語</option>
+            </select>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}

@@ -1,6 +1,9 @@
 """FastAPI application entrypoint."""
 from fastapi import FastAPI
+from fastapi.requests import Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from botocore.exceptions import ClientError
 
 from .agent import llm
 from .api import (
@@ -16,6 +19,7 @@ from .api import (
     services,
     sessions,
     shop,
+    speech,
     vendor,
     vendor_delivery,
     vendor_shop,
@@ -27,6 +31,32 @@ from .services.conversation_memory import MEMORY
 from .services.store import STORE
 
 app = FastAPI(title=get_settings().app_name)
+
+
+@app.exception_handler(ClientError)
+async def aws_client_error_handler(_request: Request, exc: ClientError):
+    error = exc.response.get("Error", {})
+    if error.get("Code") == "ExpiredTokenException":
+        return JSONResponse(
+            status_code=503,
+            content={
+                "success": False,
+                "error": {
+                    "code": "AWS_TOKEN_EXPIRED",
+                    "message": "AWS credentials have expired. Refresh AWS credentials or switch USE_MOCK=true.",
+                },
+            },
+        )
+    return JSONResponse(
+        status_code=503,
+        content={
+            "success": False,
+            "error": {
+                "code": error.get("Code") or "AWS_CLIENT_ERROR",
+                "message": error.get("Message") or str(exc),
+            },
+        },
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,6 +76,7 @@ app.include_router(reservations.router)
 app.include_router(clinics.router)
 app.include_router(delivery.router)
 app.include_router(shop.router)
+app.include_router(speech.router)
 app.include_router(health.router)
 app.include_router(vendor.router)
 app.include_router(vendor_delivery.router)

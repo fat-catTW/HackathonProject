@@ -1,5 +1,6 @@
 """Chat and form update APIs."""
 from fastapi import APIRouter, Depends, HTTPException
+from botocore.exceptions import ClientError
 
 from ..agent.agent import (
     apply_form_patch,
@@ -17,7 +18,22 @@ router = APIRouter()
 
 
 def _load_session_or_404(actor_id: str, session_id: str) -> dict:
-    session = MEMORY.get_session(actor_id, session_id)
+    try:
+        session = MEMORY.get_session(actor_id, session_id)
+    except ClientError as exc:
+        error_code = exc.response.get("Error", {}).get("Code", "")
+        if error_code == "ExpiredTokenException":
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "success": False,
+                    "error": {
+                        "code": "AWS_TOKEN_EXPIRED",
+                        "message": "AWS credentials have expired. Refresh credentials or switch to local mock mode.",
+                    },
+                },
+            ) from exc
+        raise
     if not session:
         raise HTTPException(
             status_code=404,
@@ -58,6 +74,19 @@ def _chat_response(session_id: str, result: dict) -> ChatResponse:
     )
 
 
+def _chat_error(message: str) -> HTTPException:
+    return HTTPException(
+        status_code=503,
+        detail={
+            "success": False,
+            "error": {
+                "code": "CHAT_FAILED",
+                "message": f"Chat failed: {message}",
+            },
+        },
+    )
+
+
 @router.post("/api/chat", response_model=ChatResponse)
 def chat(body: ChatRequest, user: CurrentUser = Depends(get_current_user)):
     session = _load_session_or_404(user.sub, body.session_id)
@@ -65,16 +94,19 @@ def chat(body: ChatRequest, user: CurrentUser = Depends(get_current_user)):
     # 這次請求內的「今天」以使用者裝置為準（「這禮拜三」要從他當下的日期算起）。
     date_token = clock.use_client_date(body.client_date)
     try:
-        result = handle_message(
-            user.sub,
-            body.session_id,
-            session["state"],
-            body.message,
-            session["events"],
-            current_page_id=body.current_page_id,
-            auth_token=user.access_token,
-            form_context=body.form_context.model_dump() if body.form_context else None,
-        )
+        try:
+            result = handle_message(
+                user.sub,
+                body.session_id,
+                session["state"],
+                body.message,
+                session["events"],
+                current_page_id=body.current_page_id,
+                auth_token=user.access_token,
+                form_context=body.form_context.model_dump() if body.form_context else None,
+            )
+        except Exception as exc:
+            raise _chat_error(str(exc)) from exc
     finally:
         clock.reset_client_date(date_token)
     MEMORY.save_turn(user.sub, body.session_id, body.message, result["reply"], result["state"])

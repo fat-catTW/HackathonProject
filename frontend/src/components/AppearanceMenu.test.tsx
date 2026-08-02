@@ -70,9 +70,9 @@ describe("AppearanceMenu", () => {
   it("does not render a colour-swatch picker UI", async () => {
     const { menu } = await openMenu();
 
-    // 舊 ThemeMenu 以 5 個色塊選色，改版後選單內僅剩 4 個可互動元素：
-    // 兩個模式選項 + 無障礙開關 + 重看導覽。
-    expect(menu.querySelectorAll("button")).toHaveLength(4);
+    // 舊 ThemeMenu 以 5 個色塊選色；改版後選單裡是一組具名的功能項目，
+    // 沒有任何選色色塊：兩個模式選項 + 無障礙開關 + 重看導覽 + 重看今日問候。
+    expect(menu.querySelectorAll("button")).toHaveLength(5);
     expect(screen.queryByRole("menuitemradio", { name: /主題|顏色|色系/ })).not.toBeInTheDocument();
     // 色塊選色會以 inline background 色碼呈現；新選單不應存在任何硬編碼色塊。
     const swatches = Array.from(menu.querySelectorAll<HTMLElement>("[style]")).filter((el) =>

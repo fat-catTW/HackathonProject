@@ -12,6 +12,7 @@ from .api import (
     chat,
     clinics,
     delivery,
+    greeting,
     health,
     onboarding,
     requests,
@@ -83,6 +84,7 @@ app.include_router(vendor_delivery.router)
 app.include_router(vendor_shop.router)
 app.include_router(onboarding.router)
 app.include_router(weather.router)
+app.include_router(greeting.router)
 
 
 @app.get("/health")

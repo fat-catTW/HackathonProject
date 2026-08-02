@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { AllServicesModal } from "../components/AllServicesModal";
 import { AntiFraudTicker } from "../components/AntiFraudTicker";
+import { DailyGreetingCard } from "../components/DailyGreetingCard";
 import { Mascot } from "../components/Mascot";
 import { OnboardingModal } from "../components/OnboardingModal";
 import { ServiceIcon } from "../components/ServiceIcon";
@@ -13,6 +14,7 @@ import { SERVICES } from "../data/services";
 import { SERVICE_TONES } from "../utils/serviceTones";
 import { useAccessibilityMode } from "../hooks/useAccessibilityMode";
 import { useAuth } from "../hooks/useAuth";
+import { useDailyGreeting } from "../hooks/useDailyGreeting";
 import { useOnboarding } from "../hooks/useOnboarding";
 
 const PREVIEW_COUNT = 4;
@@ -40,6 +42,11 @@ export function HomePage() {
   const { name, logout } = useAuth();
   const { enabled: a11yEnabled } = useAccessibilityMode();
   const { shouldShow: showOnboarding, complete: completeOnboarding } = useOnboarding();
+  const {
+    card: greetingCard,
+    shouldShow: showGreeting,
+    dismiss: dismissGreeting,
+  } = useDailyGreeting();
   const navigate = useNavigate();
   const entryServices = SERVICES.filter((service) => !service.hidden);
   const previewServices = entryServices.slice(0, PREVIEW_COUNT);
@@ -48,15 +55,18 @@ export function HomePage() {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [greetingIndex, setGreetingIndex] = useState(0);
 
+  // 新手導引本身就是全螢幕的第一課，這時候再疊一張問候卡只會讓人不知道先看哪個。
+  const greetingVisible = showGreeting && !showOnboarding && greetingCard !== null;
+
   useEffect(() => {
-    if (!supportOpen && !servicesOpen) return;
+    if (!supportOpen && !servicesOpen && !greetingVisible) return;
     const { body } = document;
     const previousOverflow = body.style.overflow;
     body.style.overflow = "hidden";
     return () => {
       body.style.overflow = previousOverflow;
     };
-  }, [supportOpen, servicesOpen]);
+  }, [supportOpen, servicesOpen, greetingVisible]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -68,6 +78,9 @@ export function HomePage() {
   return (
     <>
       {showOnboarding && <OnboardingModal onComplete={completeOnboarding} />}
+      {greetingVisible && greetingCard && (
+        <DailyGreetingCard card={greetingCard} onDismiss={dismissGreeting} />
+      )}
 
       <main className="mx-auto min-h-dvh max-w-md bg-brand-soft px-5 pb-32 pt-8">
         {/*

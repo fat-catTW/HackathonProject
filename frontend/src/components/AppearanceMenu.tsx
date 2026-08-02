@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAccessibilityMode } from "../hooks/useAccessibilityMode";
 import { useColorMode, type ColorMode } from "../hooks/useColorMode";
+import { useDailyGreeting } from "../hooks/useDailyGreeting";
 import { useOnboarding } from "../hooks/useOnboarding";
 import { Mascot } from "./Mascot";
 import { ServiceIcon } from "./ServiceIcon";
@@ -69,6 +70,7 @@ export function AppearanceMenu() {
   const { mode, setMode } = useColorMode();
   const { enabled: a11yEnabled, toggle: toggleA11y } = useAccessibilityMode();
   const { reopen: reopenOnboarding } = useOnboarding();
+  const { reopen: reopenGreeting } = useDailyGreeting();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -181,6 +183,24 @@ export function AppearanceMenu() {
               <ServiceIcon type="info" size={18} />
             </span>
             <span className="text-xs font-bold text-[var(--color-foreground)]">重新觀看新手導覽</span>
+          </button>
+
+          {/*
+            問候卡一天只會自動跳一次（見 useDailyGreeting）。使用者早上隨手關掉之後
+            想再看今天有什麼安排，就從這裡叫回來，不必等到明天。
+          */}
+          <button
+            type="button"
+            onClick={() => {
+              reopenGreeting();
+              setOpen(false);
+            }}
+            className="mt-2 flex min-h-[44px] w-full items-center gap-2 rounded-2xl border-2 border-transparent px-2 py-2.5 text-left transition hover:border-[var(--color-border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--color-muted-foreground)]">
+              <ServiceIcon type="sun" size={18} />
+            </span>
+            <span className="text-xs font-bold text-[var(--color-foreground)]">重看今日問候</span>
           </button>
         </div>
       )}

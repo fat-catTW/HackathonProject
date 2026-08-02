@@ -233,6 +233,8 @@ def _detail_payload(owner_id: str, request: dict, vendor_id: int) -> dict:
         "status": status,
         "status_label": status_label(status),
         "customer_name": _customer_name(owner_id),
+        # 建單當下算好的一句話重點；舊案件沒有這個欄位，前端就不顯示那一列。
+        "ai_summary": request.get("ai_summary") or "",
         "version": version_of(request),
         "available_actions": _available_actions(status, request.get("service_id", "")),
         "fields": fields,

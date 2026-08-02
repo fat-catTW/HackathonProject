@@ -147,6 +147,23 @@ class BaseStore:
         self._save_vendor_index(actor_id, stored)
         return True
 
+    def attach_ai_summary(self, actor_id: str, request_id: str, summary: str) -> bool:
+        """把 AI 需求摘要補寫到既有案件上，只動 `ai_summary` 一個欄位。
+
+        不走 save_request：那條路徑會把 version 推進一號、updated_at 換成現在。案件
+        才剛建立就改版本，等於讓廠商後台已經開著的分頁拿著過期版本被樂觀鎖擋下；
+        「最近更新」也會比「建立時間」晚幾秒，看起來像有人動過這張單。
+
+        廠商索引不必跟著改：明細頁的內容一律讀 USER# 分區的案件本體，VENDOR# 索引
+        只用來確認案件歸屬與查清單。
+        """
+        stored = self.get_stored_request(actor_id, request_id)
+        if not stored:
+            return False
+        # get_stored_request 拿到的 form_data 仍是密文，原樣寫回不會重跑一次加密。
+        self.put_item(stored | {"ai_summary": summary})
+        return True
+
     def get_request(self, actor_id: str, request_id: str) -> dict | None:
         return self._decrypted(self.get_stored_request(actor_id, request_id))
 

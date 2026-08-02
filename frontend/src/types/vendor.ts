@@ -49,6 +49,11 @@ export interface VendorContactAccess {
 
 export interface VendorRequestDetail
   extends Omit<VendorRequestItem, "summary"> {
+  /**
+   * 建單當下由 AI 算好的一句話重點。外送／商城後台不供這個欄位，Milestone 前建立
+   * 的舊案件也沒有，因此是選填——沒有值時明細頁就不顯示那一列。
+   */
+  ai_summary?: string;
   fields: VendorRequestField[];
   /** 這筆案件有沒有可解密的聯絡資訊；沒有就不顯示解鎖按鈕。 */
   has_contact: boolean;

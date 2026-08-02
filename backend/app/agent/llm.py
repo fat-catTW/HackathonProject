@@ -179,6 +179,17 @@ _SHOP_RECOMMEND_SYSTEM = (
     "Return JSON only in the format {\"recommendations\": [{\"product_id\": string, \"reason\": string}]}."
 )
 
+_REQUEST_SUMMARY_SYSTEM = (
+    "You write a one-line Traditional Chinese digest of a Taiwanese home-service work order, "
+    "for the vendor's dispatcher who scans a long backlog of orders every morning. "
+    "Cover what actually needs doing and when it should happen. "
+    "Write one sentence of at most 40 Chinese characters: no line breaks, no bullets, "
+    "no trailing period, no field labels copied verbatim. "
+    "Use only the facts you are given — never invent details. The fields deliberately exclude "
+    "the customer's name, phone number, and address, so never mention or ask for them. "
+    "Return JSON only in the format {\"summary\": string}."
+)
+
 _DEBUG_STATE = threading.local()
 
 
@@ -289,6 +300,25 @@ def interpret_yes_no(question: str, reply: str) -> str | None:
         return None
     intent = payload.get("intent")
     return intent if intent in {"yes", "no", "unclear"} else None
+
+
+def summarize_service_request(service_name: str, fields: list[dict]) -> str | None:
+    """把一張諮詢單濃縮成一句話；模型不可用或回話不成形時回 None 讓呼叫端兜底。
+
+    `fields` 必須已經濾掉聯絡欄位——摘要會以明文存在案件上、廠商一開明細頁就看得到，
+    不像 /contact 那條解密路徑會留下存取紀錄（見 services/request_summary.py）。
+    """
+    payload = _converse_json(
+        _REQUEST_SUMMARY_SYSTEM,
+        json.dumps({"service_name": service_name, "fields": fields}, ensure_ascii=False),
+        max_tokens=200,
+    )
+    if not payload:
+        return None
+    summary = payload.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        return None
+    return summary.strip()
 
 
 def _fallback_triage_symptom(symptom_text: str) -> dict:

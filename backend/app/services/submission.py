@@ -1,7 +1,7 @@
 """Manual form submission flow for the non-AI service pages."""
 from __future__ import annotations
 
-from . import catalog
+from . import catalog, request_summary
 from .store import STORE, now_iso
 
 
@@ -72,6 +72,11 @@ def create_manual_service_request(
     for extra_key in ("pms_form_type", "request_category"):
         if extra_key in service:
             request[extra_key] = service[extra_key]
+
+    # 廠商明細頁的一句話重點，在這裡算好一起寫進去（見 request_summary 模組說明）。
+    summary = request_summary.build(service["id"], payload)
+    if summary:
+        request["ai_summary"] = summary
 
     try:
         STORE.save_request(

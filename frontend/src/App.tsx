@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { CaseUpdateWatcher } from "./components/CaseUpdateWatcher";
 import { FormAgentProvider } from "./hooks/useFormAgent";
 import { useAuth } from "./hooks/useAuth";
 import { useVendorAuth } from "./hooks/useVendorAuth";
@@ -20,9 +21,19 @@ import { VendorLoginPage } from "./pages/VendorLoginPage";
 import { VendorRequestDetailPage } from "./pages/VendorRequestDetailPage";
 import { VendorRequestsPage } from "./pages/VendorRequestsPage";
 
+/**
+ * 住戶端登入牆。案件進度通知（CaseUpdateWatcher）掛在這裡而不是各別頁面：廠商接單
+ * 的那一刻，住戶可能停在首頁、行事曆或任何一頁，通知都該送得到。
+ */
 function Protected({ children }: { children: JSX.Element }) {
   const { isLoggedIn } = useAuth();
-  return isLoggedIn ? children : <Navigate to="/login" replace />;
+  if (!isLoggedIn) return <Navigate to="/login" replace />;
+  return (
+    <>
+      {children}
+      <CaseUpdateWatcher />
+    </>
+  );
 }
 
 function VendorProtected({ children }: { children: JSX.Element }) {

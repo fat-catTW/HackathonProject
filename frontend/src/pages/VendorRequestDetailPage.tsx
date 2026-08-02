@@ -4,6 +4,8 @@ import { ApiError } from "../api/client";
 import { getVendorApiForKind } from "../api/vendorRouting";
 import { vendorKindOf } from "../types/vendor";
 import { useVendorAuth } from "../hooks/useVendorAuth";
+import { getVendorCaseTags } from "../api/vendorTags";
+import { CaseTagEditor } from "../components/CaseTagEditor";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { ServiceIcon } from "../components/ServiceIcon";
 import { StatusBadge } from "../components/StatusBadge";
@@ -72,6 +74,8 @@ export function VendorRequestDetailPage() {
   const [contact, setContact] = useState<Record<string, string> | null>(null);
   const [revealing, setRevealing] = useState(false);
   const [contactError, setContactError] = useState("");
+  // 廠商自己貼的標籤，跟案件本體分開存也分開讀（見 api/vendorTags）。
+  const [tags, setTags] = useState<string[]>([]);
 
   const serviceFields = detail?.fields.filter((f) => !f.masked) ?? [];
   const contactFields = detail?.fields.filter((f) => f.masked) ?? [];
@@ -90,6 +94,14 @@ export function VendorRequestDetailPage() {
       })
       .finally(() => setLoading(false));
   }, [navigate, requestId, vendorApiSet]);
+
+  useEffect(() => {
+    // 標籤是輔助資訊：讀失敗就當作還沒貼，不要因為它讓整頁變成錯誤畫面。真的有問題
+    // 時，貼標籤的動作會自己回報（CaseTagEditor 的錯誤訊息）。
+    getVendorCaseTags(requestId)
+      .then((result) => setTags(result.tags))
+      .catch(() => setTags([]));
+  }, [requestId]);
 
   const revealContact = () => {
     if (revealing) return;
@@ -212,6 +224,12 @@ export function VendorRequestDetailPage() {
               )}
             </dl>
           </section>
+
+          {/*
+            標籤放在案件摘要正下方：派工的人開單第一件事就是判斷「這張要不要插隊、
+            要不要先報價」，標籤既是這個判斷的結果、也是下次在清單上快速挑出它的依據。
+          */}
+          <CaseTagEditor requestId={requestId} tags={tags} onTagsChange={setTags} />
 
           <section className="mt-5 rounded-[28px] bg-[var(--color-surface)] p-6 shadow-sm">
             <h2 className="text-lg font-black text-[var(--color-foreground)]">服務內容</h2>

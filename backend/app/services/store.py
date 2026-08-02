@@ -224,6 +224,41 @@ class BaseStore:
     def get_vendor_request(self, vendor_id: int, request_id: str) -> dict | None:
         return self.get_item(f"VENDOR#{vendor_id}", f"REQUEST#{request_id}")
 
+    # ---- 廠商自訂標籤（急件／大型案件／待報價…）----
+    # 標籤存成廠商分區底下獨立的 TAG# 項目，不寫進案件本體，理由有三：
+    #   1. 這是廠商的內部管理註記，住戶端不該看到「這張單被標成急件」；
+    #   2. 案件本體有樂觀鎖，貼標籤會推進版本，讓後台開著的分頁按接單時被擋下；
+    #   3. TAG# 跟 REQUEST# 同分區不同前綴，貼標籤不會被清單查詢掃到，一次
+    #      query 就能把整家廠商的標籤撈齊（list_case_tags）。
+    def save_case_tags(self, vendor_id: int, request_id: str, tags: list[str]) -> None:
+        """整組覆寫這張單的標籤；空清單直接刪掉項目，不留空殼。"""
+        if not tags:
+            self.delete_item(f"VENDOR#{vendor_id}", f"TAG#{request_id}")
+            return
+        self.put_item(
+            {
+                "PK": f"VENDOR#{vendor_id}",
+                "SK": f"TAG#{request_id}",
+                "entity_type": "VENDOR_CASE_TAGS",
+                "vendor_id": vendor_id,
+                "request_id": request_id,
+                "tags": tags,
+                "updated_at": now_iso(),
+            }
+        )
+
+    def get_case_tags(self, vendor_id: int, request_id: str) -> list[str]:
+        item = self.get_item(f"VENDOR#{vendor_id}", f"TAG#{request_id}")
+        return [str(tag) for tag in (item or {}).get("tags") or []]
+
+    def list_case_tags(self, vendor_id: int) -> dict[str, list[str]]:
+        """這家廠商所有案件的標籤，key 是案件編號——清單頁一次拿齊，不必逐張查。"""
+        return {
+            str(item.get("request_id") or ""): [str(tag) for tag in item.get("tags") or []]
+            for item in self.query_prefix(f"VENDOR#{vendor_id}", "TAG#")
+            if item.get("request_id")
+        }
+
     # ---- 聯絡資訊存取軌跡（Milestone 15）----
     def log_contact_access(self, request_id: str, entry: dict) -> dict:
         """記一筆「誰在什麼時候解密了哪些欄位」。

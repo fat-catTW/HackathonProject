@@ -46,6 +46,12 @@ vi.mock("../api/vendorDelivery", () => ({
   revealVendorDeliveryContact: vi.fn(),
 }));
 
+vi.mock("../api/vendorTags", () => ({
+  listVendorCaseTags: vi.fn(async () => ({ tags: {} })),
+  getVendorCaseTags: vi.fn(async (requestId: string) => ({ request_id: requestId, tags: [] })),
+  saveVendorCaseTags: vi.fn(),
+}));
+
 vi.mock("../api/vendorShop", () => ({
   listVendorShopOrders: vi.fn(),
   getVendorShopOrder: vi.fn(),

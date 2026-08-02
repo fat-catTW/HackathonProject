@@ -62,6 +62,20 @@ export interface VendorRequestDetail
   estimated_fee_max?: number;
 }
 
+/**
+ * 廠商替一張單貼的自訂標籤（急件／大型案件／待報價…）。
+ *
+ * 標籤是廠商後台的內部註記，住戶端看不到，也不隨案件本體回傳——所以它不在
+ * VendorRequestItem／VendorRequestDetail 裡，而是另外一組端點（api/vendorTags）。
+ */
+export interface VendorCaseTags {
+  request_id: string;
+  tags: string[];
+}
+
+/** `{案件編號: [標籤…]}`；沒貼過標籤的案件不會出現在這份字典裡。 */
+export type CaseTagMap = Record<string, string[]>;
+
 export interface VendorContactReveal {
   success: true;
   request_id: string;

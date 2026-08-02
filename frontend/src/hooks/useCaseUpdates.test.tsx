@@ -9,12 +9,14 @@ function item(
   request_id: string,
   service_name: string,
   status: RequestStatus,
+  quote_amount: number | null = null,
 ): RequestListItem {
   return {
     request_id,
     service_name,
     status,
     status_label: status,
+    quote_amount,
     created_at: "2026-08-02T01:00:00Z",
     updated_at: "2026-08-02T01:00:00Z",
   };
@@ -42,6 +44,7 @@ function Probe({ useCaseUpdates }: { useCaseUpdates: UseCaseUpdates }) {
   return (
     <div>
       <p>{`${update.serviceName} / ${update.status}`}</p>
+      <p data-testid="amount">{update.quoteAmount ?? ""}</p>
       <button type="button" onClick={dismiss}>
         關掉
       </button>
@@ -183,6 +186,33 @@ describe("useCaseUpdates", () => {
     await nextPoll(POLL_INTERVAL_MS);
 
     expect(shownUpdate()).toBe("冷氣清潔 / CONFIRMED");
+  });
+
+  it("pops a notification for each of the mid-flow progress steps", async () => {
+    const { useCaseUpdates, listRequests, POLL_INTERVAL_MS } = await loadHook();
+    listRequests.mockResolvedValue({ items: [item("REQ-1", "水電維修", "CONFIRMED")] });
+    await mount(useCaseUpdates);
+
+    for (const status of ["CONTACTED", "QUOTED", "IN_PROGRESS", "COMPLETED"] as const) {
+      listRequests.mockResolvedValue({ items: [item("REQ-1", "水電維修", status)] });
+      await nextPoll(POLL_INTERVAL_MS);
+      expect(shownUpdate()).toBe(`水電維修 / ${status}`);
+      fireEvent.click(screen.getByRole("button", { name: "關掉" }));
+    }
+  });
+
+  it("carries the quoted amount into the notification", async () => {
+    const { useCaseUpdates, listRequests, POLL_INTERVAL_MS, CASE_UPDATE_COPY } = await loadHook();
+    listRequests.mockResolvedValue({ items: [item("REQ-1", "水電維修", "CONFIRMED")] });
+    await mount(useCaseUpdates);
+
+    listRequests.mockResolvedValue({ items: [item("REQ-1", "水電維修", "QUOTED", 3200)] });
+    await nextPoll(POLL_INTERVAL_MS);
+
+    // 金額要進到通知本身，卡片才寫得出「報價 NT$3,200」而不是含糊的「已報價」。
+    expect(screen.getByTestId("amount")).toHaveTextContent("3200");
+    expect(CASE_UPDATE_COPY.QUOTED.message("水電維修", 3200)).toContain("NT$3,200");
+    expect(CASE_UPDATE_COPY.QUOTED.message("水電維修", null)).not.toContain("NT$");
   });
 
   it("does not poll at all when nobody is logged in", async () => {

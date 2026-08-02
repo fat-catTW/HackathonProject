@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../api/client";
 import { actOnVendorRequest, getVendorRequest, revealVendorContact } from "../api/vendor";
 import type { VendorRequestDetail } from "../types/vendor";
-import { VendorRequestDetailPage } from "./VendorRequestDetailPage";
+import { parseQuoteAmount, VendorRequestDetailPage } from "./VendorRequestDetailPage";
 
 vi.mock("../api/vendor", () => ({
   getVendorRequest: vi.fn(),
@@ -65,7 +65,7 @@ describe("VendorRequestDetailPage 接單／拒單", () => {
 
     await user.click(await screen.findByText("接單"));
 
-    expect(actOnVendorRequest).toHaveBeenCalledWith(PENDING.request_id, "accept", 1);
+    expect(actOnVendorRequest).toHaveBeenCalledWith(PENDING.request_id, "accept", 1, undefined);
     expect(await screen.findByText("已確認")).toBeInTheDocument();
     expect(screen.queryByText("接單")).not.toBeInTheDocument();
     expect(screen.queryByText("婉拒")).not.toBeInTheDocument();
@@ -89,7 +89,7 @@ describe("VendorRequestDetailPage 接單／拒單", () => {
     // Click the second "婉拒" button (confirm button in modal)
     const allRejectButtons = screen.getAllByText("婉拒");
     await user.click(allRejectButtons[1]);
-    expect(actOnVendorRequest).toHaveBeenCalledWith(PENDING.request_id, "reject", 1);
+    expect(actOnVendorRequest).toHaveBeenCalledWith(PENDING.request_id, "reject", 1, undefined);
     expect(await screen.findByText("廠商已婉拒")).toBeInTheDocument();
   });
 
@@ -173,6 +173,116 @@ describe("VendorRequestDetailPage 聯絡資訊", () => {
 
     expect(await screen.findByText("服務內容")).toBeInTheDocument();
     expect(screen.queryByText("聯絡資訊")).not.toBeInTheDocument();
+  });
+});
+
+describe("VendorRequestDetailPage 進度推進與報價", () => {
+  const ACCEPTED: VendorRequestDetail = {
+    ...PENDING,
+    status: "CONFIRMED",
+    status_label: "已確認",
+    version: 2,
+    available_actions: ["contacted", "quote", "start"],
+  };
+
+  beforeEach(() => {
+    vi.mocked(getVendorRequest).mockResolvedValue(ACCEPTED);
+    vi.mocked(actOnVendorRequest).mockReset();
+  });
+
+  it("接單後列出已聯繫／報價／開工三個下一步", async () => {
+    renderPage();
+
+    expect(await screen.findByText("標記已聯繫")).toBeInTheDocument();
+    expect(screen.getByText("報價")).toBeInTheDocument();
+    expect(screen.getByText("開始服務")).toBeInTheDocument();
+  });
+
+  it("標記已聯繫直接送出，不需要填任何東西", async () => {
+    const user = userEvent.setup();
+    vi.mocked(actOnVendorRequest).mockResolvedValue({
+      ...ACCEPTED,
+      status: "CONTACTED",
+      status_label: "已聯繫",
+      version: 3,
+      available_actions: ["quote", "start"],
+      success: true,
+    });
+    renderPage();
+
+    await user.click(await screen.findByText("標記已聯繫"));
+
+    expect(actOnVendorRequest).toHaveBeenCalledWith(PENDING.request_id, "contacted", 2, undefined);
+    expect(await screen.findByText("已聯繫")).toBeInTheDocument();
+  });
+
+  it("報價要先填金額才會送出，送出後畫面顯示金額", async () => {
+    const user = userEvent.setup();
+    vi.mocked(actOnVendorRequest).mockResolvedValue({
+      ...ACCEPTED,
+      status: "QUOTED",
+      status_label: "已報價",
+      version: 3,
+      quote_amount: 3200,
+      available_actions: ["start"],
+      success: true,
+    });
+    renderPage();
+
+    // 按「報價」只是打開輸入框，不該直接打 API
+    await user.click(await screen.findByText("報價"));
+    expect(actOnVendorRequest).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("報價金額"), "3200");
+    await user.click(screen.getByText("送出報價"));
+
+    expect(actOnVendorRequest).toHaveBeenCalledWith(PENDING.request_id, "quote", 2, 3200);
+    expect(await screen.findByText("已報價")).toBeInTheDocument();
+    expect(screen.getByText("NT$3,200")).toBeInTheDocument();
+  });
+
+  it("金額空白或不是數字時當場擋下來，不打 API", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("報價"));
+    await user.click(screen.getByText("送出報價"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("請填寫報價金額。");
+    expect(actOnVendorRequest).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("報價金額"), "三千二");
+    await user.click(screen.getByText("送出報價"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("報價金額請填整數");
+    expect(actOnVendorRequest).not.toHaveBeenCalled();
+  });
+
+  it("報價輸入框可以取消收起來", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("報價"));
+    expect(screen.getByLabelText("報價金額")).toBeInTheDocument();
+
+    await user.click(screen.getByText("取消"));
+    expect(screen.queryByLabelText("報價金額")).not.toBeInTheDocument();
+    expect(actOnVendorRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe("parseQuoteAmount", () => {
+  it("接受整數金額", () => {
+    expect(parseQuoteAmount("3200")).toEqual({ amount: 3200 });
+    expect(parseQuoteAmount(" 800 ")).toEqual({ amount: 800 });
+  });
+
+  it("擋下空白、非整數、超出範圍的輸入", () => {
+    expect(parseQuoteAmount("")).toHaveProperty("error");
+    expect(parseQuoteAmount("3200.5")).toHaveProperty("error");
+    expect(parseQuoteAmount("-100")).toHaveProperty("error");
+    expect(parseQuoteAmount("0")).toHaveProperty("error");
+    expect(parseQuoteAmount("99999999")).toHaveProperty("error");
   });
 });
 

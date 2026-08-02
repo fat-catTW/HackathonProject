@@ -117,7 +117,7 @@ export function CaseUpdateModal({ update, onDismiss }: Props) {
                 </span>
               </div>
               <p className="mt-1.5 text-sm font-semibold leading-6 text-[var(--color-muted-foreground)]">
-                {copy.message(update.serviceName)}
+                {copy.message(update.serviceName, update.quoteAmount)}
               </p>
             </div>
           </div>

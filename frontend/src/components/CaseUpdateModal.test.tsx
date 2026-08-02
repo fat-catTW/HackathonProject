@@ -46,6 +46,32 @@ describe("CaseUpdateModal", () => {
     expect(screen.getByText(/換個時段再送一次/)).toBeInTheDocument();
   });
 
+  it("writes the quoted amount into the card instead of just saying there is one", () => {
+    renderModal({
+      requestId: "REQ-3",
+      serviceName: "水電維修",
+      status: "QUOTED",
+      quoteAmount: 3200,
+    });
+
+    expect(screen.getByText("報價來了")).toBeInTheDocument();
+    expect(screen.getByText("已報價")).toBeInTheDocument();
+    expect(screen.getByText(/NT\$3,200/)).toBeInTheDocument();
+  });
+
+  it("still reads sensibly when a quote arrives without an amount", () => {
+    renderModal({ requestId: "REQ-3", serviceName: "水電維修", status: "QUOTED" });
+
+    expect(screen.getByText(/已經報價，可以點進案件看金額/)).toBeInTheDocument();
+  });
+
+  it("tells the resident when the vendor has been in touch", () => {
+    renderModal({ requestId: "REQ-4", serviceName: "居家清潔", status: "CONTACTED" });
+
+    expect(screen.getByText("服務人員聯繫過你了")).toBeInTheDocument();
+    expect(screen.getByText("已聯繫")).toBeInTheDocument();
+  });
+
   it("opens the case when the resident wants to see it", async () => {
     const { onDismiss } = renderModal();
 

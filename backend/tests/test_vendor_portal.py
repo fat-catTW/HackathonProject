@@ -168,7 +168,8 @@ def test_accept_moves_request_from_pending_to_orders(client):
     assert body["status"] == "CONFIRMED"
     assert body["status_label"] == "已確認"
     assert body["version"] == detail["version"] + 1
-    assert body["available_actions"] == ["start"]  # 接單後可以開始服務
+    # 接單後的下一步依序是：標記已聯繫、報價、直接開工
+    assert body["available_actions"] == ["contacted", "quote", "start"]
 
     orders = client.get("/api/vendor/requests?scope=orders", headers=auth(token))
     assert request_id in [i["request_id"] for i in orders.json()["items"]]
@@ -328,7 +329,7 @@ def test_vendor_advances_full_lifecycle_for_generic_service(client):
 
     accept = vendor_act(client, token, request_id, "accept", vendor_detail(client, token, request_id)["version"])
     assert accept.status_code == 200, accept.text
-    assert accept.json()["available_actions"] == ["start"]
+    assert accept.json()["available_actions"] == ["contacted", "quote", "start"]
 
     start = vendor_act(client, token, request_id, "start", accept.json()["version"])
     assert start.status_code == 200, start.text

@@ -8,6 +8,8 @@ export type RequestStatus =
   | "AWAITING_QUOTE"
   | "PENDING_PROVIDER"
   | "CONFIRMED"
+  | "CONTACTED"
+  | "QUOTED"
   | "IN_PROGRESS"
   | "COMPLETED"
   | "CANCELLED"
@@ -19,8 +21,20 @@ export interface RequestListItem {
   service_name: string;
   status: RequestStatus;
   status_label: string;
+  /** 廠商報的價（新台幣元）；還沒報價是 null，不報價的服務根本沒有這個欄位。 */
+  quote_amount?: number | null;
   created_at: string;
   updated_at: string;
+}
+
+/** 進度條上的一格。還沒走到的關卡也會回傳，`done` 為 false、`at` 是空字串。 */
+export interface RequestProgressStep {
+  status: RequestStatus | string;
+  /** 關卡名稱，例如「已聯繫」；跟狀態徽章的文字刻意不同（那個講現況，這個講做完了沒）。 */
+  label: string;
+  /** 完成時間；這一格還沒走到、或案件早於進度歷程上線就是空字串。 */
+  at: string;
+  done: boolean;
 }
 
 export interface ChatRestaurantCard {
@@ -58,6 +72,8 @@ export interface RequestDetail extends RequestListItem {
   session_id: string | null;
   service_id: string;
   form_data: Record<string, CollectedFieldValue>;
+  /** 進度條的每一格；後端一律回傳，選填只是為了不讓部署交界的舊回應炸掉畫面。 */
+  progress?: RequestProgressStep[];
   events: ChatEvent[];
   estimated_fee_min?: number;
   estimated_fee_max?: number;

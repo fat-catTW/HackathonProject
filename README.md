@@ -58,6 +58,32 @@ npm run dev                          # http://localhost:5173
   `vendor11@demo.local`（安心水電工程行，vendor 11），密碼皆為 `vendor1234`。
 - 住戶 token 打廠商 API 回 403，廠商 token 打住戶 API 也回 403，兩邊登入狀態分開存放。
 
+### 服務進度追蹤（V8）
+接單之後的進度細分成四步，讓住戶不必打電話問「師傅到底來不來」：
+**已聯繫 → 已報價 → 施工中 → 已完成**。
+
+- 動作一律走同一條 `POST /api/vendor/requests/{id}/{action}`，狀態機同樣是
+  `VENDOR_TRANSITIONS`：`contacted`（→ `CONTACTED`）、`quote`（→ `QUOTED`，body 要多帶
+  `amount`）、`start`（→ `IN_PROGRESS`）、`complete`（→ `COMPLETED`）。
+  - 動作名稱是 `contacted` 不是 `contact`——`/requests/{id}/contact` 已經是「解密檢視
+    聯絡資訊」那條端點，而且宣告在前面，取名 `contact` 會讓這個動作永遠打不到。
+  - `quote` 沒帶金額回 400 `QUOTE_AMOUNT_REQUIRED`：狀態往前走了畫面上卻沒有數字，
+    對住戶等於沒報價。
+  - 已聯繫／已報價都算「已接訂單」（`VENDOR_ORDER_STATUSES`），廠商按下去案件不會
+    從自己的清單消失。
+  - 不強制照順序：師傅在電話裡直接報價可以跳過已聯繫，不需要報價的服務（餐廳訂位）
+    從已確認直接開工。
+- 只有到府服務（`QUOTING_SERVICES`：水電、洗衣機／冷氣清洗、居家清潔、包裹寄送）
+  有已聯繫／已報價；餐廳訂位、外送、商城下單當下就成交，這兩格不會出現在它們的
+  進度條上，廠商後台也不會冒出按了必定 409 的按鈕。
+- 住戶端 `GET /api/requests/{id}` 回一份 `progress`（每一格的狀態、名稱、完成時間、
+  走到了沒）與 `quote_amount`，案件明細頁畫成垂直進度條。進度由後端算，前端不自己
+  從狀態推——狀態機在後端，兩邊各推一次遲早會對不上。
+- 時間戳存在案件的 `progress_history`，跟餐廳／外送／商城的 `status_history` 分開：
+  後者存的是兩位數 `order_status`，兩種字彙混在同一個陣列會讓那三邊解讀錯誤。
+- 每一步都會觸發住戶端的案件進度通知（`useCaseUpdates`），報價通知直接把金額寫在
+  卡片上。
+
 ### 聯絡資訊：加密保存、解密留痕（Milestone 15）
 住戶填的姓名／電話／地址（`app/services/contact_privacy.py` 的 `CONTACT_FIELDS`）
 在儲存層就是密文，廠商後台平常只看得到遮罩值，要看完整內容得另外解鎖，而且每次

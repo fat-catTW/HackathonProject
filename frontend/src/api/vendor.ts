@@ -46,16 +46,20 @@ export function revealVendorContact(requestId: string) {
 }
 
 /**
- * 接單／拒單。version 是畫面上這筆案件的版本，後端比對不符會回 409
+ * 推進案件狀態（接單／拒單／已聯繫／報價／開工／完工／核銷）。
+ *
+ * version 是畫面上這筆案件的版本，後端比對不符會回 409
  * （REQUEST_STATUS_CONFLICT／REQUEST_VERSION_CONFLICT），避免重複或蓋掉別人的操作。
+ * amount 只有 quote 報價要帶，其餘動作不送這個欄位。
  */
 export function actOnVendorRequest(
   requestId: string,
   action: VendorAction,
   version: number,
+  amount?: number,
 ) {
   return vendorApi<VendorActionResult>(`/api/vendor/requests/${requestId}/${action}`, {
     method: "POST",
-    body: JSON.stringify({ version }),
+    body: JSON.stringify(amount === undefined ? { version } : { version, amount }),
   });
 }

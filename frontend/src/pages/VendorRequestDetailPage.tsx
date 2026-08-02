@@ -12,6 +12,8 @@ import type { VendorAction, VendorRequestDetail } from "../types/vendor";
 const ACTION_LABELS: Record<VendorAction, string> = {
   accept: "接單",
   reject: "婉拒",
+  contacted: "標記已聯繫",
+  quote: "報價",
   start: "開始服務",
   complete: "完成服務",
   verify: "核銷",
@@ -26,6 +28,8 @@ const ACTION_LABELS: Record<VendorAction, string> = {
 const DONE_MESSAGES: Record<VendorAction, string> = {
   accept: "已接下這張單，狀態更新為「已確認」。",
   reject: "已婉拒這張單。",
+  contacted: "已標記聯繫過住戶，住戶端會看到進度往前走一步。",
+  quote: "報價已送出，住戶馬上會收到通知。",
   start: "已標記開始服務。",
   complete: "已標記完成服務。",
   verify: "已完成核銷。",
@@ -39,6 +43,21 @@ const DONE_MESSAGES: Record<VendorAction, string> = {
 
 // 拒絕／婉拒類動作破壞性較高，按下前要跳確認彈窗；其餘動作直接執行。
 const DESTRUCTIVE_ACTIONS: VendorAction[] = ["reject"];
+
+// 後端擋的上限（VendorActionIn.amount）；前端先擋一次，讓打錯一排零的人當場看到
+// 原因，而不是送出去被 422 退回來。
+const MAX_QUOTE = 1_000_000;
+
+/** 報價輸入的驗證；通過回金額，不通過回錯誤訊息。 */
+export function parseQuoteAmount(raw: string): { amount: number } | { error: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { error: "請填寫報價金額。" };
+  if (!/^\d+$/.test(trimmed)) return { error: "報價金額請填整數，不要有小數點或符號。" };
+  const amount = Number(trimmed);
+  if (amount < 1) return { error: "報價金額要大於 0 元。" };
+  if (amount > MAX_QUOTE) return { error: `報價金額不能超過 ${MAX_QUOTE.toLocaleString("zh-TW")} 元。` };
+  return { amount };
+}
 
 // 案件現況也會隨 409 一起回來，直接拿來更新畫面就不必再打一次 API。
 function conflictDetail(error: ApiError): VendorRequestDetail | null {
@@ -68,6 +87,10 @@ export function VendorRequestDetailPage() {
   const [acting, setActing] = useState<VendorAction | null>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
   const [confirmingReject, setConfirmingReject] = useState(false);
+  // 報價要填金額，不能像其他動作一樣按了就送：按下「報價」先把輸入框打開。
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [quoteInput, setQuoteInput] = useState("");
+  const [quoteError, setQuoteError] = useState("");
   // 解密後的聯絡資訊（欄位 id → 完整內容）；null 代表還沒解鎖，畫面維持遮罩。
   const [contact, setContact] = useState<Record<string, string> | null>(null);
   const [revealing, setRevealing] = useState(false);
@@ -114,14 +137,16 @@ export function VendorRequestDetailPage() {
       .finally(() => setRevealing(false));
   };
 
-  const runAction = (action: VendorAction) => {
+  const runAction = (action: VendorAction, amount?: number) => {
     if (!detail || acting) return;
     setActing(action);
     setNotice(null);
     vendorApiSet
-      .act(requestId, action, detail.version)
+      .act(requestId, action, detail.version, amount)
       .then((result) => {
         setDetail(result);
+        setQuoteOpen(false);
+        setQuoteInput("");
         setNotice({ tone: "ok", text: DONE_MESSAGES[action] });
       })
       .catch((e) => {
@@ -202,6 +227,14 @@ export function VendorRequestDetailPage() {
                 <dt className="shrink-0 text-[var(--color-muted-foreground)]">最近更新</dt>
                 <dd className="text-[var(--color-foreground)]">{formatTime(detail.updated_at)}</dd>
               </div>
+              {detail.quote_amount != null && (
+                <div className="flex gap-2">
+                  <dt className="shrink-0 text-[var(--color-muted-foreground)]">報價金額</dt>
+                  <dd className="font-bold text-[var(--color-foreground)]">
+                    NT${detail.quote_amount.toLocaleString("zh-TW")}
+                  </dd>
+                </div>
+              )}
               {detail.estimated_fee_min !== undefined && (
                 <div className="flex gap-2">
                   <dt className="shrink-0 text-[var(--color-muted-foreground)]">系統預估運費</dt>
@@ -313,10 +346,84 @@ export function VendorRequestDetailPage() {
             </p>
           )}
 
+          {/*
+            報價輸入。按下「報價」才展開，因為它是這一排裡唯一需要輸入的動作——
+            平常就把輸入框攤在畫面上，只會讓「按一下就好」的其他動作看起來也很麻煩。
+          */}
+          {quoteOpen && (
+            <section className="mt-5 rounded-[28px] bg-[var(--color-surface)] p-6 shadow-sm">
+              <h2 className="text-lg font-black text-[var(--color-foreground)]">報價給住戶</h2>
+              <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+                送出後住戶會立刻收到通知，並在案件進度上看到這個金額。
+              </p>
+              <form
+                className="mt-4 flex flex-wrap items-start gap-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const parsed = parseQuoteAmount(quoteInput);
+                  if ("error" in parsed) {
+                    setQuoteError(parsed.error);
+                    return;
+                  }
+                  setQuoteError("");
+                  runAction("quote", parsed.amount);
+                }}
+              >
+                <label className="flex flex-1 items-center gap-2 rounded-2xl border-2 border-[var(--color-border)] px-4 py-3">
+                  <span className="shrink-0 font-bold text-[var(--color-muted-foreground)]">NT$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label="報價金額"
+                    value={quoteInput}
+                    onChange={(event) => {
+                      setQuoteInput(event.target.value);
+                      setQuoteError("");
+                    }}
+                    placeholder="例如 3200"
+                    className="w-full min-w-0 bg-transparent text-lg font-bold text-[var(--color-foreground)] outline-none"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={acting !== null}
+                  className="rounded-2xl bg-brand px-6 py-4 text-base font-black text-white shadow-sm transition hover:brightness-105 disabled:opacity-50"
+                >
+                  {acting === "quote" ? "送出中…" : "送出報價"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuoteOpen(false);
+                    setQuoteError("");
+                  }}
+                  className="rounded-2xl border-2 border-[var(--color-border)] px-6 py-4 text-base font-bold text-[var(--color-muted-foreground)] transition hover:text-brand"
+                >
+                  取消
+                </button>
+              </form>
+              {quoteError && (
+                <p role="alert" className="mt-3 text-sm font-bold text-[var(--color-danger)]">
+                  {quoteError}
+                </p>
+              )}
+            </section>
+          )}
+
           {detail.available_actions.length > 0 ? (
             <section className="mt-5 flex flex-col gap-3 sm:flex-row">
               {detail.available_actions.map((action) =>
-                DESTRUCTIVE_ACTIONS.includes(action) ? (
+                action === "quote" ? (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => setQuoteOpen(true)}
+                    disabled={acting !== null}
+                    className="flex-1 rounded-2xl border-2 border-[var(--color-primary)] bg-[var(--color-surface)] px-6 py-4 text-lg font-black text-[var(--color-primary)] transition hover:bg-[var(--color-primary-soft)] disabled:opacity-50"
+                  >
+                    {ACTION_LABELS[action]}
+                  </button>
+                ) : DESTRUCTIVE_ACTIONS.includes(action) ? (
                   <button
                     key={action}
                     type="button"

@@ -6,6 +6,10 @@ export type VendorScope = "pending" | "orders" | "all";
 export type VendorAction =
   | "accept"
   | "reject"
+  // 動作叫 contacted 不是 contact：/requests/{id}/contact 已經是「解密看聯絡資訊」
+  // 那條端點，取名 contact 會被它攔走。
+  | "contacted"
+  | "quote"
   | "start"
   | "complete"
   | "verify"
@@ -27,6 +31,8 @@ export interface VendorRequestItem {
   /** 樂觀鎖版本，接單／拒單時要原樣帶回後端。 */
   version: number;
   available_actions: VendorAction[];
+  /** 已報價的金額（新台幣元）；還沒報價是 null。 */
+  quote_amount?: number | null;
   created_at: string;
   updated_at: string;
 }

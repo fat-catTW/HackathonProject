@@ -19,6 +19,10 @@ const STYLES: Record<string, string> = {
   SUBMITTED: WARNING_STYLE,
   PENDING_PROVIDER: WARNING_STYLE,
   CONFIRMED: SUCCESS_STYLE,
+  CONTACTED: SUCCESS_STYLE,
+  // 已報價用 warning 的黃：這是唯一需要住戶自己看一眼、決定要不要繼續的狀態，
+  // 跟其他「廠商做完了，你放著就好」的綠色刻意分開。
+  QUOTED: WARNING_STYLE,
   IN_PROGRESS: SUCCESS_STYLE,
   COMPLETED: COMPLETED_STYLE,
   CANCELLED: NEUTRAL_STYLE,

@@ -21,7 +21,10 @@ import {
   useButlerConversation,
 } from "../hooks/useButlerConversation";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
+import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
 import type { SpeechLanguage } from "../api/speech";
+
+const REPLY_SPEECH_STORAGE_KEY = "ai-butler-read-replies";
 
 interface ButlerPanelProps {
   autoMessage?: string;
@@ -42,11 +45,23 @@ export function ButlerPanel({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [speechLanguage, setSpeechLanguage] = useState<SpeechLanguage>("zh");
+  const [readRepliesEnabled, setReadRepliesEnabled] = useState(() => {
+    try {
+      return localStorage.getItem(REPLY_SPEECH_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
   const [toastText, setToastText] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const autoSentRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const {
+    supported: replySpeechSupported,
+    speak: speakReply,
+    stop: stopReplySpeech,
+  } = useSpeechSynthesis();
 
   /**
    * 開一段對話。失敗時要分清楚兩種情況，否則使用者只會看到畫面閃一下就回首頁：
@@ -89,6 +104,15 @@ export function ButlerPanel({
     [],
   );
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(REPLY_SPEECH_STORAGE_KEY, String(readRepliesEnabled));
+    } catch {
+      /* ignore write failures (private browsing, quota) */
+    }
+    if (!readRepliesEnabled) stopReplySpeech();
+  }, [readRepliesEnabled, stopReplySpeech]);
+
   function later(run: () => void, delayMs: number) {
     timersRef.current.push(setTimeout(run, delayMs));
   }
@@ -124,6 +148,9 @@ export function ButlerPanel({
           showsRedirectButton && r.product_recommendations?.length ? "前往商城選購 →" : undefined,
         productRecommendations: r.product_recommendations ?? undefined,
       });
+      if (readRepliesEnabled && replySpeechSupported) {
+        speakReply(r.reply);
+      }
       saveButlerTurn({
         sessionId: r.session_id,
         serviceName: r.service_name,
@@ -223,7 +250,7 @@ export function ButlerPanel({
       }
     >
       <header
-        className={`shrink-0 flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4.5 ${
+        className={`relative shrink-0 flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4.5 ${
           overlay ? "bg-transparent" : "bg-[var(--color-surface)]"
         }`}
       >
@@ -235,12 +262,37 @@ export function ButlerPanel({
           <ServiceIcon type={overlay ? "close" : "back"} size={20} />
           {closeLabel}
         </button>
-        <div className="flex items-center gap-2">
+        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2">
           <Mascot size={26} tone="brand" />
           <span className="text-base font-black text-[var(--color-foreground)]">
             {serviceName ?? "AI 管家"}
           </span>
         </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={readRepliesEnabled}
+          aria-label="朗讀 AI 回覆"
+          disabled={!replySpeechSupported}
+          onClick={() => setReadRepliesEnabled((enabled) => !enabled)}
+          className="absolute right-5 top-1/2 flex -translate-y-1/2 items-center gap-1.5 rounded-lg px-1 py-1 text-left disabled:opacity-50"
+        >
+          <span className="text-xs font-bold text-[var(--color-muted-foreground)]">
+            朗讀回覆
+          </span>
+          <span
+            className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+              readRepliesEnabled ? "bg-[var(--color-primary)]" : "bg-[var(--color-border)]"
+            }`}
+            aria-hidden
+          >
+            <span
+              className={`absolute top-[3px] h-3.5 w-3.5 rounded-full bg-[var(--color-on-primary)] shadow-sm transition-transform ${
+                readRepliesEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
+              }`}
+            />
+          </span>
+        </button>
         <div className="w-12" />
       </header>
 

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { ButlerPanel } from "./ButlerPanel";
 import { resetButlerConversation } from "../hooks/useButlerConversation";
@@ -15,6 +15,11 @@ vi.mock("../api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof clientApi>()),
   getToken: vi.fn(() => "demo-user-token"),
 }));
+
+const originalSpeechSynthesis = window.speechSynthesis;
+const originalUtterance = window.SpeechSynthesisUtterance;
+let speakMock: ReturnType<typeof vi.fn>;
+let cancelMock: ReturnType<typeof vi.fn>;
 
 const BASE_RESPONSE: ChatResponse = {
   session_id: "sess-1",
@@ -82,6 +87,28 @@ async function sendText(user: ReturnType<typeof userEvent.setup>, text: string) 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
+  speakMock = vi.fn();
+  cancelMock = vi.fn();
+  Object.defineProperty(window, "speechSynthesis", {
+    value: { speak: speakMock, cancel: cancelMock, speaking: false },
+    writable: true,
+    configurable: true,
+  });
+  const MockUtterance = class {
+    text: string;
+    lang: string = "";
+    onend: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    constructor(text: string) {
+      this.text = text;
+    }
+  };
+  Object.defineProperty(window, "SpeechSynthesisUtterance", {
+    value: MockUtterance,
+    writable: true,
+    configurable: true,
+  });
   vi.mocked(clientApi.getToken).mockReturnValue("demo-user-token");
   resetButlerConversation();
   vi.mocked(chatApi.createSession).mockResolvedValue({
@@ -89,6 +116,11 @@ beforeEach(() => {
     created_at: "2026-08-01T00:00:00Z",
   });
   vi.mocked(chatApi.sendMessage).mockResolvedValue(BASE_RESPONSE);
+});
+
+afterEach(() => {
+  Object.defineProperty(window, "speechSynthesis", { value: originalSpeechSynthesis, configurable: true });
+  Object.defineProperty(window, "SpeechSynthesisUtterance", { value: originalUtterance, configurable: true });
 });
 
 describe("ButlerPanel 代操表單", () => {
@@ -106,6 +138,29 @@ describe("ButlerPanel 代操表單", () => {
         { service_id: "air_conditioner_cleaning", values: { quantity: "2" } },
       ),
     );
+  });
+
+  it("does not read AI replies aloud by default", async () => {
+    const user = userEvent.setup();
+    renderPanel(buildController());
+
+    await sendText(user, "幫我填");
+
+    await waitFor(() => expect(chatApi.sendMessage).toHaveBeenCalled());
+    expect(speakMock).not.toHaveBeenCalled();
+  });
+
+  it("reads the latest AI reply aloud when enabled", async () => {
+    const user = userEvent.setup();
+    renderPanel(buildController());
+
+    await user.click(await screen.findByRole("switch", { name: "朗讀 AI 回覆" }));
+    await sendText(user, "幫我填");
+
+    await waitFor(() => expect(speakMock).toHaveBeenCalledTimes(1));
+    const utterance = speakMock.mock.calls[0][0];
+    expect(utterance.text).toBe(BASE_RESPONSE.reply);
+    expect(utterance.lang).toBe("zh-TW");
   });
 
   it("closes itself and drives the form when the agent returns fill actions", async () => {

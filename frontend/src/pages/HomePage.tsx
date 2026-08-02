@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AllServicesModal } from "../components/AllServicesModal";
+import { AntiFraudTicker } from "../components/AntiFraudTicker";
 import { Mascot } from "../components/Mascot";
 import { OnboardingModal } from "../components/OnboardingModal";
 import { ServiceIcon } from "../components/ServiceIcon";
@@ -135,6 +136,12 @@ export function HomePage() {
             </span>
           </h1>
         </header>
+
+        {/*
+          防詐跑馬燈夾在問候標題與 AI 管家入口之間：這裡是使用者「要去找管家」的必經
+          之路，看得到、但只佔一行，不會把管家往下推到需要多滑一段才看得到的位置。
+        */}
+        <AntiFraudTicker />
 
         {/*
           AI 管家入口：改成「光暈圓形頭像」為主的入口卡，而不是文字說明＋小插圖。

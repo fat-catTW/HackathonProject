@@ -484,8 +484,40 @@ html[data-a11y="true"] .text-slate-600 {
   animation: radial-line-draw 300ms ease-out both;
 }
 
+/*
+ * 首頁防詐跑馬燈：軌道裡放兩份一模一樣的清單，位移到 -50%（第一份的寬度）時
+ * 畫面剛好等於回到起點，接縫看不出來。用 linear 而不是任何 ease，因為速度一
+ * 變化，讀到一半的句子就會忽快忽慢、更難讀。滑鼠移入或鍵盤 focus 進來就暫停，
+ * 讓真的想看完某一則的人有辦法停下來。
+ */
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.ticker-viewport {
+  overflow: hidden;
+  /* 兩側各留一段淡出，句子被切斷時是漸漸消失，而不是硬生生撞上邊界。 */
+  mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+}
+
+.ticker-track {
+  animation: ticker-scroll 38s linear infinite;
+}
+
+.ticker-viewport:hover .ticker-track,
+.ticker-viewport:focus-within .ticker-track {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+
+  /*
+   * 動畫被停掉後跑馬燈只會停在第一則，後面幾則等於看不到；改成可以自己左右滑，
+   * 內容不會因為關掉動效就消失。
+   */
+  .ticker-viewport { overflow-x: auto; }
 
   /*
    * 上面的全域規則會連 animation 帶出的 transform 一起清空；`.float-bob-centered`

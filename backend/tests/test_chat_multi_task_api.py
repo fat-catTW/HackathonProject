@@ -20,7 +20,9 @@ def test_chat_response_includes_task_cards_field():
         {"service_id": "quick_purchase", "hint_fields": {}},
         {"service_id": "home_cleaning", "hint_fields": {}},
     ]
-    with patch(
+    # is_available 也要一起 patch：agent 只有在 LLM 可用時才會走 turn_router，
+    # CI 沒有 AWS 憑證，少了這一行下面兩個 patch 根本不會被呼叫到。
+    with patch("backend.app.agent.agent.llm.is_available", return_value=True), patch(
         "backend.app.agent.agent.llm.plan_turn",
         return_value={"mode": "multi_task", "reply": None, "service_id": None},
     ), patch("backend.app.agent.agent.llm.plan_multi_task", return_value=fake_tasks):

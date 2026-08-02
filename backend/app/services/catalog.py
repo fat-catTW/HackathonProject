@@ -323,7 +323,10 @@ SERVICES: list[dict] = [
         "service_vendor_id": None,
         "cms_type": None,
         "enabled": True,
-        "keywords": ["供品", "三牲", "水果盆", "祭拜", "祭祖", "牲禮"],
+        # 「拜拜」是這個服務最常被講出口的說法，但原本只收書面語的「祭拜」。
+        # Bedrock 在線時 llm.choose_service 猜得到，一旦 LLM 不可用（沒有憑證、
+        # 服務暫時打不通）就整句掉出規則後援，變成偵測不到服務。
+        "keywords": ["供品", "三牲", "水果盆", "祭拜", "拜拜", "祭祖", "牲禮"],
         "schema": {
             "fields": [
                 {

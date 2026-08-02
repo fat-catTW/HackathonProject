@@ -2,17 +2,23 @@
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { getVendorApiForKind } from "../api/vendorRouting";
+import { listVendorCaseTags } from "../api/vendorTags";
 import { vendorKindOf } from "../types/vendor";
+import { CaseTagBadge } from "../components/CaseTagBadge";
 import { ServiceIcon } from "../components/ServiceIcon";
-import { SearchAndCategoryFilter } from "../components/SearchAndCategoryFilter";
+import { FilterChipGroup, SearchAndCategoryFilter } from "../components/SearchAndCategoryFilter";
 import { StatusBadge } from "../components/StatusBadge";
 import { useVendorAuth } from "../hooks/useVendorAuth";
+import { CASE_TAG_PRESETS } from "../data/caseTags";
 import { SERVICES } from "../data/services";
-import type { VendorRequestItem, VendorScope } from "../types/vendor";
+import type { CaseTagMap, VendorRequestItem, VendorScope } from "../types/vendor";
 import { serviceIconType } from "../utils/serviceIcons";
 
 /** 服務在目錄中的顯示順序，用來排序分類 chip；不在目錄裡的服務排到最後。 */
 const SERVICE_ORDER = new Map(SERVICES.map((service, index) => [service.service_id, index]));
+
+/** 常用標籤排在自訂標籤前面，讓「急件」永遠在同一個位置，不隨資料變動跳來跳去。 */
+const TAG_ORDER = new Map(CASE_TAG_PRESETS.map((tag, index) => [tag as string, index]));
 
 const TABS: { scope: VendorScope; label: string }[] = [
   { scope: "pending", label: "待確認諮詢單" },
@@ -45,11 +51,18 @@ export function VendorRequestsPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
+  // 廠商自己貼的標籤（案件編號 → 標籤），跟案件清單分開讀（見 api/vendorTags）。
+  const [tagMap, setTagMap] = useState<CaseTagMap>({});
+  const [activeTag, setActiveTag] = useState("all");
 
   const load = useCallback(
     (next: VendorScope) => {
       setLoading(true);
       setError("");
+      // 標籤是輔助資訊：讀失敗就沿用手上這份（一開始是空的），不要讓整份清單失敗。
+      listVendorCaseTags()
+        .then((result) => setTagMap(result.tags))
+        .catch(() => {});
       vendorApiSet
         .list(next)
         .then((r) => {
@@ -85,7 +98,26 @@ export function VendorRequestsPage() {
     ];
   }, [items]);
 
-  // 切換狀態分頁後資料會換一批，若原本選的分類在新資料裡已經不存在，回到「全部」避免空列表。
+  // 標籤 chip 只列出這個分頁的案件實際貼過的標籤，避免出現一個點下去是空的篩選。
+  const tagOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      for (const tag of tagMap[item.request_id] ?? []) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    if (counts.size === 0) return [];
+    const sorted = [...counts.keys()].sort(
+      (a, b) => (TAG_ORDER.get(a) ?? 999) - (TAG_ORDER.get(b) ?? 999) || a.localeCompare(b, "zh-TW"),
+    );
+    return [
+      { id: "all", label: "全部標籤", count: items.length },
+      ...sorted.map((tag) => ({ id: tag, label: tag, count: counts.get(tag) ?? 0 })),
+    ];
+  }, [items, tagMap]);
+
+  // 切換狀態分頁後資料會換一批，若原本選的分類／標籤在新資料裡已經不存在，回到
+  // 「全部」避免空列表。
   useEffect(() => {
     if (activeCategory === "all") return;
     if (!categories.some((category) => category.id === activeCategory)) {
@@ -93,18 +125,26 @@ export function VendorRequestsPage() {
     }
   }, [categories, activeCategory]);
 
+  useEffect(() => {
+    if (activeTag === "all") return;
+    if (!tagOptions.some((option) => option.id === activeTag)) setActiveTag("all");
+  }, [tagOptions, activeTag]);
+
   const filteredItems = useMemo(() => {
     const keyword = search.trim().toLowerCase();
     return items.filter((item) => {
       const matchesCategory = activeCategory === "all" || item.service_id === activeCategory;
+      const matchesTag = activeTag === "all" || (tagMap[item.request_id] ?? []).includes(activeTag);
       const matchesSearch =
         !keyword ||
         item.service_name.toLowerCase().includes(keyword) ||
         item.customer_name.toLowerCase().includes(keyword) ||
-        item.request_id.toLowerCase().includes(keyword);
-      return matchesCategory && matchesSearch;
+        item.request_id.toLowerCase().includes(keyword) ||
+        // 標籤也吃搜尋：打「急件」找得到，不必先繞到標籤 chip。
+        (tagMap[item.request_id] ?? []).some((tag) => tag.toLowerCase().includes(keyword));
+      return matchesCategory && matchesTag && matchesSearch;
     });
-  }, [items, search, activeCategory]);
+  }, [items, search, activeCategory, activeTag, tagMap]);
 
   return (
     <main className="mx-auto min-h-dvh max-w-4xl bg-canvas px-5 pb-16 pt-8 sm:px-8">
@@ -177,6 +217,17 @@ export function VendorRequestsPage() {
             activeCategory={activeCategory}
             onCategoryChange={setActiveCategory}
           />
+          {/* 標籤篩選另起一列，跟服務種類分開：一個是案件本來的分類，一個是自己貼的。 */}
+          {tagOptions.length > 0 && (
+            <div className="mt-3">
+              <FilterChipGroup
+                groupLabel="標籤篩選"
+                options={tagOptions}
+                activeId={activeTag}
+                onChange={setActiveTag}
+              />
+            </div>
+          )}
         </section>
       )}
 
@@ -215,6 +266,13 @@ export function VendorRequestsPage() {
                   <p className="text-lg font-bold text-[var(--color-foreground)]">{item.service_name}</p>
                   <p className="text-sm text-[var(--color-muted-foreground)]">{item.request_id}</p>
                 </div>
+                {(tagMap[item.request_id] ?? []).length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {(tagMap[item.request_id] ?? []).map((tag) => (
+                      <CaseTagBadge key={tag} tag={tag} />
+                    ))}
+                  </div>
+                )}
                 <p className="mt-0.5 truncate text-sm text-[var(--color-muted-foreground)]">
                   {item.customer_name}
                   {item.summary && `　${item.summary}`}

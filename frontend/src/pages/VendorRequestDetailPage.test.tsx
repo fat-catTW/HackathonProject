@@ -14,6 +14,16 @@ vi.mock("../api/vendor", () => ({
   listVendorRequests: vi.fn(),
 }));
 
+vi.mock("../api/vendorTags", () => ({
+  getVendorCaseTags: vi.fn(async (requestId: string) => ({ request_id: requestId, tags: [] })),
+  saveVendorCaseTags: vi.fn(async (requestId: string, tags: string[]) => ({
+    success: true,
+    request_id: requestId,
+    tags,
+  })),
+  listVendorCaseTags: vi.fn(async () => ({ tags: {} })),
+}));
+
 const PENDING: VendorRequestDetail = {
   request_id: "REQ-20260801-001",
   service_id: "air_conditioner_cleaning",

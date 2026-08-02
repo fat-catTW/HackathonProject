@@ -58,6 +58,19 @@ npm run dev                          # http://localhost:5173
   `vendor11@demo.local`（安心水電工程行，vendor 11），密碼皆為 `vendor1234`。
 - 住戶 token 打廠商 API 回 403，廠商 token 打住戶 API 也回 403，兩邊登入狀態分開存放。
 
+### 案件分類與標籤（V5）
+清單頁除了服務種類，還能用廠商自己貼的標籤篩選；明細頁可一鍵貼上常用標籤
+（急件／大型案件／待報價）或自己打一個，一張單最多 6 個、每個最多 10 個字
+（`app/services/case_tags.py`）。
+
+- `GET /api/vendor/case-tags` 一次拿回這家廠商所有案件的標籤（`{案件編號: [標籤…]}`），
+  清單頁不必逐張查；`GET|PUT /api/vendor/case-tags/{id}` 讀取／整組覆寫單一案件。
+- 標籤存成 `PK=VENDOR#{id}`、`SK=TAG#{request_id}` 的獨立項目，**不寫進案件本體**：
+  它是廠商的內部註記，住戶端看不到，貼標籤也不會推進案件 `version`，不會害後台
+  另一個分頁按接單時被樂觀鎖擋下。
+- 三種後台（一般服務／美食外送／商城出貨）共用這一組端點，靠 `VENDOR#` 索引確認
+  案件歸屬，不分服務線；別家廠商的案件一律回 404。
+
 ### 聯絡資訊：加密保存、解密留痕（Milestone 15）
 住戶填的姓名／電話／地址（`app/services/contact_privacy.py` 的 `CONTACT_FIELDS`）
 在儲存層就是密文，廠商後台平常只看得到遮罩值，要看完整內容得另外解鎖，而且每次

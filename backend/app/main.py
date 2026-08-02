@@ -24,6 +24,7 @@ from .api import (
     vendor,
     vendor_delivery,
     vendor_shop,
+    vendor_tags,
     weather,
 )
 from .config import get_settings
@@ -82,6 +83,7 @@ app.include_router(health.router)
 app.include_router(vendor.router)
 app.include_router(vendor_delivery.router)
 app.include_router(vendor_shop.router)
+app.include_router(vendor_tags.router)
 app.include_router(onboarding.router)
 app.include_router(weather.router)
 app.include_router(greeting.router)

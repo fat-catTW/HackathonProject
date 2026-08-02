@@ -21,12 +21,19 @@ export const POLL_INTERVAL_MS = 10_000;
  */
 const SEEN_KEY = "ai-butler-case-status-seen";
 
-export type CaseUpdateStatus = "CONFIRMED" | "REJECTED" | "IN_PROGRESS" | "COMPLETED";
+export type CaseUpdateStatus =
+  | "CONFIRMED"
+  | "CONTACTED"
+  | "QUOTED"
+  | "REJECTED"
+  | "IN_PROGRESS"
+  | "COMPLETED";
 
 export interface CaseUpdateCopy {
   badge: string;
   title: string;
-  message: (serviceName: string) => string;
+  /** amount 只有報價通知用得到；其餘狀態的文案忽略它。 */
+  message: (serviceName: string, amount?: number | null) => string;
   /** 對應語意色 Token 的字首，例如 success → --color-success / --color-success-soft。 */
   tone: "success" | "warning" | "info";
 }
@@ -43,6 +50,23 @@ export const CASE_UPDATE_COPY: Record<CaseUpdateStatus, CaseUpdateCopy> = {
     title: "有人接下你的服務了",
     message: (name) => `你的「${name}」已經有服務人員接下，會依約定的時間為你服務。`,
     tone: "success",
+  },
+  CONTACTED: {
+    badge: "已聯繫",
+    title: "服務人員聯繫過你了",
+    message: (name) => `「${name}」的服務人員已經跟你聯繫過，接下來會安排報價或到府時間。`,
+    tone: "info",
+  },
+  QUOTED: {
+    badge: "已報價",
+    title: "報價來了",
+    // 金額直接寫在卡片上：報價通知最重要的資訊就是那個數字，讓人再點兩層才看得到
+    // 等於這則通知只講了一半。
+    message: (name, amount) =>
+      amount != null
+        ? `「${name}」的服務人員報價 NT$${amount.toLocaleString("zh-TW")}，可以點進案件看細節。`
+        : `「${name}」的服務人員已經報價，可以點進案件看金額與細節。`,
+    tone: "warning",
   },
   REJECTED: {
     badge: "已婉拒",
@@ -69,6 +93,8 @@ export interface CaseUpdate {
   requestId: string;
   serviceName: string;
   status: CaseUpdateStatus;
+  /** 報價通知要在卡片上直接寫出金額；其他狀態是 null。 */
+  quoteAmount?: number | null;
 }
 
 function isNotifiable(status: RequestStatus): status is CaseUpdateStatus {
@@ -130,6 +156,7 @@ function ingest(items: RequestListItem[]) {
       requestId: item.request_id,
       serviceName: item.service_name,
       status: item.status,
+      quoteAmount: item.quote_amount,
     });
   }
 

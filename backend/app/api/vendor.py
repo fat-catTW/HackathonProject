@@ -27,7 +27,7 @@ from ..services.statuses import (
     VENDOR_TRANSITIONS,
     status_label,
 )
-from ..services.store import STORE, now_iso, vendor_id_of, version_of
+from ..services.store import STORE, now_iso, quote_amount_of, vendor_id_of, version_of
 
 router = APIRouter(prefix="/api/vendor")
 
@@ -54,6 +54,9 @@ class VendorLoginIn(BaseModel):
 class VendorActionIn(BaseModel):
     # 廠商按下按鈕時看到的案件版本；對不上代表案件在這期間被改過。
     version: int = Field(..., ge=0)
+    # 報價金額（新台幣元），只有 quote 這個動作要帶；上限擋的是打錯一排零的手誤，
+    # 不是業務上限——真的有百萬元的案子請走客服。
+    amount: int | None = Field(None, ge=1, le=1_000_000)
 
 
 def _fail(status: int, code: str, message: str, extra: dict | None = None) -> HTTPException:
@@ -114,6 +117,7 @@ def _to_list_item(item: dict) -> dict:
         "summary": _summary(form_data),
         "version": version_of(item),
         "available_actions": _available_actions(status, item.get("service_id", "")),
+        "quote_amount": quote_amount_of(item),
         "created_at": item.get("created_at", ""),
         "updated_at": item.get("updated_at", ""),
     }
@@ -237,6 +241,8 @@ def _detail_payload(owner_id: str, request: dict, vendor_id: int) -> dict:
         "ai_summary": request.get("ai_summary") or "",
         "version": version_of(request),
         "available_actions": _available_actions(status, request.get("service_id", "")),
+        # 已報價的金額；還沒報價就是 None，前端不顯示那一列。
+        "quote_amount": quote_amount_of(request),
         "fields": fields,
         # 有遮罩欄位才需要顯示「檢視完整聯絡資訊」；純商品訂單沒有就不用。
         "has_contact": any(field["masked"] for field in fields),
@@ -308,10 +314,13 @@ def reveal_contact(request_id: str, vendor: CurrentUser = Depends(get_current_ve
 def act_on_vendor_request(
     body: VendorActionIn,
     request_id: str,
-    action: str = Path(pattern="^(accept|reject|start|complete|verify)$"),
+    action: str = Path(pattern="^(accept|reject|contacted|quote|start|complete|verify)$"),
     vendor: CurrentUser = Depends(get_current_vendor),
 ):
-    """接單／拒單／開始／完成／核銷：狀態機決定能不能切，樂觀鎖確保沒有人搶先改過。"""
+    """接單／拒單／已聯繫／報價／開始／完成／核銷。
+
+    狀態機決定能不能切，樂觀鎖確保沒有人搶先改過。
+    """
     owner_id, request = _load_case_or_404(vendor.vendor_id, request_id)
     transition = VENDOR_TRANSITIONS[action]
     status = request.get("status", "")
@@ -329,7 +338,20 @@ def act_on_vendor_request(
             _detail_payload(owner_id, request, vendor.vendor_id),
         )
 
+    if transition.requires_amount and body.amount is None:
+        # 沒有金額的「已報價」對住戶毫無意義——狀態往前走了，畫面上卻沒有數字。
+        raise _fail(400, "QUOTE_AMOUNT_REQUIRED", "報價要填金額。")
+
     updated = dict(request) | {"status": transition.target}
+    if transition.requires_amount:
+        updated["quote_amount"] = body.amount
+    # 每走一步就補一筆歷程，住戶端的進度條靠它顯示「哪一步、什麼時候完成」。
+    # 這裡不用 status_history：那個欄位被餐廳訂位／外送／商城拿去存兩位數的
+    # order_status 了，兩種字彙混在同一個陣列裡會讓那三邊的消費端解讀錯誤。
+    updated["progress_history"] = [
+        *(request.get("progress_history") or []),
+        {"status": transition.target, "at": now_iso()},
+    ]
     if service_id == "restaurant_reservation":
         # 餐廳訂位案件另外維護一份兩位數 order_status／歷程，要跟 status 同步推進，
         # 否則住戶端看到的 order_status 會卡在舊狀態（沿用原本 simulate 端點的邏輯）。

@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..auth.cognito import CurrentUser, get_current_user
 from ..services import shop
 from ..services.conversation_memory import MEMORY
-from ..services.statuses import STATUS_LABELS
-from ..services.store import STORE
+from ..services.statuses import STATUS_LABELS, build_progress
+from ..services.store import STORE, quote_amount_of
 
 router = APIRouter()
 
@@ -31,8 +31,13 @@ def list_requests(user: CurrentUser = Depends(get_current_user)):
             "service_name": item["service_name"],
             "status": item["status"],
             "status_label": STATUS_LABELS.get(item["status"], item["status"]),
-            "created_at": item["created_at"],
-            "updated_at": item["updated_at"],
+            # 報價金額也放進清單：案件進度通知要在卡片上直接寫出「報價 3200 元」，
+            # 只給狀態的話住戶還得自己點進去才知道被報了多少。
+            "quote_amount": quote_amount_of(item),
+            # 用 get 而非 []：欄位不齊的案件（早期直接寫進 store 的資料）不該讓整份
+            # 清單回 500——住戶會看到「我的服務」整頁掛掉，而不是少一列時間。
+            "created_at": item.get("created_at", ""),
+            "updated_at": item.get("updated_at", ""),
         }
         for item in STORE.list_requests(user.sub)
     ]
@@ -52,8 +57,11 @@ def get_request(request_id: str, user: CurrentUser = Depends(get_current_user)):
         "status": request["status"],
         "status_label": STATUS_LABELS.get(request["status"], request["status"]),
         "form_data": request["form_data"],
-        "created_at": request["created_at"],
-        "updated_at": request["updated_at"],
+        "quote_amount": quote_amount_of(request),
+        # 進度條的每一格（含還沒走到的），住戶不必自己從一個狀態徽章腦補整條流程。
+        "progress": build_progress(request),
+        "created_at": request.get("created_at", ""),
+        "updated_at": request.get("updated_at", ""),
         "events": (session or {}).get("events", []),
     }
     if request.get("estimated_fee_min") is not None:

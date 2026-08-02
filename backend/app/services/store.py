@@ -45,6 +45,21 @@ def vendor_id_of(request: dict) -> int | None:
     return catalog.vendor_id_for_service(request.get("service_id", ""))
 
 
+def quote_amount_of(request: dict) -> int | None:
+    """廠商報的價（新台幣元）；還沒報價回 None。
+
+    跟 version 一樣要轉型：DynamoDB 讀回來是 Decimal，直接丟進回應會被序列化成
+    3200.0，畫面上就變成「報價 3200.0 元」。
+    """
+    amount = request.get("quote_amount")
+    if amount is None:
+        return None
+    try:
+        return int(amount)
+    except (TypeError, ValueError):
+        return None
+
+
 def version_of(item: dict | None) -> int:
     """案件的樂觀鎖版本；Milestone 3 之前寫入的案件沒有這個欄位，視為 0。
 

@@ -2,6 +2,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { sendMessage } from "../api/chat";
 import { cancelRequest, getRequest } from "../api/requests";
+import { CaseProgress } from "../components/CaseProgress";
 import { ChatMessage } from "../components/ChatMessage";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { ServiceIcon } from "../components/ServiceIcon";
@@ -103,6 +104,12 @@ export function RequestDetailPage() {
               <div className="mt-1 font-mono text-xs text-[var(--color-muted-foreground)]">{detail.request_id}</div>
             </div>
           </div>
+
+          {/*
+            進度條排在表單內容之前：住戶點進這一頁八成是想知道「做到哪了」，
+            他自己填過的表單反而是次要資訊。
+          */}
+          <CaseProgress steps={detail.progress ?? []} quoteAmount={detail.quote_amount} />
 
         <div className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5">
           {Object.entries(detail.form_data).map(([key, value]) => {

@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from backend.app.agent import llm
 from backend.app.main import app
 from backend.app.services import request_summary
-from backend.app.services.store import STORE
+from backend.app.services.store import STORE, now_iso
 
 RESIDENT_TOKEN = "demo-token-vincent"
 VENDOR_CLEANING = ("vendor1@demo.local", "vendor1234")
@@ -180,6 +180,9 @@ def test_attaching_the_summary_does_not_bump_the_optimistic_lock_version():
             "service_vendor_id": 11,
             "status": "SUBMITTED",
             "form_data": dict(PLUMBING_FORM),
+            # save_request 不會補這個欄位，漏掉的話案件會一路留在共用的 mock store
+            # 裡，之後每次打住戶端案件清單都被它絆倒。
+            "created_at": now_iso(),
         },
     )
     before = STORE.get_stored_request("user-vincent", request_id)

@@ -47,7 +47,7 @@ const MIN_ITEMS_FOR_FILTER = 3;
 
 /**
  * 把細分的案件狀態歸類成住戶好理解的四種篩選標籤：
- * 待確認（草稿／等待廠商回應）、已確認（廠商已接單，含服務進行中）、
+ * 待確認（草稿／等待廠商回應）、已確認（廠商已接單，含已聯繫／已報價／服務進行中）、
  * 已完成、已婉拒（廠商拒單、住戶取消、或處理失敗，都算沒有繼續進行）。
  */
 const STATUS_GROUP: Record<string, string> = {
@@ -57,6 +57,8 @@ const STATUS_GROUP: Record<string, string> = {
   AWAITING_QUOTE: "PENDING",
   PENDING_PROVIDER: "PENDING",
   CONFIRMED: "CONFIRMED",
+  CONTACTED: "CONFIRMED",
+  QUOTED: "CONFIRMED",
   IN_PROGRESS: "CONFIRMED",
   COMPLETED: "COMPLETED",
   CANCELLED: "DECLINED",

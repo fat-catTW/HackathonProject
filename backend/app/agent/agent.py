@@ -10,6 +10,7 @@ from ..services import (
     delivery,
     delivery_catalog,
     quick_purchase,
+    request_summary,
     reservation,
     restaurant_search,
     shipping,
@@ -2513,6 +2514,11 @@ def _submit(
     state["request_id"] = result["request_id"]
     state["status"] = result["status"]
     state["awaiting_confirmation"] = False
+
+    # 廠商明細頁的一句話重點，趁建單當下算好存進案件（見 services/request_summary.py）。
+    request_summary.attach(
+        actor_id, result["request_id"], state["service_id"], dict(state["collected_fields"])
+    )
 
     collected = state["collected_fields"]
     prefs = {}

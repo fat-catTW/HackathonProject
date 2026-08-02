@@ -175,3 +175,29 @@ describe("VendorRequestDetailPage 聯絡資訊", () => {
     expect(screen.queryByText("聯絡資訊")).not.toBeInTheDocument();
   });
 });
+
+describe("VendorRequestDetailPage AI 需求摘要", () => {
+  beforeEach(() => {
+    vi.mocked(getVendorRequest).mockReset();
+  });
+
+  it("有摘要時顯示在服務名稱下方", async () => {
+    vi.mocked(getVendorRequest).mockResolvedValue({
+      ...PENDING,
+      ai_summary: "清洗 2 台壁掛式冷氣，8/1 上午到府",
+    });
+    renderPage();
+
+    expect(await screen.findByText("AI 摘要")).toBeInTheDocument();
+    expect(screen.getByText("清洗 2 台壁掛式冷氣，8/1 上午到府")).toBeInTheDocument();
+  });
+
+  it("外送／商城後台與舊案件沒有摘要欄位時整列不顯示", async () => {
+    // 這兩種來源的明細 API 根本不回 ai_summary，畫面不該冒出一個空的「AI 摘要」列。
+    vi.mocked(getVendorRequest).mockResolvedValue(PENDING);
+    renderPage();
+
+    expect(await screen.findByText("服務內容")).toBeInTheDocument();
+    expect(screen.queryByText("AI 摘要")).not.toBeInTheDocument();
+  });
+});

@@ -177,6 +177,18 @@ export function VendorRequestDetailPage() {
               <h2 className="text-xl font-black text-[var(--color-foreground)]">{detail.service_name}</h2>
               <StatusBadge status={detail.status} label={detail.status_label} />
             </div>
+            {/*
+              AI 需求摘要：把冗長的諮詢單濃縮成一句話，讓派工的人不必先讀完下面整段
+              「服務內容」才知道這張單在講什麼。放在服務名稱正下方、欄位表格之前，
+              因為它是這張單的第一眼資訊。摘要在建單當下就算好存進案件，這裡只是讀
+              欄位，不會另外打 AI。
+            */}
+            {detail.ai_summary && (
+              <p className="mt-3 flex gap-2 rounded-2xl bg-[var(--color-primary-soft)] px-4 py-3 text-base font-medium text-[var(--color-foreground)]">
+                <span className="shrink-0 font-black text-[var(--color-primary)]">AI 摘要</span>
+                <span className="min-w-0">{detail.ai_summary}</span>
+              </p>
+            )}
             <dl className="mt-4 grid gap-x-6 gap-y-2 text-base sm:grid-cols-2">
               <div className="flex gap-2">
                 <dt className="shrink-0 text-[var(--color-muted-foreground)]">客戶</dt>

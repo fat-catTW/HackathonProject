@@ -99,7 +99,7 @@ function MoreOptionsMenu({ account, onDemoLogin, onVendorLogin }: MoreOptionsMen
                 onDemoLogin();
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-2 rounded-2xl border-2 border-dashed border-[var(--color-tertiary)]/50 bg-[var(--color-tertiary-soft)] px-4 py-3 text-left text-sm font-bold text-[var(--color-tertiary)] transition hover:border-[var(--color-tertiary)]"
+              className="flex w-full items-center justify-between gap-2 rounded-2xl border-2 border-dashed border-tertiary/50 bg-[var(--color-tertiary-soft)] px-4 py-3 text-left text-sm font-bold text-[var(--color-tertiary)] transition hover:border-[var(--color-tertiary)]"
             >
               Demo Account 一鍵登入
               <span className="rounded-full bg-[var(--color-surface)] px-2 py-0.5 text-xs font-bold text-[var(--color-tertiary)]">
@@ -197,7 +197,7 @@ export function LoginPage() {
       <button
         type="button"
         onClick={() => navigate("/")}
-        className="absolute left-4 top-4 z-10 flex items-center gap-1.5 rounded-full bg-[var(--color-surface)]/85 px-3.5 py-2 text-sm font-semibold text-[var(--color-muted-foreground)] shadow-sm backdrop-blur sm:left-6 sm:top-6"
+        className="absolute left-4 top-4 z-10 flex items-center gap-1.5 rounded-full bg-surface/85 px-3.5 py-2 text-sm font-semibold text-[var(--color-muted-foreground)] shadow-sm backdrop-blur sm:left-6 sm:top-6"
       >
         <ServiceIcon type="back" size={20} />
         上一頁

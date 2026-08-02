@@ -45,7 +45,9 @@ export function BottomNav({ variant = "floating" }: Props) {
     <div
       className={
         variant === "floating"
-          ? "flex w-full max-w-md items-center gap-1 rounded-[28px] border border-[var(--color-border)] bg-[var(--color-surface)]/95 p-2 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.4)] backdrop-blur"
+          ? // bg-surface/95：透明度要走色票別名才會生效，寫成 bg-[var(--color-surface)]/95
+            // 產不出 CSS（見 tailwind.config.js 的 withAlpha），那樣毛玻璃底下會整片透空。
+            "flex w-full max-w-md items-center gap-1 rounded-[28px] border border-[var(--color-border)] bg-surface/95 p-2 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.4)] backdrop-blur"
           : "flex w-full items-center gap-1 border-t border-[var(--color-border)] bg-[var(--color-surface)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
       }
     >

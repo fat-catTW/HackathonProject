@@ -19,6 +19,24 @@ TASKS = [
 
 
 @pytest.fixture(autouse=True)
+def llm_available():
+    """把「LLM 可用」也固定住，否則整份測試的 patch 等於沒作用。
+
+    agent 只有在 llm.is_available() 為真時才會走 turn_router（也就是 plan_turn /
+    plan_multi_task 那條路）。這裡的測試都把那兩個函式換成假的，卻沒有一併固定
+    可用性——本機有 AWS 憑證時 is_available() 剛好是 True，測試會過；CI 沒有憑證，
+    整段多任務分支根本不會執行，task_cards 一律是 None。測試不該依賴環境裡有沒有
+    憑證，所以在這裡一併鎖定。
+
+    只鎖 is_available：底下的 Bedrock client 仍然是 None，沒被 patch 到的 llm 呼叫
+    （choose_service、interpret_yes_no…）還是會安全地回 None 並走既有的規則後援，
+    行為是決定性的。
+    """
+    with patch("backend.app.agent.agent.llm.is_available", return_value=True):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def isolated_store(monkeypatch):
     with tempfile.TemporaryDirectory() as tmp:
         test_store = store_module.MemoryStore(storage_path=Path(tmp) / "store.json")

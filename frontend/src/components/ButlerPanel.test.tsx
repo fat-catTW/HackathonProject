@@ -222,3 +222,82 @@ describe("ButlerPanel 代操表單", () => {
     expect(chatApi.createSession).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * 開對話失敗時的行為。
+ *
+ * 這組測試守的是一個真的發生過的事故：AWS 那邊的 AgentCore Memory 掛掉，
+ * POST /api/sessions 一路回 500，而前端不分青紅皂白 navigate("/login")，
+ * 登入頁看到人還登著又把他彈回首頁——使用者只看到畫面閃一下就回到首頁，
+ * 沒有任何錯誤訊息，完全無從得知發生什麼事，也查不出原因。
+ */
+describe("ButlerPanel 連線失敗", () => {
+  /** 顯示目前路徑，讓測試能斷言有沒有被導走。 */
+  function LocationProbe() {
+    const { pathname } = useLocation();
+    return <span data-testid="path">{pathname}</span>;
+  }
+
+  function renderAt(initialPath = "/new") {
+    render(
+      <FormAgentProvider stepDelayMs={0}>
+        <MemoryRouter initialEntries={[initialPath]}>
+          <ButlerPanel currentPageId="assistant" />
+          <LocationProbe />
+        </MemoryRouter>
+      </FormAgentProvider>,
+    );
+  }
+
+  it("stays put and explains itself when the backend is down", async () => {
+    vi.mocked(chatApi.createSession).mockRejectedValue(
+      new clientApi.ApiError("INTERNAL_ERROR", "HTTP 500"),
+    );
+
+    renderAt();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("現在連不上 AI 管家");
+    // 沒有被偷偷導走——這正是「閃退回首頁」的根源。
+    expect(screen.getByTestId("path")).toHaveTextContent("/new");
+  });
+
+  it("blocks the composer instead of silently swallowing what the user types", async () => {
+    vi.mocked(chatApi.createSession).mockRejectedValue(
+      new clientApi.ApiError("INTERNAL_ERROR", "HTTP 500"),
+    );
+
+    renderAt();
+    await screen.findByRole("alert");
+
+    expect(screen.getByLabelText("輸入需求")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "送出" })).toBeDisabled();
+  });
+
+  it("recovers through 重新連線 once the backend is back", async () => {
+    const user = userEvent.setup();
+    vi.mocked(chatApi.createSession).mockRejectedValueOnce(
+      new clientApi.ApiError("INTERNAL_ERROR", "HTTP 500"),
+    );
+
+    renderAt();
+    await screen.findByRole("alert");
+
+    await user.click(screen.getByRole("button", { name: "重新連線" }));
+
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(screen.getByLabelText("輸入需求")).toBeEnabled();
+  });
+
+  it("still sends the user to login when the session really is unauthorised", async () => {
+    // api/client 收到 401 時會清掉 token，所以「token 不見了」就是後端說未授權。
+    vi.mocked(chatApi.createSession).mockRejectedValue(
+      new clientApi.ApiError("UNAUTHORIZED", "Invalid token."),
+    );
+    vi.mocked(clientApi.getToken).mockReturnValue(null);
+
+    renderAt();
+
+    await waitFor(() => expect(screen.getByTestId("path")).toHaveTextContent("/login"));
+  });
+});

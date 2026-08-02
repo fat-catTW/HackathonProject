@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { sendMessage } from "../api/chat";
-import { ApiError } from "../api/client";
+import { ApiError, getToken } from "../api/client";
 import type { ChatEvent } from "../types/request";
 import { buildFieldRows } from "../utils/fieldLabels";
 import { BottomNav } from "./BottomNav";
@@ -43,14 +43,42 @@ export function ButlerPanel({
   const [sending, setSending] = useState(false);
   const [speechLanguage, setSpeechLanguage] = useState<SpeechLanguage>("zh");
   const [toastText, setToastText] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const autoSentRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  /**
+   * 開一段對話。失敗時要分清楚兩種情況，否則使用者只會看到畫面閃一下就回首頁：
+   *
+   * - **真的沒登入**：api/client 收到 401 時已經把 token 清掉了，所以「token 不見了」
+   *   就是後端說未授權。這時導去登入頁是對的，LoginPage 也不會再把人彈回來。
+   * - **其他失敗**（後端 500、AWS 憑證過期、斷網）：token 還好好的，導去登入頁只會被
+   *   LoginPage 的「已登入就回首頁」立刻彈回去，使用者完全不知道發生什麼事——
+   *   這正是 AgentCore Memory 掛掉那次，點任何管家入口都「閃退回首頁」的原因。
+   *   留在原地把話說清楚，並給一個重試按鈕。
+   */
+  const startSession = useCallback(() => {
+    setSessionError(null);
+    return ensureButlerSession()
+      .then(() => undefined)
+      .catch(() => {
+        if (!getToken()) {
+          navigate("/login");
+          return;
+        }
+        // 不轉述後端訊息：這條路上的錯誤本體是純文字的 "Internal Server Error"，
+        // 對使用者來說等同亂碼，不如講清楚「哪裡壞了、還能做什麼」。
+        setSessionError(
+          "現在連不上 AI 管家，可能是網路或伺服器忙線。稍後再試一次，其他功能都還能正常使用。",
+        );
+      });
+  }, [navigate]);
+
   useEffect(() => {
     // 換人登入時 ensureButlerSession 會把整段對話重來，畫面靠 store 訂閱自動跟上。
-    ensureButlerSession().catch(() => navigate("/login"));
-  }, [navigate]);
+    void startSession();
+  }, [startSession]);
 
   // 面板關掉（或換頁）之後不該再自己導頁——這些延遲只是為了讓使用者看完 Toast。
   useEffect(
@@ -136,7 +164,7 @@ export function ButlerPanel({
       if (error instanceof ApiError && error.code === "SESSION_NOT_FOUND") {
         // 後端重啟或 session 過期：換一段新對話，不要卡在一個永遠 404 的 session id。
         resetButlerConversation();
-        void ensureButlerSession().catch(() => navigate("/login"));
+        void startSession();
         appendButlerEvent({
           role: "ASSISTANT",
           content: "剛剛的對話連線過期了，我已經重新開始一段對話，請再說一次你的需求。",
@@ -295,6 +323,28 @@ export function ButlerPanel({
               {sending && (
                 <p className="text-sm text-[var(--color-muted-foreground)]">AI 管家整理中…</p>
               )}
+              {sessionError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-warning-soft)] p-4"
+                >
+                  <ServiceIcon
+                    type="warning"
+                    size={22}
+                    className="mt-0.5 flex-none text-[var(--color-warning)]"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm leading-relaxed">{sessionError}</p>
+                    <button
+                      type="button"
+                      onClick={() => void startSession()}
+                      className="mt-3 inline-flex min-h-[40px] items-center rounded-full bg-[var(--color-primary)] px-4 text-sm font-bold text-[var(--color-on-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+                    >
+                      重新連線
+                    </button>
+                  </div>
+                </div>
+              )}
               <div ref={bottomRef} />
             </div>
           </div>
@@ -331,15 +381,20 @@ export function ButlerPanel({
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              disabled={!!sessionError}
               placeholder={
-                speech.listening ? "正在聆聽，請直接說出需求" : "輸入需求，或描述你想預約的服務"
+                sessionError
+                  ? "連線中斷，請先重新連線"
+                  : speech.listening
+                    ? "正在聆聽，請直接說出需求"
+                    : "輸入需求，或描述你想預約的服務"
               }
               aria-label="輸入需求"
-              className="min-w-0 flex-1 rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-primary)]"
+              className="min-w-0 flex-1 rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-primary)] disabled:opacity-60"
             />
             <button
               type="submit"
-              disabled={sending || !input.trim()}
+              disabled={sending || !input.trim() || !!sessionError}
               aria-label="送出"
               className="bg-bubble-user flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[var(--color-on-primary)] disabled:opacity-40"
             >
